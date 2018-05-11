@@ -1,0 +1,19 @@
+Package: mgwrsar
+Type: Package
+Title: GWR and MGWR with Spatial Autocorrelation
+Version: 0.1
+Date: 2018-05-05
+Author: Ghislain Geniaux and Davide Martinetti
+Maintainer: Ghislain Geniaux <ghislain.geniaux@inra.fr>
+Description: Functions for computing (Mixed) Geographycally Weighted Regression with spatial autocorrelation, Geniaux and Martinetti (2017) <doi:10.1016/j.regsciurbeco.2017.04.001>.
+License: GPL (>= 2)
+Depends: Rcpp, sp, leaflet, Matrix
+Imports: spgwr, methods, doParallel, foreach, htmltools, nabor
+Suggests: knitr, rmarkdown
+VignetteBuilder: knitr
+LinkingTo: RcppEigen, Rcpp
+RoxygenNote: 6.0.1
+NeedsCompilation: yes
+Packaged: 2018-05-10 11:04:25 UTC; geniaux
+Repository: CRAN
+Date/Publication: 2018-05-11 10:44:14 UTC
