@@ -110,7 +110,7 @@
 #' @seealso  bandwidths_mgwrsar, summary_mgwrsar, plot_mgwrsar, predict_mgwrsar, kernelW_C
 #' @examples
 #' \donttest{
-#' data(data_mgwrsar)
+#' data(mydata)
 #' coord=as.matrix(mydata[,c("x_lat","y_lon")])
 #' model_GWR<-MGWRSAR(formula = 'Y_gwr~X1+X2+X3', data = mydata,coord=coord,
 #' fixed_vars=NULL,kernels=c('gauss_knn'),
@@ -150,7 +150,7 @@ if(!is.null(W) & Model %in% c('GWR','OLS','MGWR')) {
     ####
 	mf <- model.frame(formula,data)
 	mt <- attr(x = mf, which = "terms")
-	X=model.matrix(object = mt, data = mf, contrasts.arg = contrasts)
+	X=model.matrix(object = mt, data = mf)
     Y <- model.extract(mf, "response")
     idx1 <- match("(Intercept)", colnames(X))
     if (!is.na(idx1))

@@ -36,7 +36,7 @@ A bootstrap test for Betas for mgwrsar class model.
 }
 \examples{
 \donttest{
- data(data_mgwrsar)
+ data(mydata)
  coord=as.matrix(mydata[,c("x_lat","y_lon")])
  model_GWR<-MGWRSAR(formula = 'Y_gwr~X1+X2+X3', data = mydata, coord=coord,
   fixed_vars=NULL,kernels=c('gauss_adapt'), H=20,

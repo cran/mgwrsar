@@ -1,18 +1,18 @@
-## ----setup, include = FALSE----------------------------------------------
+## ----setup, include = FALSE---------------------------------------------------
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>"
 )
 
-## ----load_data-----------------------------------------------------------
+## ----load_data----------------------------------------------------------------
 library(mgwrsar)
 ## loading data example
-data(data_mgwrsar)
+data(mydata)
 coord=as.matrix(mydata[,c("x_lat","y_lon")])
 ## Creating a spatial weigth matrix (sparce dgCMatrix) of 8 nearest neighbors
 W=KNN(coord,8)
 
-## ----GWR1----------------------------------------------------------------
+## ----GWR1---------------------------------------------------------------------
 ### with parallel computing
 #ptm1<-proc.time()
 #model_GWR<-MGWRSAR(formula = 'Y_gwr~X1+X2+X3', data = mydata,coord=coord, #fixed_vars=NULL,kernels=c('gauss'),H=0.13, Model = 'GWR',control=list(SE=TRUE,doMC=TRUE,ncore=4))
@@ -24,12 +24,12 @@ model_GWR<-MGWRSAR(formula = 'Y_gwr~X1+X2+X3', data = mydata,coord=coord, fixed_
 (proc.time()-ptm1)[3]
 
 
-## ----plot1---------------------------------------------------------------
+## ----plot1--------------------------------------------------------------------
 summary_mgwrsar(model_GWR)
 plot_mgwrsar(model_GWR,type='B_coef',var='X2')
 plot_mgwrsar(model_GWR,type='t_coef',var='X2')
 
-## ----spgwr---------------------------------------------------------------
+## ----spgwr--------------------------------------------------------------------
 library(spgwr)
 mydataSP=mydata
 coordinates(mydataSP)=c('x_lat','y_lon')
@@ -41,11 +41,11 @@ model_spgwr
 
 all(abs(model_GWR$residuals-model_spgwr$SDF@data$gwr.e)<0.00000000001)
 
-## ----GWR2----------------------------------------------------------------
+## ----GWR2---------------------------------------------------------------------
 model_GWR<-MGWRSAR(formula = 'Y_gwr~X1+X2+X3', data = mydata,coord=coord, fixed_vars=NULL,kernels=c('bisq_knn'),H=20, Model = 'GWR',control=list(isgcv=TRUE,remove_local_outlier=TRUE,outv=0.01))
 summary_mgwrsar(model_GWR)
 
-## ----MGWR1---------------------------------------------------------------
+## ----MGWR1--------------------------------------------------------------------
 
 model_MGWR<-MGWRSAR(formula = 'Y_mgwr~X1+X2+X3', data = mydata,coord=coord, fixed_vars=c('Intercept'),kernels=c('gauss_adapt'),H=20, Model = 'MGWR',control=list(SE=TRUE))
 summary_mgwrsar(model_MGWR)
@@ -57,23 +57,23 @@ summary_mgwrsar(model_MGWR)
 
 
 
-## ----mgwrsar_0_kc_kv-----------------------------------------------------
+## ----mgwrsar_0_kc_kv----------------------------------------------------------
 model_MGWRSAR_1_0_kv<-MGWRSAR(formula = 'Y_mgwrsar_1_0_kv~X1+X2+X3', data = mydata,coord=coord, fixed_vars=NULL,kernels=c('gauss_adapt'),H=20, Model = 'MGWRSAR_1_0_kv',control=list(W=W,Lambdacor=TRUE,SE=TRUE))
 summary_mgwrsar(model_MGWRSAR_1_0_kv)
 
-## ----mgwrsar_0_0_kv------------------------------------------------------
+## ----mgwrsar_0_0_kv-----------------------------------------------------------
 model_MGWRSAR_0_kc_kv<-MGWRSAR(formula = 'Y_mgwrsar_0_kc_kv~X1+X2+X3', data = mydata,coord=coord, fixed_vars=c('Intercept'),kernels=c('gauss_adapt'),H=20, Model = 'MGWRSAR_0_kc_kv',control=list(W=W))
 summary_mgwrsar(model_MGWRSAR_0_kc_kv)
 
-## ----mgwrsar_1_0_kv------------------------------------------------------
+## ----mgwrsar_1_0_kv-----------------------------------------------------------
 model_MGWRSAR_0_0_kv<-MGWRSAR(formula = 'Y_mgwrsar_0_0_kv~X1+X2+X3', data = mydata,coord=coord, fixed_vars=NULL,kernels=c('gauss_adapt'),H=20, Model = 'MGWRSAR_0_0_kv',control=list(W=W))
 summary_mgwrsar(model_MGWRSAR_0_0_kv)
 
-## ----mgwrsar_1_kc_kv-----------------------------------------------------
+## ----mgwrsar_1_kc_kv----------------------------------------------------------
 model_MGWRSAR_1_kc_kv<-MGWRSAR(formula = 'Y_mgwrsar_1_kc_kv~X1+X2+X3', data = mydata,coord=coord, fixed_vars=c('Intercept'),kernels=c('gauss_adapt'),H=20, Model = 'MGWRSAR_1_kc_kv',control=list(W=W))
 summary_mgwrsar(model_MGWRSAR_1_kc_kv)
 
-## ----Bootstrap_test, eval=FALSE------------------------------------------
+## ----Bootstrap_test, eval=FALSE-----------------------------------------------
 #  model_GWR<-MGWRSAR(formula = 'Y_mgwr~X1+X2+X3', data = mydata,coord=coord, fixed_vars=NULL,kernels=c('gauss_adapt'),H=20, Model = 'GWR',control=list(SE=TRUE))
 #  summary_mgwrsar(model_GWR)
 #  
@@ -88,14 +88,14 @@ summary_mgwrsar(model_MGWRSAR_1_kc_kv)
 #  # > T 69.92265
 #  
 
-## ----Prediction1---------------------------------------------------------
+## ----Prediction1--------------------------------------------------------------
 model_GWR_insample<-MGWRSAR(formula = 'Y_gwr~X1+X2+X3', data = mydata[1:800,],coord=coord[1:800,], fixed_vars=NULL,kernels=c('gauss_adapt'),H=8, Model = 'GWR',control=list())
 Y_pred=predict_mgwrsar(model_GWR_insample, newdata=mydata[801:1000,], newdata_coord=coord[801:1000,], k_extra = 8, kernel_extra = "sheppard")
 head(Y_pred)
 head(mydata$Y_gwr[801:1000])
 sqrt(mean((mydata$Y_gwr[801:1000]-Y_pred)^2)) # RMSE
 
-## ----Prediction2---------------------------------------------------------
+## ----Prediction2--------------------------------------------------------------
 model_MGWRSAR_1_0_kv_insample<-MGWRSAR(formula = 'Y_mgwrsar_1_0_kv~X1+X2+X3', data = mydata[1:800,],coord=coord[1:800,], fixed_vars=NULL,kernels=c('gauss_adapt'),H=20, Model = 'MGWRSAR_1_0_kv',control=list(W=W[1:800,1:800]))
 summary_mgwrsar(model_MGWRSAR_1_0_kv_insample)
 
@@ -111,7 +111,7 @@ head(Y_pred)
 head(mydata$Y_mgwrsar_1_0_kv[801:1000])
 sqrt(mean((mydata$Y_mgwrsar_1_0_kv[801:1000]-Y_pred)^2))
 
-## ----bandwidths_search---------------------------------------------------
+## ----bandwidths_search--------------------------------------------------------
 
 ######################
 #### Finding bandwidth by hand
@@ -135,7 +135,7 @@ res
 model_GWR<-MGWRSAR(formula = 'Y_gwr~X1+X2+X3', data = mydata,coord=coord, fixed_vars=NULL,kernels=c('gauss_adapt'),H=ceiling(res$minimum), Model = 'GWR',control=list(isgcv=FALSE))
 summary_mgwrsar(model_GWR)
 
-## ----bandwidths_mgwrsar1-------------------------------------------------
+## ----bandwidths_mgwrsar1------------------------------------------------------
 mytab<-bandwidths_mgwrsar(formula = 'Y_gwr~X1+X2+X3', data = mydata,coord=coord, fixed_vars=c('Intercept','X1'),Models=c('GWR','MGWR'),Kernels=c('bisq_knn','gauss_adapt','gauss'),control=list(),control_search=list(lower_d=8,lower_c=0.03,upper_c=0.65))
 
 names(mytab)
@@ -172,7 +172,7 @@ mytab[['MGWR_3']]$CV
 mytab[['MGWR_3']]$model$Betac
 summary(mytab[['MGWR_3']]$model$Betav)
 
-## ----bandwidths_mgwrsar2-------------------------------------------------
+## ----bandwidths_mgwrsar2------------------------------------------------------
 mytab2<-bandwidths_mgwrsar(formula = 'Y_mgwrsar_0_kc_kv~X1+X2+X3', data = mydata,coord=coord, fixed_vars='Intercept',Models=c('MGWRSAR_0_kc_kv'),Kernels=c('gauss_adapt'),control=list(),control_search=list(search_W=TRUE,kernels_w=c('bisq','bisq_knn')))
 
 
@@ -182,7 +182,7 @@ mytab2[['MGWRSAR_0_kc_kv']]$CV
 mytab2[['MGWRSAR_0_kc_kv']]$model$Betac
 summary(mytab2[['MGWRSAR_0_kc_kv']]$model$Betav)
 
-## ----EXPERIMENTAL, eval=FALSE--------------------------------------------
+## ----EXPERIMENTAL, eval=FALSE-------------------------------------------------
 #  ## space + time kernel
 #  time=sort(rep(1:500,2))
 #  time[1:150]

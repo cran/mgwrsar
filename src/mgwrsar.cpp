@@ -186,7 +186,6 @@ Function sd("sd");
 
 Function cbind("cbind");
 Environment Mat("package:Matrix");
-Function cBind = Mat["cBind"];
 
 double c0sum = X.col(0).sum();
 SEXP sd0= sd(X.col(0));
@@ -209,7 +208,7 @@ if (wl) {iWW = Sl_C(lambda,W,true,true);
         WX = W*(X.rightCols(m-1));
         WWX = W*WX;
         WWWX = W*WWX;
-        H = cBind(X,WX,WWX,WWWX);
+        H = cbind(X,WX,WWX,WWWX);
         }
 HH=as<MatrixXd>(H);
 return wrap(HH);
@@ -692,8 +691,8 @@ bool SE = as<bool>(SE_);
 
 Function INST_C("INST_C");
 Function Proj_C("Proj_C");
+Function cbind("cbind");
 Environment Mat("package:Matrix");
-Function cBind = Mat["cBind"];
 
 MatrixXd WY;
 SEXP HH;
@@ -758,14 +757,14 @@ XB=as<VectorXd>(PhWY).array()*wi.array();}
 
 if(localInst=="L7"){
 HH= INST_C(XZ,W,false,0);H = as<MatrixXd>(HH);
-SEXP wi1=cBind(XZ.col(1),XZ.col(1),wi,wi);
+SEXP wi1=cbind(XZ.col(1),XZ.col(1),wi,wi);
 MatrixXd wi2=as<MatrixXd>(wi1);
 H = H.array()*(wi2.array());
 WY=W*YZ;PhWY =Proj_C(H,WY);
 XB=as<VectorXd>(PhWY).array()*wi.array();}
 
 
-if (!isMGWRSAR_1_kc_0) {XXB = cBind(X,XB);XB= as<MatrixXd>(XXB);}
+if (!isMGWRSAR_1_kc_0) {XXB = cbind(X,XB);XB= as<MatrixXd>(XXB);}
 
 const LLT<MatrixXd> llt(AtA(XB));
 betahat = llt.solve(XB.adjoint() * Y);
@@ -806,7 +805,7 @@ HH= INST_C(XZ,W,true,lambda);H = as<MatrixXd>(HH);H = H.array()*((wi.replicate(1
 WY=W*YZ;PhWY =Proj_C(H,WY);
 XB=as<VectorXd>(PhWY).array()*wi.array();}
 
-if (!isMGWRSAR_1_kc_0) {XXB = cBind(X,XB);XB= as<MatrixXd>(XXB);}
+if (!isMGWRSAR_1_kc_0) {XXB = cbind(X,XB);XB= as<MatrixXd>(XXB);}
 const LLT<MatrixXd> llt2(AtA(XB));
 betahat = llt2.solve(XB.adjoint() * Y);
 }

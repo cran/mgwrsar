@@ -58,12 +58,12 @@ In addition to the ability of considering spatial autocorrelation in GWR/MGWR li
 Using mgwrsar package
 ===
 
-The MGWRSAR function requires a dataframe and a matrix of coordinates, and eventually a spatial weight matrix if model include spatiale dependence. The package includes a simulated data example which is used for this vignette.
+The MGWRSAR function requires a dataframe and a matrix of coordinates, and eventually a spatial weight matrix if model include spatial dependence. The package includes a simulated data example which is used for this vignette.
 
 ```{r load_data}
 library(mgwrsar)
 ## loading data example
-data(data_mgwrsar)
+data(mydata)
 coord=as.matrix(mydata[,c("x_lat","y_lon")])
 ## Creating a spatial weigth matrix (sparce dgCMatrix) of 8 nearest neighbors
 W=KNN(coord,8)

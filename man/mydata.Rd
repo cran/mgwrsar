@@ -4,7 +4,9 @@
 \name{mydata}
 \alias{mydata}
 \title{mydata is a simulated data set of a mgwrsar model}
-\format{An object of class \code{data.frame} with 1000 rows and 22 columns.}
+\format{
+An object of class \code{data.frame} with 1000 rows and 22 columns.
+}
 \usage{
 mydata
 }

@@ -21,15 +21,14 @@ Davide Martinetti \email{davide.martinetti hat inra.fr}
 \references{
 Geniaux, G. and Martinetti, D.(2017). A new method for dealing simultaneously with spatial autocorrelation and spatial heterogeneity in regression models. Regional Science and Urban Economics. (https://doi.org/10.1016/j.regsciurbeco.2017.04.001)
 }
-\keyword{GWR, mixed GWR, LWR, local regression, SAR, spatial autocorrelation}
+\keyword{GWR with spatial autocorrelation}
 \seealso{
-\code{\link[McSpatial]{lwr}}
 \code{\link[locfit]{locfit}}
 }
 \examples{
 library(mgwrsar)
 ## loading data example
-data(data_mgwrsar)
+data(mydata)
 coord=as.matrix(mydata[,c("x_lat","y_lon")])
 ## Creating a spatial weigth matrix (sparce dgCMatrix) of 8 nearest neighbors
 W=KNN(coord,8)

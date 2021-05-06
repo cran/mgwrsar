@@ -59,7 +59,7 @@
 #' @examples
 #' \donttest{
 #' library(mgwrsar)
-#' data(data_mgwrsar)
+#' data(mydata)
 #' coord=as.matrix(mydata[,c("x_lat","y_lon")])
 #' W=KNN(coord,8)
 #' ######################

@@ -37,7 +37,7 @@ plot_mgwrsar plots the value of local paramaters of a mgwrsar models using a lea
 \examples{
 \donttest{
 library(mgwrsar)
-data(data_mgwrsar)
+data(mydata)
 coord=as.matrix(mydata[,c("x_lat","y_lon")])
 W=KNN(coord,4)
 model_GWR<-MGWRSAR(formula = 'Y_gwr~X1+X2+X3', data = mydata, coord=coord,

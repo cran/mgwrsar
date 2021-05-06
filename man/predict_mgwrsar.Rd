@@ -36,7 +36,7 @@ predict_mgwrsar is a function for computing predictions of a mgwrsar models. It 
 \examples{
 \donttest{
 library(mgwrsar)
-data(data_mgwrsar)
+data(mydata)
 coord=as.matrix(mydata[,c("x_lat","y_lon")])
 W=KNN(coord,2)
 model_GWR_insample<-MGWRSAR(formula = 'Y_gwr~X1+X2+X3', data = mydata[1:800,],
