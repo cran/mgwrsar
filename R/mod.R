@@ -11,7 +11,7 @@
 #' @param ismethodB2SLS  to be documented
 #' @param ismethodMGWRSAR_1_kc_0  to be documented
 #' @param SE_  to be documented
-#' @keywords internal
+#' @noRd
 #' @return to be documented
 mod <-
 function (YY, XX, WW, XZZ, YZZ, Wi, LocalInst, ismethodB2SLS,

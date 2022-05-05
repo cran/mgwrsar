@@ -4,7 +4,7 @@
 #' @param k The number of neighbors for extrapolation
 #' @param O An index vector for outsample
 #' @param type Insample/outsample size configuration : 'S+OxS+O' or 'SxS'(default)
-#' @keywords internal
+#' @noRd
 #' @return A weight dgCMatrix of size $type$
 Beta_extropolation <-
 function(coord=coord,k=16,O=NULL,type='SxS'){

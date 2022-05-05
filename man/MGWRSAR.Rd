@@ -20,11 +20,11 @@ mixed model. All other variables present in formula are supposed to be spatially
 varying. If empty or NULL (default), all variables in formula are supposed to be
 spatially varying.}
 
-\item{kernels}{vector containing the kernel types. Possible types: k nearest
-neighbors ("knn"), bisquare ("bisq"), adaptative bisquare ("bisq_knn"), gaussian
-("gauss"), adaptative gaussian ("gauss_adapt").}
+\item{kernels}{A vector containing the kernel types. Possible types:
+rectangle ("rectangle"), bisquare ("bisq"), tricube ("tcub"), epanechnikov ("epane"), gaussian
+("gauss")) .}
 
-\item{H}{vector containing the bandwidth parameters for the kernel funcitons.}
+\item{H}{vector containing the bandwidth parameters for the kernel functions.}
 
 \item{Model}{character containing the type of model: Possible values are "OLS",
 "SAR", "GWR" (default), "MGWR" , "MGWRSAR_0_0_kv","MGWRSAR_1_0_kv",
@@ -56,6 +56,7 @@ MGWRSAR returns an object  of class mgwrsar with at least the following componen
 \item{residuals}{ The vector of residuals.}
 \item{fit}{ the vector of fitted values.}
 \item{sev}{ local standard error of parameters.}
+\item{NN}{ Maximum number of neighbors for weights computation}
 
 MGWRSAR is is a wrapper function for estimating linear and local linear model
 with spatial autocorrelation that  allows to estimate the following models :
@@ -101,10 +102,12 @@ with spatial autocorrelation (SAR models with spatially varying coefficients).
 \item{Z}{ a matrix of variables for genralized kernel product, default NULL.}
 \item{W}{ a row-standardized spatial weight matrix for Spatial Aurocorrelation, default NULL.}
 \item{type}{ verbose mode, default FALSE.}
+\item{adaptive}{A vector of boolean to choose adaptive version for each kernel.}
 \item{kernel_w}{ the type of kernel for computing W, default NULL.}
 \item{h_w}{ the bandwidth value for computing W, default 0.}
 \item{Method}{ estimation technique for computing the models with Spatial Dependence. '2SLS' or 'B2SLS', default '2SLS'.}
-\item{isgcv}{ computing CV criteria (for example for selecting optimal bandwidth), default FALSE.}
+\item{TP}{ A vector of target points, default NULL.}
+\item{isgcv}{ computing LOOCV criteria (for example for selecting optimal bandwidth), default FALSE.}
 \item{isfgcv}{ if TRUE, simplify the computation of CV criteria (remove or not i
 when using local instruments for model with lambda spatially varying), default TRUE.}
 \item{maxknn}{ when n >NmaxDist, only the maxknn first neighbours are used for distance compution, default 500.}
@@ -114,18 +117,18 @@ when using local instruments for model with lambda spatially varying), default T
 }
 \examples{
 \donttest{
-data(mydata)
-coord=as.matrix(mydata[,c("x_lat","y_lon")])
-model_GWR<-MGWRSAR(formula = 'Y_gwr~X1+X2+X3', data = mydata,coord=coord,
-fixed_vars=NULL,kernels=c('gauss_knn'),
-H=120, Model = 'GWR',control=list())
-summary_mgwrsar(model_GWR)
-
-W=KNN(coord,8)
-model_MGWRSAR_0_kc_kv<-MGWRSAR(formula = 'Y_mgwrsar_0_kc_kv~X1+X2+X3', data = mydata,
-coord=coord,fixed_vars='Intercept',kernels=c('gauss_adapt'),
-H=120, Model = 'MGWRSAR_0_kc_kv',control=list(W=W))
-summary_mgwrsar(model_MGWRSAR_0_kc_kv)
+ library(mgwrsar)
+ ## loading data example
+ data(mydata)
+ coord=as.matrix(mydata[,c("x_lat","y_lon")])
+ ## Creating a spatial weight matrix (sparce dgCMatrix)
+ ## of 4 nearest neighbors with 0 in diagonal
+ W=kernel_matW(H=4,kernels='rectangle',coord_i=coord,NN=4,adaptive=TRUE,
+ diagnull=TRUE,rowNorm=TRUE)
+ mgwrsar_0_kc_kv<-MGWRSAR(formula = 'Y_mgwrsar_0_kc_kv~X1+X2+X3', data = mydata,
+ coord=coord, fixed_vars='X2',kernels=c('gauss'),H=20, Model = 'MGWRSAR_0_kc_kv',
+ control=list(SE=FALSE,adaptive=TRUE,W=W))
+ summary_mgwrsar(mgwrsar_0_kc_kv)
 }
 }
 \references{
@@ -140,5 +143,5 @@ Franke, R. and Nielson, G. (1980). Smooth interpolation of large sets of scatter
 International journal for numerical methods in engineering, 15(11):1691-1704.
 }
 \seealso{
-bandwidths_mgwrsar, summary_mgwrsar, plot_mgwrsar, predict_mgwrsar, kernelW_C
+bandwidths_mgwrsar, summary_mgwrsar, plot_mgwrsar, predict_mgwrsar, kernel_matW
 }

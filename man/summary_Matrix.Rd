@@ -19,4 +19,3 @@ to be documented
 summary_Matrix
 to be documented
 }
-\keyword{internal}

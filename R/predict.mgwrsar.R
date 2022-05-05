@@ -1,134 +1,190 @@
 #' mgwrsar Model Predictions
-#'
 #' predict_mgwrsar is a function for computing predictions of a mgwrsar models. It uses Best Linear Unbiased Predictor for mgwrsar models with spatial autocorrelation.
-#' @usage predict_mgwrsar(model, newdata, newdata_coord, W = NULL,
-#' type = "BPN", h_w = 100,kernel_w = "knn", k_extra = 12,
-#' kernel_extra = "sheppard")
-#' @param model   a model of mgwrsar class.
-#' @param newdata   a matrix or data.frame of new data.
-#' @param newdata_coord   a matrix of new coordinates.
-#' @param W   the spatial weight matrix for models with  spatial autocorrelation.
-#' @param type  Type for BLUP estimator, default "BPN". If NULL use predictions without spatial bias correction.
-#' @param h_w   bandwidth for constructing W, if W is NULL.
-#' @param kernel_w   kernel for constructing W, if W is NULL.
-#' @param k_extra   number of neighboors for local parameter extrapolation, default 12.
-#' @param kernel_extra kernel for local parameter extrapolation, default sheppard kernel.
-#'
-#' @return A vector of predictions.
-#' @seealso  MGWRSAR, bandwidths_mgwrsar, summary_mgwrsar, plot_mgwrsar, kernelW_C
+#' @usage predict_mgwrsar(model, newdata, newdata_coord, W = NULL, type = "BPN",
+#' h_w = 100,kernel_w = "rectangle",maxobs=4000,beta_proj=FALSE,
+#' method_pred='TP', k_extra = 8)
+#' @param model a model of mgwrsar class.
+#' @param newdata a matrix or data.frame of new data.
+#' @param newdata_coord  a matrix of new coordinates, and eventually other variables if a General Kernel Product is used.
+#' @param W the spatial weight matrix for models with  spatial autocorrelation.
+#' @param type Type for BLUP estimator, default "BPN". If NULL use predictions without spatial bias correction.
+#' @param  h_w A bandwidth value for the spatial weight matrix
+#' @param kernel_w kernel type for the spatial weight matrix. Possible types:
+#' rectangle ("rectangle"), bisquare ("bisq"), tricube ("tcub"),
+#' epanechnikov ("epane"), gaussian ("gauss")) .
+#' @param maxobs  maximum number of observations for exact calculation of solve(I- rho*W), default maxobs=4000.
+#' @param beta_proj A boolean, if TRUE the function then return a two elements list(Y_predicted,Beta_proj_out)
+#' @param method_pred If method_pred = 'TP' (default) prediction is done by recomputing a MGWRSAR model
+#' with new-data as target points, else if method_pred in ('tWtp_model','model','sheppard') a matrix
+#' for projecting estimated betas is used (see details).
+#' @param k_extra number of neighboors for local parameter extrapolation if sheppard kernel is used, default 8.
+#' @return A vector of predictions if beta_proj is FALSE or a list with a vector named Y_predicted and a matrix named Beta_proj_out.
+#' @details if method_pred ='tWtp_model',  the weighting matrix for prediction is
+#' based on the expected weights of outsample data if they were had been added to
+#' insample data to estimate the corresponding MGWRSAR (see Geniaux 2022 for
+#' further detail), if method_pred ='sheppard'a sheppard kernel with k_extra neighbours (default 8) is used and if method_pred='kernel_model' the same kernel
+#' and number of neighbors as for computing the MGWRSAR model is used.
+#' @seealso  MGWRSAR, bandwidths_mgwrsar, summary_mgwrsar, plot_mgwrsar, kernel_matW
 #' @examples
 #' \donttest{
 #' library(mgwrsar)
-#' data(mydata)
-#' coord=as.matrix(mydata[,c("x_lat","y_lon")])
-#' W=KNN(coord,2)
-#' model_GWR_insample<-MGWRSAR(formula = 'Y_gwr~X1+X2+X3', data = mydata[1:800,],
-#' coord=coord[1:800,],fixed_vars=NULL,kernels=c('gauss_adapt'),H=50,
-#'  Model = 'GWR',control=list())
-#' Y_pred=predict_mgwrsar(model_GWR_insample, newdata=mydata[801:1000,],
-#' newdata_coord=coord[801:1000,],k_extra = 8, kernel_extra = "sheppard")
-#' head(Y_pred)
-#' head(mydata$Y_gwr[801:1000])
-#' sqrt(mean((mydata$Y_gwr[801:1000]-Y_pred)^2))
+#'  data(mydata)
+#'  coord=as.matrix(mydata[,c("x_lat","y_lon")])
+#' length_out=800
+#' index_in=sample(1:1000,length_out)
+#' index_out=(1:1000)[-index_in]
 #'
-#' ## predict with spatial autocorrelation
-#' model_MGWRSAR_1_0_kv_insample<-MGWRSAR(formula = 'Y_mgwrsar_1_0_kv~X1+X2+X3',data = mydata[1:800,],
-#' coord=coord[1:800 ,], fixed_vars=NULL,kernels=c('gauss_adapt'),H=50,
-#' Model = 'MGWRSAR_1_0_kv',control=list(W=W[1:800,1:800],Lambdacor=TRUE,SE=TRUE))
-#' summary_mgwrsar(model_MGWRSAR_1_0_kv_insample)
+#' model_GWR_insample<-MGWRSAR(formula = 'Y_gwr~X1+X2+X3', data = mydata[index_in,],
+#' coord=coord[index_in,],fixed_vars=NULL,kernels=c ('gauss'),H=8, Model = 'GWR',
+#' control=list(adaptive=TRUE))
+#' summary_mgwrsar(model_GWR_insample)
 #'
-#' ## with BLUP
-#' Y_pred=predict_mgwrsar(model_MGWRSAR_1_0_kv_insample, newdata=mydata[801:1000,],
-#' newdata_coord=coord[801:1000,], k_extra = 12,  W = W,
-#'  type = "BPN",kernel_extra = "sheppard")
-#' head(Y_pred)
-#' head(mydata$Y_gwr[801:1000])
-#' sqrt(mean((mydata$Y_gwr[801:1000]-Y_pred)^2))
+#' newdata=mydata[index_out,]
+#' newdata_coord=coord[index_out,]
+#' newdata$Y_mgwrsar_1_0_kv=0
 #'
-#' ## without BLUP
-#' Y_pred=predict_mgwrsar(model_MGWRSAR_1_0_kv_insample, newdata=mydata[801:1000,],
-#' newdata_coord=coord[801:1000,], k_extra = 12,  W = W,
-#' type = "TC",kernel_extra = "sheppard")
+#' Y_pred=predict_mgwrsar(model_GWR_insample, newdata=newdata,
+#' newdata_coord=newdata_coord)
 #' head(Y_pred)
-#' head(mydata$Y_mgwrsar_1_0_kv[801:1000])
-#' sqrt(mean((mydata$Y_mgwrsar_1_0_kv[801:1000]-Y_pred)^2))
+#' head(mydata$Y_gwr[index_out])
+#' sqrt(mean((mydata$Y_gwr[index_out]-Y_pred)^2)) # RMSE
 #' }
-predict_mgwrsar  <- function(model, newdata, newdata_coord, W = NULL, type = "BPN", h_w = 100,kernel_w = "knn", k_extra = 12, kernel_extra = "sheppard") {
-if(class(model)!='mgwrsar') stop('A mgwrsar class object is needed')
-if(is.null(newdata) | is.null(newdata_coord)) stop('provide newdata and newdata_coord objects')
-#######
-insample_size=length(model$Y) ## insample
-outsample_size=nrow(newdata)  ###outsample
-if(ncol(newdata_coord)>2) coords=rbind(model$S,newdata_coord) else coords=rbind(model$coord,newdata_coord)
-m=insample_size
-n=outsample_size+insample_size
-S=1:m
-O=(m+1):(n)
+predict_mgwrsar  <- function(model, newdata, newdata_coord, W = NULL, type = "BPN", h_w = 100,kernel_w = "rectangle",maxobs=4000,beta_proj=FALSE,method_pred='TP', k_extra = 8) {
+if(!is(model,'mgwrsar')) stop('A mgwrsar class object is required')
+if(model$Model %in% c('MGWR','MGWRSAR_1_kc_0','MGWRSAR_1_kc_kv','MGWRSAR_0_kc_kv','MGWRSAR_0_0_kv') & method_pred=='TP') {
+  cat("Warnings: method_pred=='TP' is not implemented for  Model in ('MGWR','MGWRSAR_1_kc_0','MGWRSAR_1_kc_kv','MGWRSAR_0_kc_kv','MGWRSAR_0_0_kv'): automatic swith to method_pred='tWtp_model'")
+  method_pred='tWtp_model'
+}
+if(length(model$TP)!=length(model$Y) & method_pred=='TP') {
+    cat("Warnings: if estimated model used target points, method_pred ='TP' may be innapropriate if out-sample size is large: method_pred='tWtp_model' should be faster")
+}
 
+if(is.null(newdata) | is.null(newdata_coord)) stop('provide the newdata and newdata_coord objects')
+#######
+  newdata<-data.frame(newdata)
+  myYname=terms(as.formula(model$formula))[[2]]
+  ## add a null variable with the response variable name
+  if(!(as.character(myYname) %in% colnames(newdata))){
+  newdata[[myYname]]<-0
+}
+####
+  insample_size=length(model$Y) ## insample
+  outsample_size=nrow(newdata)  ###outsample
+  if(ncol(newdata_coord)>2) coords=rbind(model$S,newdata_coord) else coords=rbind(model$coord,newdata_coord)
+  m=insample_size
+  n=outsample_size+insample_size
+  S=1:m
+  O=(m+1):(n)
+  YS = model$Y
+  e=model$residuals
+
+  ## Use all coefficients instead of coefficients located in TP seems preferable. To be checked with real data
+  model$TP=1:length(model$Y)
+
+  if(method_pred=='TP' & (model$Model %in% c('GWR','MGWRSAR_1_0_kv'))){
+  TP=NULL
+  if(model$Model =='GWR') {
+    model$mycall$control[['W']]<-quote(model$W)
+    con=eval(model$mycall$control)
+    con=c(con, list(S_out=newdata_coord,new_data=newdata,new_W=W))
+    pred_TP<-MGWRSAR(formula = model$formula, data = model$data,coord=model$coord, fixed_vars=model$fixed_vars,kernels=model$kernels,H=model$H, Model=model$Model ,control=con)
+    Y_predicted=pred_TP$pred
+    } else if(model$Model =='MGWRSAR_1_0_kv'){
+    lambda_in=model$Betav[,ncol(model$Betav)]
+    beta_in=model$Betav[,-ncol(model$Betav)]
+    model$mycall$control[['W']]<-quote(model$W)
+    con=call_modify(model$mycall$control, S_out=quote(newdata_coord),new_data=quote(newdata),new_W=quote(W))
+    pred_TP<-MGWRSAR(formula = model$formula, data = model$data,coord=model$coord, fixed_vars=model$fixed_vars,kernels=model$kernels,H=model$H, Model=model$Model ,control=eval(con))
+    beta_out=pred_TP$pred$beta_pred
+    lambda_out=pred_TP$pred$lambda_pred
+    X=rbind(model$XV[,-ncol(model$XV)],pred_TP$XV)
+    Y_predicted=BP_pred_SAR(YS=model$Y, X=X, W=W, e=model$residuals, beta_hat=rbind(beta_in,beta_out), lambda_hat=c(lambda_in,lambda_out), S, O, type = type,model =model$Model)
+    Betav_proj_out=pred_TP$Betav
+    Betac_proj_out=pred_TP$Betac
+    }
+  } else
+    {
+#######
 if(!('Intercept' %in% colnames(newdata))) {
 newdata=cbind(rep(1,nrow(newdata)),newdata)
 colnames(newdata)[1]='Intercept'
 }
 
-###
-if(model$Model=='MGWR') {
-  newdata=newdata[,c(colnames(model$Betav),names(model$Betac))]
-  } else if(model$Model=='MGWRSAR_0_0_kv') {
-  newdata=newdata[,c(colnames(model$Betav),names(model$Betac)[-length(model$Betac)])]
-  beta_hat=model$Betav
-  lambda_hat=model$Betac
-  } else if(model$Model == 'MGWRSAR_1_0_kv') {
-    newdata=newdata[,c(colnames(model$Betav)[-ncol(model$Betav)],names(model$Betac))]
-    beta_hat=model$Betav[,-ncol(model$Betav)]
-    lambda_hat=model$Betav[,ncol(model$Betav)]
+if(!(model$Model %in% c('OLS','SAR'))){
+  ###
+  if(model$Model=='GWR') {
+    beta_in=model$Betav
+  } else if(model$Model=='MGWR') {
+    beta_in=cbind(model$Betav,matrix(model$Betac,nrow=m,ncol=length(model$Betac),byrow=TRUE))
+    colnames(beta_in)=c(colnames(model$Betav),names(model$Betac))
+  } else if(model$Model=='MGWRSAR_1_0_kv') {
+    lambda_in=model$Betav[,ncol(model$Betav)]
+    beta_in=model$Betav[,-ncol(model$Betav)]
+  } else if(model$Model=='MGWRSAR_1_kc_kv') {
+    lambda_in=model$Betav[,ncol(model$Betav)]
+    beta_in=cbind(model$Betav[,-ncol(model$Betav)],matrix(model$Betac,nrow=m,ncol=length(model$Betac),byrow=TRUE))
+    colnames(beta_in)=c(colnames(model$Betav)[-ncol(model$Betav)],names(model$Betac))
+  } else if(model$Model=='MGWRSAR_1_kc_0') {
+    lambda_in=model$Betav
+    beta_in=matrix(as.matrix(model$Betac),nrow=m,ncol=length(model$Betac),byrow=TRUE)
+    colnames(beta_in)=names(model$Betac)
+  } else if(model$Model %in% c('MGWRSAR_0_0_kv','MGWRSAR_0_kc_kv')){
+    lambda_in=rep(model$Betac[length(model$Betac)],m)
+    if(model$Model=='MGWRSAR_0_0_kv') beta_in=model$Betav  else if(model$Model=='MGWRSAR_0_kc_kv') {
+      beta_in=cbind(model$Betav,matrix(model$Betac[-length(model$Betac)],nrow=m,ncol=length(model$Betac)-1,byrow=TRUE))
+      colnames(beta_in)=c(colnames(model$Betav),names(model$Betac)[-length(model$Betac)])
+    }
   }
-if(model$Model=='SAR') {
-  newdata=newdata[,names(model$Betac)[-length(names(model$Betac))]]
-  beta_hat=model$Betac[-length(model$Betac)]
-  lambda_hat=model$Betac[length(model$Betac)]
-}
+  beta_in<-beta_in[model$TP,colnames(model$X)]
+  namesX=colnames(model$X)
+  if(!(model$Model %in% c('GWR','MGWR'))){
+    lambda_in<-lambda_in[model$TP]
+    il=which(namesX=='lambda')
+    if(length(il)>0) namesX<-namesX[-il]
+    }
+  newdata=newdata[,namesX]
 
+  if(method_pred=='tWtp_model'){
+    W_extra=kernel_matW(H=model$H,kernels=model$kernels,coord_i=coords[S,],coord_j=coords,NN=model$NN,Type=model$Type,adaptive=model$adaptive,diagnull=FALSE,rowNorm=TRUE)[,-(1:length(model$TP))]
+    W_extra<- normW(Matrix::t(W_extra))
+  } else if(method_pred=='model'){
+    W_extra=kernel_matW(H=model$H,kernels=model$kernels,coord_i=rbind(model$coord[model$TP,],newdata_coord),coord_j=model$coord[model$TP,],NN=model$NN,Type=model$Type,adaptive=model$adaptive,diagnull=FALSE,rowNorm=TRUE)[-(1:length(model$TP)),]
+  } else {
+    W_extra=kernel_matW(H=k_extra,kernels='sheppard',coord_i=rbind(model$coord[model$TP,],newdata_coord),coord_j=model$coord[model$TP,],NN=k_extra+1,Type=model$Type,adaptive=FALSE,diagnull=FALSE,rowNorm=TRUE)[-(1:length(model$TP)),]
+
+  }
+} else if(model$Model=='SAR') {
+  newdata=newdata[,names(model$Betac)[-length(names(model$Betac))]]
+  beta_in=model$Betac[-length(model$Betac)]
+  lambda_in=model$Betac[length(model$Betac)]
+} else if(model$Model=='OLS'){
+  newdata=newdata[,names(model$Betac)]
+  Y_predicted=as.matrix(newdata) %*% model$Betac
+}
 if(!is.null(model$h_w)){
 h_w=model$h_w
 kernel_w=model$kernel_w
 }
 
-if(is.null(W)) {
-  if(ncol(coords)==2) W<-KNNX(coords,k_neighbors=h_w,diagnull=TRUE,kernel=kernel_w,query=NULL) else {
-    stop( "To be coded")
+if(is.null(W) & !(model$Model %in% c('OLS','GWR','MGWR'))) {
+  W=kernel_matW(H=h_w,kernels=kernel_w,coord_i=coords,diagnull=TRUE,NN=h_w,adaptive=TRUE,rowNorm=TRUE)
+}
+
+if(model$Model=='SAR') {
+  Y_predicted=BP_pred_SAR(YS,X=as.matrix(rbind(model$X,newdata)),W,e,beta_hat=beta_in,lambda_hat=lambda_in,S,O,type,coords=coords,maxobs=maxobs)
+
+  } else if(model$Model %in% c('MGWRSAR_1_0_kv','MGWRSAR_0_0_kv','MGWRSAR_1_kc_kv','MGWRSAR_0_kc_kv','MGWRSAR_1_kc_0'))  {
+    Y_predicted=BP_pred_SAR(YS,X=as.matrix(rbind(model$X,newdata)),W,e,beta_hat=rbind(beta_in,as.matrix(W_extra %*%beta_in)),lambda_hat=c(lambda_in,as.numeric(W_extra %*%lambda_in)),S,O,type,k_extra=k_extra,kernel_extra=kernel_extra,model=model$Model, W_extra = W_extra,coords=coords,maxobs=maxobs)
+
+  } else if (model$Model %in% c('GWR','GWRtp','GWRboost','MGWR')) {
+    X=as.matrix(newdata)
+    Beta_proj_out=as.matrix(W_extra %*% beta_in)
+    #else Beta_proj_out=as.matrix(W_extra %*% beta_in[model$TP,])
+    #Betav=rbind(beta_in,Beta_proj_out)
+    Y_predicted=rowSums(as.matrix(Beta_proj_out*X))
+    #Y_predicted=Y_predicted[O]
   }
 }
-YS = model$Y
-e=model$residuals
-###  X = rbind(X_insample,X_outsample)
-###  e=residuals_insample
-###  beta_hat,lambda_hat = coef_insample
-###  S,O index of insample and outsample
-###  dim(W)=length(c(S,O)) x length(c(S,O))
-
-
-if(model$Model=='SAR') Y_predicted=BP_pred_SAR(YS,X=as.matrix(rbind(model$X,newdata)),W,e,beta_hat=beta_hat,lambda_hat=lambda_hat,S,O,type,coords=coords)
-
-if(model$Model %in% c('MGWRSAR_1_0_kv','MGWRSAR_0_0_kv'))  Y_predicted=BP_pred_SAR(YS,X=as.matrix(rbind(model$X,newdata)),W,e,beta_hat=beta_hat,lambda_hat=lambda_hat,S,O,type,k_extra=k_extra,kernel_extra=kernel_extra,model='MGWRSARC',coords=coords)
-
-if(model$Model=='GWR') {
-  X=as.matrix(rbind(model$X,setNames(cbind(rep(1,nrow(newdata)),newdata[,colnames(newdata)  %in% colnames(model$X)[-1]]),colnames(model$X))))
-W_extra=KNNX(coord[S,],k_neighbors=k_extra,query=coords[O,],kernel=kernel_extra)
-
-Beta_proj_out=as.matrix(W_extra %*% model$Betav)
-Betav=rbind(model$Betav,Beta_proj_out)
-Y_predicted=rowSums(as.matrix(Betav*X))
-Y_predicted=Y_predicted[O]
-}
-
-if(model$Model=='MGWR') {
-  X=as.matrix(rbind(model$X,setNames(cbind(rep(1,nrow(newdata)),newdata[,colnames(newdata)  %in% colnames(model$X)[-1]]),colnames(model$X))))
-W_extra=KNNX(coord[S,],k_neighbors=k_extra,query=coords[O,],kernel=kernel_extra)
-betav=as.matrix(cbind(model$Betav,matrix(model$Betac,nrow=m,ncol=length(model$Betac), byrow =T)))
-Beta_proj_out=as.matrix(Wk %*% betav)
-Betav=rbind(betav,Beta_proj_out)
-Y_predicted=rowSums(as.matrix(Betav*X))
-Y_predicted=Y_predicted[O]
-}
-Y_predicted
+if(beta_proj) return(list(Y_predicted=Y_predicted,Betav_proj_out=Betav_proj_out,Betac_proj_out=Betac_proj_out))
+else return(Y_predicted)
 }

@@ -16,17 +16,21 @@ a summary of mgwrsar models
 Print a summary of mgwrsar models
 }
 \examples{
-\dontrun{
-library(mgwrsar)
-data(mydata)
-coord=as.matrix(mydata[,c("x_lat","y_lon")])
-W=KNN(coord,8)
-model_GWR<-MGWRSAR(formula = 'Y_gwr~X1+X2+X3', data = mydata,coord=coord,
- fixed_vars=NULL,kernels=c('gauss'),H=0.13, Model = 'GWR',
- control=list(SE=TRUE))
-summary_mgwrsar(model_GWR)
+\donttest{
+ library(mgwrsar)
+ ## loading data example
+ data(mydata)
+ coord=as.matrix(mydata[,c("x_lat","y_lon")])
+ ## Creating a spatial weight matrix (sparce dgCMatrix)
+ ## of 4 nearest neighbors with 0 in diagonal
+ W=kernel_matW(H=4,kernels='rectangle',coord_i=coord,NN=4,adaptive=TRUE,
+ diagnull=TRUE,rowNorm=TRUE)
+ mgwrsar_0_kc_kv<-MGWRSAR(formula = 'Y_mgwrsar_0_kc_kv~X1+X2+X3', data = mydata,
+ coord=coord, fixed_vars='X2',kernels=c('gauss'),H=20, Model = 'MGWRSAR_0_kc_kv',
+ control=list(SE=FALSE,adaptive=TRUE,W=W))
+ summary_mgwrsar(mgwrsar_0_kc_kv)
 }
 }
 \seealso{
-MGWRSAR, bandwidths_mgwrsar, plot_mgwrsar, predict_mgwrsar, kernelW_C
+MGWRSAR, bandwidths_mgwrsar, plot_mgwrsar, predict_mgwrsar, kernel_matW
 }

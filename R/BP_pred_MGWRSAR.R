@@ -13,7 +13,7 @@
 #' @param type to be documented
 #' @param k to be documented
 #' @param Wk to be documented
-#' @keywords internal
+#' @noRd
 #'
 #' @return to be documented
 BP_pred_MGWRSAR <-

@@ -5,7 +5,7 @@
 #' @param data to be documented
 #' @param Model to be documented
 #' @param DGP to be documented
-#' @keywords internal
+#' @noRd
 #' @return to be documented
 bias_gwrsar <-
 function(model, data, Model, DGP){

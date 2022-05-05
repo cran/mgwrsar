@@ -2,75 +2,79 @@
 % Please edit documentation in R/predict.mgwrsar.R
 \name{predict_mgwrsar}
 \alias{predict_mgwrsar}
-\title{mgwrsar Model Predictions}
+\title{mgwrsar Model Predictions
+predict_mgwrsar is a function for computing predictions of a mgwrsar models. It uses Best Linear Unbiased Predictor for mgwrsar models with spatial autocorrelation.}
 \usage{
-predict_mgwrsar(model, newdata, newdata_coord, W = NULL,
-type = "BPN", h_w = 100,kernel_w = "knn", k_extra = 12,
-kernel_extra = "sheppard")
+predict_mgwrsar(model, newdata, newdata_coord, W = NULL, type = "BPN",
+h_w = 100,kernel_w = "rectangle",maxobs=4000,beta_proj=FALSE,
+method_pred='TP', k_extra = 8)
 }
 \arguments{
 \item{model}{a model of mgwrsar class.}
 
 \item{newdata}{a matrix or data.frame of new data.}
 
-\item{newdata_coord}{a matrix of new coordinates.}
+\item{newdata_coord}{a matrix of new coordinates, and eventually other variables if a General Kernel Product is used.}
 
 \item{W}{the spatial weight matrix for models with  spatial autocorrelation.}
 
 \item{type}{Type for BLUP estimator, default "BPN". If NULL use predictions without spatial bias correction.}
 
-\item{h_w}{bandwidth for constructing W, if W is NULL.}
+\item{h_w}{A bandwidth value for the spatial weight matrix}
 
-\item{kernel_w}{kernel for constructing W, if W is NULL.}
+\item{kernel_w}{kernel type for the spatial weight matrix. Possible types:
+rectangle ("rectangle"), bisquare ("bisq"), tricube ("tcub"),
+epanechnikov ("epane"), gaussian ("gauss")) .}
 
-\item{k_extra}{number of neighboors for local parameter extrapolation, default 12.}
+\item{maxobs}{maximum number of observations for exact calculation of solve(I- rho*W), default maxobs=4000.}
 
-\item{kernel_extra}{kernel for local parameter extrapolation, default sheppard kernel.}
+\item{beta_proj}{A boolean, if TRUE the function then return a two elements list(Y_predicted,Beta_proj_out)}
+
+\item{method_pred}{If method_pred = 'TP' (default) prediction is done by recomputing a MGWRSAR model
+with new-data as target points, else if method_pred in ('tWtp_model','model','sheppard') a matrix
+for projecting estimated betas is used (see details).}
+
+\item{k_extra}{number of neighboors for local parameter extrapolation if sheppard kernel is used, default 8.}
 }
 \value{
-A vector of predictions.
+A vector of predictions if beta_proj is FALSE or a list with a vector named Y_predicted and a matrix named Beta_proj_out.
 }
 \description{
+mgwrsar Model Predictions
 predict_mgwrsar is a function for computing predictions of a mgwrsar models. It uses Best Linear Unbiased Predictor for mgwrsar models with spatial autocorrelation.
+}
+\details{
+if method_pred ='tWtp_model',  the weighting matrix for prediction is
+based on the expected weights of outsample data if they were had been added to
+insample data to estimate the corresponding MGWRSAR (see Geniaux 2022 for
+further detail), if method_pred ='sheppard'a sheppard kernel with k_extra neighbours (default 8) is used and if method_pred='kernel_model' the same kernel
+and number of neighbors as for computing the MGWRSAR model is used.
 }
 \examples{
 \donttest{
 library(mgwrsar)
-data(mydata)
-coord=as.matrix(mydata[,c("x_lat","y_lon")])
-W=KNN(coord,2)
-model_GWR_insample<-MGWRSAR(formula = 'Y_gwr~X1+X2+X3', data = mydata[1:800,],
-coord=coord[1:800,],fixed_vars=NULL,kernels=c('gauss_adapt'),H=50,
- Model = 'GWR',control=list())
-Y_pred=predict_mgwrsar(model_GWR_insample, newdata=mydata[801:1000,],
-newdata_coord=coord[801:1000,],k_extra = 8, kernel_extra = "sheppard")
-head(Y_pred)
-head(mydata$Y_gwr[801:1000])
-sqrt(mean((mydata$Y_gwr[801:1000]-Y_pred)^2))
+ data(mydata)
+ coord=as.matrix(mydata[,c("x_lat","y_lon")])
+length_out=800
+index_in=sample(1:1000,length_out)
+index_out=(1:1000)[-index_in]
 
-## predict with spatial autocorrelation
-model_MGWRSAR_1_0_kv_insample<-MGWRSAR(formula = 'Y_mgwrsar_1_0_kv~X1+X2+X3',data = mydata[1:800,],
-coord=coord[1:800 ,], fixed_vars=NULL,kernels=c('gauss_adapt'),H=50,
-Model = 'MGWRSAR_1_0_kv',control=list(W=W[1:800,1:800],Lambdacor=TRUE,SE=TRUE))
-summary_mgwrsar(model_MGWRSAR_1_0_kv_insample)
+model_GWR_insample<-MGWRSAR(formula = 'Y_gwr~X1+X2+X3', data = mydata[index_in,],
+coord=coord[index_in,],fixed_vars=NULL,kernels=c ('gauss'),H=8, Model = 'GWR',
+control=list(adaptive=TRUE))
+summary_mgwrsar(model_GWR_insample)
 
-## with BLUP
-Y_pred=predict_mgwrsar(model_MGWRSAR_1_0_kv_insample, newdata=mydata[801:1000,],
-newdata_coord=coord[801:1000,], k_extra = 12,  W = W,
- type = "BPN",kernel_extra = "sheppard")
-head(Y_pred)
-head(mydata$Y_gwr[801:1000])
-sqrt(mean((mydata$Y_gwr[801:1000]-Y_pred)^2))
+newdata=mydata[index_out,]
+newdata_coord=coord[index_out,]
+newdata$Y_mgwrsar_1_0_kv=0
 
-## without BLUP
-Y_pred=predict_mgwrsar(model_MGWRSAR_1_0_kv_insample, newdata=mydata[801:1000,],
-newdata_coord=coord[801:1000,], k_extra = 12,  W = W,
-type = "TC",kernel_extra = "sheppard")
+Y_pred=predict_mgwrsar(model_GWR_insample, newdata=newdata,
+newdata_coord=newdata_coord)
 head(Y_pred)
-head(mydata$Y_mgwrsar_1_0_kv[801:1000])
-sqrt(mean((mydata$Y_mgwrsar_1_0_kv[801:1000]-Y_pred)^2))
+head(mydata$Y_gwr[index_out])
+sqrt(mean((mydata$Y_gwr[index_out]-Y_pred)^2)) # RMSE
 }
 }
 \seealso{
-MGWRSAR, bandwidths_mgwrsar, summary_mgwrsar, plot_mgwrsar, kernelW_C
+MGWRSAR, bandwidths_mgwrsar, summary_mgwrsar, plot_mgwrsar, kernel_matW
 }

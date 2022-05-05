@@ -10,12 +10,11 @@
 #' @param opt  to be documented
 #' @param search_W  to be documented
 #' @param config_model  to be documented
-#' @keywords internal
+#' @noRd
 #' @return to be documented
-fill_DGPTAB <-
-function(formula,data,coord,fixed_vars,Model,control,opt,search_W,config_model){
-    est_model=model_conf(formula,data,coord,fixed_vars,Model,control,config_model,search_W)
-    if(!(Model %in% c('OLS','SAR'))){
-        list(config_model=config_model,CV=opt$objective,SSR=est_model$SSR,model=est_model)
-    } else {list(config_model=config_model,CV=0,SSR=est_model$SSR,model=est_model)} ##(CV(est_model))$CV
+fill_DGPTAB <-function(formula,data,coord,fixed_vars,Model,control,opt,search_W,config_model){
+  est_model=model_conf(formula,data,coord,fixed_vars,Model,control,config_model,search_W)
+  if(!(Model %in% c('OLS','SAR'))){
+    list(config_model=config_model,CV=opt$objective,SSR=est_model$SSR,model=est_model)
+  } else {list(config_model=config_model,CV=0,SSR=est_model$SSR,model=est_model)}
 }

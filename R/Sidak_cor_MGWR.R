@@ -6,7 +6,7 @@
 #' @param modelH1 to be documented
 #' @param D to be documented
 #' @param type to be documented
-#' @keywords internal
+#' @noRd
 #' @return to be documented
 Sidak_cor_MGWR <-
 function(alpha=0.05,modelH0,modelH1,D=NULL,type='rn') {

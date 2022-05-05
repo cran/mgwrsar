@@ -4,21 +4,17 @@
 \alias{plot_mgwrsar}
 \title{plot_mgwrsar plots the value of local paramaters of a mgwrsar models using a leaflet map.}
 \usage{
-plot_mgwrsar(model,type='coef',var=NULL,SP=NULL,SP_id=NULL,
-proj=NULL,mypalette= "RdYlGn",opacity=1,fopacity=1,radius=1500)
+plot_mgwrsar(model,type='coef',var=NULL,crs=NULL,mypalette= "RdYlGn",opacity=1,
+fopacity=1,radius=1500)
 }
 \arguments{
 \item{model}{a mgwsar model.}
 
-\item{type}{default 'coef', for plotting the value of the coefficients. Local t-Student could also be plot using 't_coef'.}
+\item{type}{default 'coef', for plotting the value of the coefficients. Local t-Student could also be plot using 't_coef', residuals using 'residuals' and fitted using 'fitted'.}
 
 \item{var}{Names of variable to plot.}
 
-\item{SP}{A spdf object.}
-
-\item{SP_id}{Id regions for spdf object.}
-
-\item{proj}{A CRS projection.}
+\item{crs}{A CRS projection.}
 
 \item{mypalette}{A leaflet palette.}
 
@@ -36,17 +32,19 @@ plot_mgwrsar plots the value of local paramaters of a mgwrsar models using a lea
 }
 \examples{
 \donttest{
-library(mgwrsar)
-data(mydata)
-coord=as.matrix(mydata[,c("x_lat","y_lon")])
-W=KNN(coord,4)
-model_GWR<-MGWRSAR(formula = 'Y_gwr~X1+X2+X3', data = mydata, coord=coord,
-fixed_vars=NULL,kernels=c('gauss'),H=0.13,
-Model = 'GWR', control=list(SE=TRUE))
-summary_mgwrsar(model_GWR)
-plot_mgwrsar(model_GWR,type='t_coef',var='X1')
+ library(mgwrsar)
+ ## loading data example
+ data(mydata)
+ coord=as.matrix(mydata[,c("x_lat","y_lon")])
+ ## Creating a spatial weight matrix (sparce dgCMatrix)
+ ## of 4 nearest neighbors with 0 in diagonal
+ model_GWR0<-MGWRSAR(formula = 'Y_gwr~X1+X2+X3', data = mydata,coord=coord,
+ fixed_vars=NULL,kernels=c('gauss'),H=0.13, Model='GWR',control=list(SE=TRUE))
+ summary_mgwrsar(model_GWR0)
+ plot_mgwrsar(model_GWR0,type='B_coef',var='X2')
+ plot_mgwrsar(model_GWR0,type='t_coef',var='X2')
 }
 }
 \seealso{
-MGWRSAR, bandwidths_mgwrsar, summary_mgwrsar, predict_mgwrsar, kernelW_C
+MGWRSAR, bandwidths_mgwrsar, summary_mgwrsar, predict_mgwrsar, kernel_matW
 }

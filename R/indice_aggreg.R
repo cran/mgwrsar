@@ -2,7 +2,7 @@
 #' to be documented
 #' @usage indice_aggreg(D)
 #' @param D  to be documented
-#' @keywords internal
+#' @noRd
 #'
 #' @return to be documented
 indice_aggreg <-

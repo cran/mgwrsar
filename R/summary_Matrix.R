@@ -3,7 +3,6 @@
 #' @usage summary_Matrix(object, ...)
 #' @param object  to be documented
 #' @param ...  to be documented
-#' @keywords internal
 #' @return to be documented
 summary_Matrix <-
 function (object, ...)

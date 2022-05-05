@@ -18,20 +18,22 @@
 #' "SAR", "GWR" (default), "MGWR" , "MGWRSAR_0_0_kv","MGWRSAR_1_0_kv",
 #' "MGWRSAR_0_kc_kv", "MGWRSAR_1_kc_kv", "MGWRSAR_1_kc_0". See Details for more
 #' explanation.
-#' @param kernels vector containing the kernel types. Possible types: k nearest
-#' neighbors ("knn"), bisquare ("bisq"), adaptative bisquare ("bisq_knn"), gaussian
-#' ("gauss"), adaptative gaussian ("gauss_adapt").
-#' @param H vector containing the bandwidth parameters for the kernel funcitons.
+#' @param kernels A vector containing the kernel types. Possible types:
+#' rectangle ("rectangle"), bisquare ("bisq"), tricube ("tcub"), epanechnikov ("epane"), gaussian
+#' ("gauss")) .
+#' @param H vector containing the bandwidth parameters for the kernel functions.
 #' @param control list of extra control arguments for MGWRSAR wrapper - see Details below
 #' @details
 #' \itemize{
 #' \item{Z}{ a matrix of variables for genralized kernel product, default NULL.}
 #' \item{W}{ a row-standardized spatial weight matrix for Spatial Aurocorrelation, default NULL.}
 #' \item{type}{ verbose mode, default FALSE.}
+#' \item{adaptive}{A vector of boolean to choose adaptive version for each kernel.}
 #' \item{kernel_w}{ the type of kernel for computing W, default NULL.}
 #' \item{h_w}{ the bandwidth value for computing W, default 0.}
 #' \item{Method}{ estimation technique for computing the models with Spatial Dependence. '2SLS' or 'B2SLS', default '2SLS'.}
-#' \item{isgcv}{ computing CV criteria (for example for selecting optimal bandwidth), default FALSE.}
+#' \item{TP}{ A vector of target points, default NULL.}
+#' \item{isgcv}{ computing LOOCV criteria (for example for selecting optimal bandwidth), default FALSE.}
 #' \item{isfgcv}{ if TRUE, simplify the computation of CV criteria (remove or not i
 #' when using local instruments for model with lambda spatially varying), default TRUE.}
 #' \item{maxknn}{ when n >NmaxDist, only the maxknn first neighbours are used for distance compution, default 500.}
@@ -60,6 +62,7 @@
 #' \item{residuals}{ The vector of residuals.}
 #' \item{fit}{ the vector of fitted values.}
 #' \item{sev}{ local standard error of parameters.}
+#' \item{NN}{ Maximum number of neighbors for weights computation}
 #'
 #' MGWRSAR is is a wrapper function for estimating linear and local linear model
 #' with spatial autocorrelation that  allows to estimate the following models :
@@ -107,149 +110,149 @@
 #'
 #' Franke, R. and Nielson, G. (1980). Smooth interpolation of large sets of scattered data.
 #' International journal for numerical methods in engineering, 15(11):1691-1704.
-#' @seealso  bandwidths_mgwrsar, summary_mgwrsar, plot_mgwrsar, predict_mgwrsar, kernelW_C
+#' @seealso  bandwidths_mgwrsar, summary_mgwrsar, plot_mgwrsar, predict_mgwrsar, kernel_matW
 #' @examples
 #' \donttest{
-#' data(mydata)
-#' coord=as.matrix(mydata[,c("x_lat","y_lon")])
-#' model_GWR<-MGWRSAR(formula = 'Y_gwr~X1+X2+X3', data = mydata,coord=coord,
-#' fixed_vars=NULL,kernels=c('gauss_knn'),
-#' H=120, Model = 'GWR',control=list())
-#' summary_mgwrsar(model_GWR)
-#'
-#' W=KNN(coord,8)
-#' model_MGWRSAR_0_kc_kv<-MGWRSAR(formula = 'Y_mgwrsar_0_kc_kv~X1+X2+X3', data = mydata,
-#' coord=coord,fixed_vars='Intercept',kernels=c('gauss_adapt'),
-#' H=120, Model = 'MGWRSAR_0_kc_kv',control=list(W=W))
-#' summary_mgwrsar(model_MGWRSAR_0_kc_kv)
+#'  library(mgwrsar)
+#'  ## loading data example
+#'  data(mydata)
+#'  coord=as.matrix(mydata[,c("x_lat","y_lon")])
+#'  ## Creating a spatial weight matrix (sparce dgCMatrix)
+#'  ## of 4 nearest neighbors with 0 in diagonal
+#'  W=kernel_matW(H=4,kernels='rectangle',coord_i=coord,NN=4,adaptive=TRUE,
+#'  diagnull=TRUE,rowNorm=TRUE)
+#'  mgwrsar_0_kc_kv<-MGWRSAR(formula = 'Y_mgwrsar_0_kc_kv~X1+X2+X3', data = mydata,
+#'  coord=coord, fixed_vars='X2',kernels=c('gauss'),H=20, Model = 'MGWRSAR_0_kc_kv',
+#'  control=list(SE=FALSE,adaptive=TRUE,W=W))
+#'  summary_mgwrsar(mgwrsar_0_kc_kv)
 #' }
-MGWRSAR <-
-function(formula,data,coord,fixed_vars=NULL,kernels,H,Model='GWR',control=list())
-{
-mycall <- match.call()
-n <- nrow(data)
-########## control parameters
-assign_control(control,n)
-#### verifying parameters
-if(is.null(coord)) { if(class(data) %in% c('SpatialPointsDataFrame','SpatialGridDataFrame','SpatialPixelsDataFrame')) coord=as.matrix(coordinates(data)) else stop("coord required")}
-
-if(length(kernels)>1) SS=as.matrix(cbind(coord,Z)) else SS=as.matrix(coord)
-
-if(is.null(H[1]) | is.null(kernels[1])) stop ("kernels list and bandwidths H required")
-
-    if(is.null(fixed_vars) & Model %in% c('MGWR','MGWRSAR_0_kc_kv','MGWRSAR_1_kc_kv')) stop('You must provide fixed_vars for mixed models')
-    if(is.null(W) & Model %in% c('SAR','MGWRSAR_1_0_kv','MGWRSAR_0_0_kv','MGWRSAR_0_kc_kv','MGWRSAR_1_kc_kv','MGWRSAR_1_kc_0')) stop('You must provide W for models with spatial dependence')
-    if(!is.null(fixed_vars) & Model %in% c('GWR','SAR','MGWRSAR_1_0_kv','MGWRSAR_0_0_kv')) {
-    	fixed_vars=NULL
-    	if(verbose) cat('\n-----------------------------------------------------\nfixed_vars set to NULL because model= ',Model,'\n-----------------------------------------------------\n')
-    	}
-if(!is.null(W) & Model %in% c('GWR','OLS','MGWR')) {
-    	if(verbose) cat('\n-----------------------------------------------------\nW not used because model= ',Model,'\n-----------------------------------------------------\n')
-    	}
-
-    ####
-	mf <- model.frame(formula,data)
-	mt <- attr(x = mf, which = "terms")
-	X=model.matrix(object = mt, data = mf)
-    Y <- model.extract(mf, "response")
-    idx1 <- match("(Intercept)", colnames(X))
-    if (!is.na(idx1))
-        colnames(X)[idx1] <- "Intercept"
-    if (!is.null(fixed_vars)) {
-        idx.fixed <- match(fixed_vars, colnames(X))
-        XC <- as.matrix(X[, idx.fixed])
-        colnames(XC) <- colnames(X)[idx.fixed]
-        if (length(idx.fixed) < ncol(X)) {
-            XV <- as.matrix(X[, -idx.fixed])
-            colnames(XV) <- colnames(X)[-idx.fixed]
-        }
-        else XV = NULL
-    }
-    else {
-        XV = as.matrix(X)
-        XC = NULL
-    }
-    Y <- as.matrix(Y)
-    model <- c()
-    coord = as.matrix(coord)
-    ## W vide pour MGWR
-    if(is.null(W)) W<-as(Matrix(0,nrow=n,ncol=n),'dgCMatrix')
-    #### nom variables
-    names_betac= colnames(XC)
-    names_betav= colnames(XV)
-    if(Model %in% c('OLS')) names_betac=colnames(X)
-    if(Model %in% c('SAR')) names_betac=c(colnames(X),'lambda')
-    if(Model %in% c('MGWRSAR_0_kc_kv','MGWRSAR_0_0_kv')) names_betac=c(names_betac,'lambda')
-    if(Model %in% c('MGWRSAR_1_0_kv','MGWRSAR_1_kc_kv')) names_betav=c(names_betav,'lambda')
-    if(Model=='MGWRSAR_1_kc_0') {names_betav=c('lambda');names_betac=colnames(X);}
-
-    ## C variables
-    MykernelS=kernels
-	HH=H
-	Y=as.matrix(Y)
-	X=as.matrix(X)
-	if(!is.null(XC)) XC=as.matrix(XC)
-	if(!is.null(XV)) XV=as.matrix(XV)
-
-	##if(Model %in% c('MGWRSAR_1_0_kv','MGWRSAR_0_0_kv')) XC=rep(1,n)
-    ###
+MGWRSAR <- function(formula, data, coord, fixed_vars = NULL, kernels, H,Model = "GWR", control = list()){
+  set.seed(123)
+  if(sum(duplicated(coord))>0) {
+    coord<-jitter(coord,0.01)
+    warning('coords have been jittered because there is some duplicated location.')
+  }
+    ptm<-proc.time()
+    mycall <- match.call()
+    n <-nrow(data)
+    assign_control(control,n)
+    gwrenv=environment()
+    prep_var(gwrenv)
     if (Model == "OLS") {
-        mymodel<-fastlmLLT_C(as.matrix(X),as.matrix(Y),SE)
-        model$Betac <- mymodel$Betav
-        if(SE)  model$se= mymodel$se
-        model$edf=n-ncol(X)
-        model$XC=X
-        model$XV=NULL
-    } else if (Model == "SAR") {
-        if (Method %in% c("B2SLS", "2SLS")) {
-        keep=which(!is.na(coefficients(lm.fit(X,Y))))
-        mymodel<- mod(as.matrix(Y),as.matrix(X[,keep]),W,as.matrix(X),as.matrix(Y),rep(1,n),'L0',(Method =="B2SLS"), FALSE,SE)
-        Betac = mymodel$Betav
-        if(SE) se= mymodel$se else se=NULL
-        model$Betac<-rep(0,ncol(X)+1)
-        model$Betac[c(keep,ncol(X)+1)]<-Betac
-        if(SE) {
-            model$se<-rep(0,ncol(X)+1)
-            model$se[c(keep,ncol(X)+1)]<-se
-          }
-        }
-        model$edf=n-ncol(X)-1
-        model$XC=as.matrix(cbind(X,as.matrix(W%*%Y)))
-        model$XV=NULL
-        model$Y=Y
-    } else if (Model == "GWR"){
-     model=GWR(Y,XV,X,Y,S=SS,H=H,kernels=MykernelS,type = Type, minv = minv, maxknn = maxknn, NmaxDist = NmaxDist, SE=SE,isgcv=isgcv, TIME=TIME, decay=decay,W=NULL,betacor=Lambdacor,remove_local_outlier=remove_local_outlier,outv=outv,doMC=doMC,ncore=ncore,Wh=Wh,xratiomin=xratiomin)
-     model$Betac=NULL
-     model$XV=XV
-     model$XC=NULL
-    } else if (Model == "MGWRSAR_1_0_kv"){
-    model=GWR(Y,XV,X,Y,S=SS,H=H,kernels=MykernelS,type = Type, minv = minv, maxknn = maxknn, NmaxDist = NmaxDist, SE=SE, isgcv=isgcv, TIME=TIME, decay=decay,W=W,betacor=Lambdacor,remove_local_outlier=remove_local_outlier,outv=outv,doMC=doMC,ncore=ncore,Wh=Wh,xratiomin=xratiomin)
-     model$Betac=NULL
-     model$XV=cbind(XV,as.numeric(W%*%Y))
-     model$XC=NULL
-     model$edf=model$edf-1
-     } else {
-    model <- MGWR(Y,XC,XV,S=SS,H=H,kernels=MykernelS,type = Type,model=Model, minv = minv, maxknn = maxknn, NmaxDist = NmaxDist, SE=SE, isgcv=isgcv, TIME=TIME, decay=decay,W=W,betacor=Lambdacor,remove_local_outlier=remove_local_outlier,outv=outv,doMC=doMC,ncore=ncore,Wh=Wh,xratiomin=10e-10)
-    model$Y=Y
+      model<-list()
+      lml <- lm.fit(as.matrix(X), as.matrix(Y))
+      model$Betac <- lml$coefficients
+      if (SE) {
+        rss <- sum(lml$residuals^2)
+        rdf <- length(Y) - ncol(X)
+        resvar <- rss/rdf
+        R <- chol2inv(lml$qr$qr)
+        diagR=diag(R)
+        model$se =  sqrt(diagR * resvar)
+      }
+      model$edf = rdf
+      model$XC = X
+      model$XV = NULL
     }
-
-
-    ####### Fin estim
+    else if (Model == "SAR") {
+      model<-list()
+      if (Method %in% c("B2SLS", "2SLS")) {
+        keep = which(!is.na(coefficients(lm.fit(X, Y))))
+        mymodel <- mod(as.matrix(Y), as.matrix(X[, keep]),
+                       W, as.matrix(X), as.matrix(Y), rep(1, n), "L0",
+                       (Method == "B2SLS"), FALSE, SE)
+        Betac = mymodel$Betav
+        if (SE)
+          se = mymodel$se
+        else se = NULL
+        model$Betac[c(keep, ncol(X) + 1)] <- Betac
+        if (SE) {
+          model$se <- rep(0, ncol(X) + 1)
+          model$se[c(keep, ncol(X) + 1)] <- se
+        }
+      }
+      model$edf = n - ncol(X) - 1
+      model$XC = as.matrix(cbind(X, as.matrix(W %*% Y)))
+      model$XV = NULL
+      model$Betav = NULL
+      model$Y = Y
+    }
+    else if (Model %in%  c("GWR","MGWRSAR_1_0_kv","GWR_multiscale") ){
+      if(Model=="MGWRSAR_1_0_kv") Wx=W else Wx=NULL
+      model = GWR( Y=Y,XV=XV,ALL_X=X,S=S,H=H,NN=NN,W=Wx, kernels=MykernelS,adaptive=adaptive, Type = Type,SE=SE, isgcv=isgcv,remove_local_outlier=remove_local_outlier,outv=outv,TP=TP,doMC=doMC,ncore=ncore,dists=dists,indexG=indexG,Wd=Wd,Model=Model,S_out=S_out)
+      model$Betac = NULL
+      model$XC = NULL
+      if(Model=="MGWRSAR_1_0_kv") {
+        if(is.null(new_data)) model$XV = cbind(XV, as.numeric(W %*% Y)) else model$XV = new_XV
+        model$edf = model$edf - 1
+      } else model$XV = XV
+    } else {
+      if(Model=="MGWR") Wx=NULL else Wx=W
+      model<- MGWR(Y=Y,XC=XC,XV=XV,S=S,H=H,NN=NN, kernels=kernels,adaptive=adaptive, Type = Type,SE=SE, isgcv=isgcv,W=W,remove_local_outlier=remove_local_outlier,outv=outv,TP=TP,Model=Model,dists=dists,indexG=indexG,Wd=Wd,S_out=S_out)
+      model$Y = Y
+      model$XC=XC
+      if(Model =="MGWRSAR_1_kc_kv") {
+        if(is.null(new_data)) model$XV = cbind(XV, as.numeric(W %*% Y)) else {
+          model$XV = new_XV
+          model$XC = new_XC
+        }
+        model$edf = model$edf - 1
+      } else if (Model =="MGWRSAR_1_kc_0") {
+        if(is.null(new_data)) model$XV = as.numeric(W %*% Y) else {
+          model$XV = NULL
+          model$XC = new_XC
+        }
+      } else model$XV = XV
+      if(Model=="MGWRSAR_0_kc_kv") {
+        if(is.null(new_data)) model$XC = cbind(XC, as.numeric(W %*% Y)) else {
+          model$XV = new_XV
+          model$XC = new_XC
+        }
+        model$edf = model$edf - 1
+      } else if(Model=="MGWRSAR_0_0_kv") {
+        if(is.null(new_data)) model$XC = as.numeric(W %*% Y) else {
+          model$XV = new_XV
+          model$XC = NULL
+        }
+      }
+    }
     term1 = 0
     term2 = 0
-    if (!is.null(model$Betav))
-        term1 <- rowSums(model$XV * model$Betav)
-    if (!is.null(model$Betac))
-        term2 <- model$XC %*% as.matrix(model$Betac)
-    residuals <- Y - term1 - term2
-    fit=Y-residuals
-    try(colnames(model$Betav)<-names_betav,silent =TRUE)
-    try(colnames(model$SEV)<-names_betav,silent =TRUE)
-    try(names(model$Betac)<-names_betac,silent =TRUE)
-    try(names(model$se)<-names_betac,silent =TRUE)
-    z <- list(Betav = model$Betav, Betac = model$Betac, sev=model$SEV, se=model$se, Model = Model,
-        Y = Y, XC = model$XC, XV =  model$XV,X=X, W = W, isgcv = isgcv,edf=model$edf,tS=model$tS,formula=formula,data=data,Method=Method,coord=coord,H=H,fixed_vars=fixed_vars,kernels=kernels,fit=fit,residuals=residuals,SSR=sum(residuals^2),type = Type,S=SS,mycall=mycall)
-    class(z)<-'mgwrsar'
-    #rm(envavirer,envir=.GlobalEnv)
+    if (!is.null(model$Betav) & is.null(new_data)) term1 <- rowSums(model$XV * model$Betav)
+    if (!is.null(model$Betac) & is.null(new_data)) term2 <- model$XC %*% as.matrix(model$Betac)
+    if(is.null(new_data)) {residuals <- Y - term1 - term2
+    fit = as.numeric(term1 + term2)
+    }
+
+    if (!is.null(new_data)){
+      if(!(Model %in% c('GWR','MGWR'))){
+      if(Model %in% c('MGWRSAR_1_0_kv','MGWRSAR_1_kc_kv'))  {
+        lambda_pred=model$Betav[,ncol(model$Betav)]
+        if(Model =='MGWRSAR_1_0_kv') beta_pred=model$Betav[,-ncol(model$Betav)] else beta_pred=cbind(matrix(model$Betac,nrow=nrow(model$Betav),ncol=length(model$Betac),byrow=TRUE),model$Betav[,-ncol(model$Betav)])
+        } else if(Model %in% c('MGWRSAR_0_0_kv','MGWRSAR_0_kc_kv')) {
+          lambda_pred=model$Betac[length(model$Betac)]
+          if(Model =='MGWRSAR_0_0_kv')  beta_pred=model$Betav else if(Model=='MGWRSAR_0_kc_kv') beta_pred=cbind(matrix(model$Betac[-length(model$Betac)],nrow=nrow(model$Betav),ncol=length(model$Betac)-1,byrow=TRUE),model$Betav)
+        } else if(Model =='MGWRSAR_1_kc_0') {
+          lambda_pred=model$Betav[,ncol(model$Betav)]
+          beta_pred=matrix(model$Betac,nrow=nrow(model$Betav),ncol=length(model$Betac),byrow=TRUE)
+        } else if(Model =='SAR') {
+          lambda_pred=model$Betac[length(model$Betac)]
+          beta_pred=model$Betac[-length(model$Betac)]
+        }
+        pred=list(lambda_pred=lambda_pred,beta_pred=beta_pred)
+        } else  {
+        term1 <- rowSums(new_XV * model$Betav)
+        if(Model=='MGWR') term2 <- new_XC %*% as.matrix(model$Betac)
+        pred = as.numeric(term1 + term2)
+      }
+    }
+
+    try(colnames(model$Betav) <- names_betav, silent = TRUE)
+    try(colnames(model$SEV) <- names_betav, silent = TRUE)
+    try(names(model$Betac) <- names_betac, silent = TRUE)
+    try(names(model$se) <- names_betac, silent = TRUE)
+    if(!is.null(new_data)) {z <- list(Betav = model$Betav, Betac = model$Betac,pred = pred,XC = model$XC, XV = model$XV)} else {
+      z <- list(Betav = model$Betav, Betac = model$Betac, sev = model$SEV,se = model$se, Model = Model, Y = Y, XC = model$XC, XV = model$XV,X = X, W = W, isgcv = isgcv, edf = model$edf, tS = model$tS,formula = formula, data = data, Method = Method, coord = coord,H = H, fixed_vars = fixed_vars, kernels = kernels,adaptive=adaptive, fit = fit,pred=pred,residuals = residuals, RMSE=sqrt(mean((residuals[TP])^2)),RMSEn=sqrt(mean((residuals)^2)),SSR = sum(residuals^2), Type = Type,S = S,NN=NN,TP=TP, doMC=doMC,ncore=ncore,mycall = mycall,ctime=(proc.time()-ptm)[3])
+    class(z) <- "mgwrsar"}
     invisible(z)
-}
+  }

@@ -8,7 +8,7 @@
 #' @param DGP  to be documented
 #' @param Model  to be documented
 #' @param verbose  to be documented
-#' @keywords internal
+#' @noRd
 #' @return to be documented
 me_gwrsar <-
 function(model, data, W_hat = NULL, Wtrue = NULL, DGP, Model, verbose = TRUE) {

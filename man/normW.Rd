@@ -2,7 +2,8 @@
 % Please edit documentation in R/normW.R
 \name{normW}
 \alias{normW}
-\title{row normalization of dgCMatrix}
+\title{normW
+row normalization of dgCMatrix}
 \usage{
 normW(W)
 }
@@ -13,6 +14,6 @@ normW(W)
 A row normalized dgCMatrix
 }
 \description{
+normW
 row normalization of dgCMatrix
 }
-\keyword{internal}

@@ -1,12 +1,11 @@
+#' normW
 #' row normalization of dgCMatrix
 #' @usage normW(W)
 #' @param W  A dgCMatrix class matrix
 #' @return A row normalized dgCMatrix
-#' @keywords internal
-normW <-
-function (W)
+normW <-function (W)
 {
-    if (class(W) == "matrix")
+    if (is(W, "matrix"))
         W <- Matrix(W)
     W <- drop0(W)
     ret <- summary_Matrix(as(W, "dgCMatrix"))

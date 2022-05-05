@@ -3,7 +3,7 @@
 #' @param model_A  A mgwrsar model H0
 #' @param model_B  A mgwrsar model H1
 #' @param pv  If TRUE p-value are estmimated using Sidak correction, default FALSE
-#' @keywords internal
+#' @noRd
 #' @return to be documented
 Tf <-
 function(model_A,model_B,pv=FALSE){

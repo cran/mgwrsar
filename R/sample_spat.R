@@ -4,7 +4,7 @@
 #' @param D  A square matrix of distance.
 #' @param h  A distance bandwidth.
 #' @param focal  If focal is NULL, the ith residuals can not be selected for the ith observation, if focal=='median' it could be selected with a probability equals to the median probability of neighbors.
-#' @keywords internal
+#' @noRd
 #' @return a vector of bootstrapped index
 sample_spat <-
 function(D,h,focal='median'){
