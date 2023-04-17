@@ -48,12 +48,12 @@ fb <-
       if(e_search$verbose) cat('\n########\nSearch bandwidth stage\n########\n')
       control$isgcv=TRUE
       #stage1
-      if(control$adaptive) uppermin=0.1*control$NN else uppermin=upper
+      if(control$adaptive) uppermin=0.1*control$NN else  uppermin=upper
  opt=golden_search_bandwidth(Hp,kernel_w=NULL,search_adaptive=e_search$search_adaptive,formula=formula, data=data, coord=coord, fixed_vars=fixed_vars, kernels=kernels, Model=Model, control=control,lower.bound=lower, upper.bound=uppermin,tolerance=tolerance)
- if(opt$minimum>uppermin*0.9 & control$adaptive){
+ if(opt$minimum>uppermin*0.95 & control$adaptive){
    if(e_search$verbose) cat('\n ...try larger suppport\n')
    opt=golden_search_bandwidth(Hp,kernel_w=NULL,search_adaptive=e_search$search_adaptive,formula=formula, data=data, coord=coord, fixed_vars=fixed_vars, kernels=kernels, Model=Model, control=control,lower.bound=lower, upper.bound=upper,tolerance=tolerance)
-   if(opt$minimum>uppermin*0.9 & control$adaptive) cat('\n Border solution !!! Try to increase NN')
+   if(opt$minimum>uppermin*0.95 & control$adaptive) cat('\n Border solution !!! Try to increase NN')
  }
  if(e_search$verbose) cat('kernel =',kernels,ifelse(control$adaptive,'adaptive',''),' objective = ',opt$objective,' minimum = ',opt$minimum,'\n')
       config_model<-list(Model=Model,kernels=kernels[1],adaptive=control$adaptive,H=opt$minimum,kernel_w=e_search$kernel_w,h_w=e_search$h_w)

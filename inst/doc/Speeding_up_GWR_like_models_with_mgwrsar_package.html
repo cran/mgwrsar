@@ -12,7 +12,7 @@
 
 <meta name="author" content="Ghislain Geniaux" />
 
-<meta name="date" content="2022-05-05" />
+<meta name="date" content="2023-04-14" />
 
 <title>Speeding up GWR like models with mgwrsar package</title>
 
@@ -31,23 +31,23 @@ document.addEventListener('DOMContentLoaded', function(e) {
 </script>
 
 <style type="text/css">
-  code{white-space: pre-wrap;}
-  span.smallcaps{font-variant: small-caps;}
-  span.underline{text-decoration: underline;}
-  div.column{display: inline-block; vertical-align: top; width: 50%;}
-  div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
-  ul.task-list{list-style: none;}
-    </style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
 
 
 
 <style type="text/css">
-  code {
-    white-space: pre;
-  }
-  .sourceCode {
-    overflow: visible;
-  }
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
 </style>
 <style type="text/css" data-origin="pandoc">
 pre > code.sourceCode { white-space: pre; position: relative; }
@@ -65,55 +65,54 @@ pre > code.sourceCode { white-space: pre-wrap; }
 pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
 }
 pre.numberSource code
-  { counter-reset: source-line 0; }
+{ counter-reset: source-line 0; }
 pre.numberSource code > span
-  { position: relative; left: -4em; counter-increment: source-line; }
+{ position: relative; left: -4em; counter-increment: source-line; }
 pre.numberSource code > span > a:first-child::before
-  { content: counter(source-line);
-    position: relative; left: -1em; text-align: right; vertical-align: baseline;
-    border: none; display: inline-block;
-    -webkit-touch-callout: none; -webkit-user-select: none;
-    -khtml-user-select: none; -moz-user-select: none;
-    -ms-user-select: none; user-select: none;
-    padding: 0 4px; width: 4em;
-    color: #aaaaaa;
-  }
-pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
 div.sourceCode
-  {   }
+{ }
 @media screen {
 pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
 }
-code span.al { color: #ff0000; font-weight: bold; } /* Alert */
-code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
-code span.at { color: #7d9029; } /* Attribute */
-code span.bn { color: #40a070; } /* BaseN */
-code span.bu { } /* BuiltIn */
-code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
-code span.ch { color: #4070a0; } /* Char */
-code span.cn { color: #880000; } /* Constant */
-code span.co { color: #60a0b0; font-style: italic; } /* Comment */
-code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
-code span.do { color: #ba2121; font-style: italic; } /* Documentation */
-code span.dt { color: #902000; } /* DataType */
-code span.dv { color: #40a070; } /* DecVal */
-code span.er { color: #ff0000; font-weight: bold; } /* Error */
-code span.ex { } /* Extension */
-code span.fl { color: #40a070; } /* Float */
-code span.fu { color: #06287e; } /* Function */
-code span.im { } /* Import */
-code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
-code span.kw { color: #007020; font-weight: bold; } /* Keyword */
-code span.op { color: #666666; } /* Operator */
-code span.ot { color: #007020; } /* Other */
-code span.pp { color: #bc7a00; } /* Preprocessor */
-code span.sc { color: #4070a0; } /* SpecialChar */
-code span.ss { color: #bb6688; } /* SpecialString */
-code span.st { color: #4070a0; } /* String */
-code span.va { color: #19177c; } /* Variable */
-code span.vs { color: #4070a0; } /* VerbatimString */
-code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
-
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
 </style>
 <script>
 // apply pandoc div.sourceCode style to pre.sourceCode instead
@@ -335,7 +334,7 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 <h1 class="title toc-ignore">Speeding up GWR like models with mgwrsar
 package</h1>
 <h4 class="author">Ghislain Geniaux</h4>
-<h4 class="date">2022-05-05</h4>
+<h4 class="date">2023-04-14</h4>
 
 
 
@@ -466,14 +465,14 @@ neighborhood of the Gaussian kernel.</p>
 <span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>model_GWR<span class="ot">&lt;-</span><span class="fu">MGWRSAR</span>(<span class="at">formula =</span> <span class="st">&#39;Y_gwr~X1+X2+X3&#39;</span>, <span class="at">data =</span> mydata,<span class="at">coord=</span>coord, <span class="at">fixed_vars=</span><span class="cn">NULL</span>,<span class="at">kernels=</span><span class="fu">c</span>(<span class="st">&#39;gauss&#39;</span>),<span class="at">H=</span><span class="fl">0.03</span>, <span class="at">Model =</span> <span class="st">&#39;GWR&#39;</span>,<span class="at">control=</span><span class="fu">list</span>(<span class="at">SE=</span><span class="cn">TRUE</span>))</span>
 <span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>(<span class="fu">proc.time</span>()<span class="sc">-</span>ptm1)[<span class="dv">3</span>]</span>
 <span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; elapsed </span></span>
-<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   0.669</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   0.846</span></span>
 <span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="do">## with rough gaussian kernel</span></span>
 <span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>ptm1<span class="ot">&lt;-</span><span class="fu">proc.time</span>()</span>
 <span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>model_GWR_grk<span class="ot">&lt;-</span><span class="fu">MGWRSAR</span>(<span class="at">formula =</span> <span class="st">&#39;Y_gwr~X1+X2+X3&#39;</span>, <span class="at">data =</span> mydata,<span class="at">coord=</span>coord, <span class="at">fixed_vars=</span><span class="cn">NULL</span>,<span class="at">kernels=</span><span class="fu">c</span>(<span class="st">&#39;gauss&#39;</span>),<span class="at">H=</span><span class="fl">0.03</span>, <span class="at">Model =</span> <span class="st">&#39;GWR&#39;</span>,<span class="at">control=</span><span class="fu">list</span>(<span class="at">SE=</span><span class="cn">TRUE</span>,<span class="at">NN=</span><span class="dv">300</span>))</span>
 <span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>(<span class="fu">proc.time</span>()<span class="sc">-</span>ptm1)[<span class="dv">3</span>]</span>
 <span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; elapsed </span></span>
-<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   0.229</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   0.305</span></span>
 <span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(model_GWR<span class="sc">$</span>Betav)</span>
 <span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;    Intercept             X1                X2                X3          </span></span>
@@ -560,13 +559,13 @@ with rough gaussian kernel (see Geniaux 2022, in prep).</p>
 <span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>model_GWR_tp<span class="ot">&lt;-</span><span class="fu">MGWRSAR</span>(<span class="at">formula =</span> <span class="st">&#39;Y_gwr~X1+X2+X3&#39;</span>, <span class="at">data =</span> mydata,<span class="at">coord=</span>coord, <span class="at">fixed_vars=</span><span class="cn">NULL</span>,<span class="at">kernels=</span><span class="fu">c</span>(<span class="st">&#39;gauss&#39;</span>),<span class="at">H=</span><span class="fl">0.03</span>, <span class="at">Model =</span> <span class="st">&#39;GWR&#39;</span>,<span class="at">control=</span><span class="fu">list</span>(<span class="at">SE=</span><span class="cn">TRUE</span>,<span class="at">TP=</span>TP,<span class="at">kWtp=</span><span class="dv">12</span>))</span>
 <span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>(<span class="fu">proc.time</span>()<span class="sc">-</span>ptm1)[<span class="dv">3</span>]</span>
 <span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; elapsed </span></span>
-<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   0.078</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   0.229</span></span>
 <span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>ptm1<span class="ot">&lt;-</span><span class="fu">proc.time</span>()</span>
 <span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>model_GWR_tp_NN<span class="ot">&lt;-</span><span class="fu">MGWRSAR</span>(<span class="at">formula =</span> <span class="st">&#39;Y_gwr~X1+X2+X3&#39;</span>, <span class="at">data =</span> mydata,<span class="at">coord=</span>coord, <span class="at">fixed_vars=</span><span class="cn">NULL</span>,<span class="at">kernels=</span><span class="fu">c</span>(<span class="st">&#39;gauss&#39;</span>),<span class="at">H=</span><span class="fl">0.03</span>, <span class="at">Model =</span> <span class="st">&#39;GWR&#39;</span>,<span class="at">control=</span><span class="fu">list</span>(<span class="at">SE=</span><span class="cn">TRUE</span>,<span class="at">TP=</span>TP,<span class="at">kWtp=</span><span class="dv">12</span>,<span class="at">NN=</span><span class="dv">300</span>))</span>
 <span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>(<span class="fu">proc.time</span>()<span class="sc">-</span>ptm1)[<span class="dv">3</span>]</span>
 <span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; elapsed </span></span>
-<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   0.041</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   0.185</span></span>
 <span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(model_GWR<span class="sc">$</span>Betav)</span>
 <span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;    Intercept             X1                X2                X3          </span></span>
@@ -626,109 +625,50 @@ model.</p>
 <span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>TP<span class="ot">=</span><span class="fu">find_TP</span>(<span class="at">formula =</span> <span class="st">&#39;Y_gwr~X1+X2+X3&#39;</span>, <span class="at">data =</span>data_in,<span class="at">coord=</span>coord_in,<span class="at">K=</span><span class="dv">6</span>,<span class="at">type=</span><span class="st">&#39;residuals&#39;</span>)</span>
 <span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a><span class="co"># only 60 targets points are used</span></span>
 <span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a><span class="fu">length</span>(TP)</span>
-<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] 69</span></span>
-<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>model_GWR_insample<span class="ot">&lt;-</span><span class="fu">MGWRSAR</span>(<span class="at">formula =</span> <span class="st">&#39;Y_gwr~X1+X2+X3&#39;</span>, <span class="at">data =</span> mydata[index_in,],<span class="at">coord=</span>coord[index_in,], <span class="at">fixed_vars=</span><span class="cn">NULL</span>,<span class="at">kernels=</span><span class="fu">c</span>(<span class="st">&#39;gauss&#39;</span>),<span class="at">H=</span><span class="dv">10</span>, <span class="at">Model =</span> <span class="st">&#39;GWR&#39;</span>,<span class="at">control=</span><span class="fu">list</span>(<span class="at">adaptive=</span>T,<span class="at">TP=</span>TP))</span>
-<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a><span class="fu">summary_mgwrsar</span>(model_GWR_insample)</span>
-<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Call:</span></span>
-<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; MGWRSAR(formula = &quot;Y_gwr~X1+X2+X3&quot;, data = mydata[index_in, ], </span></span>
-<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;     coord = coord[index_in, ], fixed_vars = NULL, kernels = c(&quot;gauss&quot;), </span></span>
-<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;     H = 10, Model = &quot;GWR&quot;, control = list(adaptive = T, TP = TP))</span></span>
-<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Model: GWR </span></span>
-<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Kernels function: gauss </span></span>
-<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Kernels adaptive: YES </span></span>
-<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Kernels type: GD </span></span>
-<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Bandwidth: 10 </span></span>
-<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Computation time: 0.037 </span></span>
-<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Use of parallel computing: FALSE  ncore = 1 </span></span>
-<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Use of rough kernel: NO </span></span>
-<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Use of Target Points: YES </span></span>
-<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Number of Target Points  69 </span></span>
-<span id="cb4-30"><a href="#cb4-30" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Number of data points: 800 </span></span>
-<span id="cb4-31"><a href="#cb4-31" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Varying parameters: Intercept X1 X2 X3 </span></span>
-<span id="cb4-32"><a href="#cb4-32" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;         Intercept        X1        X2      X3</span></span>
-<span id="cb4-33"><a href="#cb4-33" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Min.    -3.039525  0.074407 -0.404787 -1.8653</span></span>
-<span id="cb4-34"><a href="#cb4-34" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1st Qu. -1.568147  0.425855  1.368866 -1.3129</span></span>
-<span id="cb4-35"><a href="#cb4-35" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Median  -0.977388  0.547716  1.844181 -1.0074</span></span>
-<span id="cb4-36"><a href="#cb4-36" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Mean    -0.920696  0.512681  1.821176 -1.0158</span></span>
-<span id="cb4-37"><a href="#cb4-37" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 3rd Qu. -0.552271  0.626732  2.563611 -0.7660</span></span>
-<span id="cb4-38"><a href="#cb4-38" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Max.     1.399095  0.872359  3.416689 -0.1993</span></span>
-<span id="cb4-39"><a href="#cb4-39" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Residual sum of squares: 27.05954 </span></span>
-<span id="cb4-40"><a href="#cb4-40" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; RMSE: 0.1041016</span></span>
-<span id="cb4-41"><a href="#cb4-41" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-42"><a href="#cb4-42" aria-hidden="true" tabindex="-1"></a>newdata<span class="ot">=</span>mydata[index_out,]</span>
-<span id="cb4-43"><a href="#cb4-43" aria-hidden="true" tabindex="-1"></a>newdata_coord<span class="ot">=</span>coord[index_out,]</span>
-<span id="cb4-44"><a href="#cb4-44" aria-hidden="true" tabindex="-1"></a>newdata<span class="sc">$</span>Y_mgwrsar_1_0_kv<span class="ot">=</span><span class="dv">0</span></span>
-<span id="cb4-45"><a href="#cb4-45" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-46"><a href="#cb4-46" aria-hidden="true" tabindex="-1"></a>Y_pred<span class="ot">=</span><span class="fu">predict_mgwrsar</span>(model_GWR_insample, <span class="at">newdata=</span>newdata, <span class="at">newdata_coord=</span>newdata_coord,<span class="at">method_pred=</span><span class="st">&#39;tWtp_model&#39;</span>)</span>
-<span id="cb4-47"><a href="#cb4-47" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(Y_pred)</span>
-<span id="cb4-48"><a href="#cb4-48" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] 0.4078872 2.4668706 4.5256166 1.8598320 3.9917063 3.3453970</span></span>
-<span id="cb4-49"><a href="#cb4-49" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(mydata<span class="sc">$</span>Y_gwr[index_out])</span>
-<span id="cb4-50"><a href="#cb4-50" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] 0.3224649 2.0656554 4.5648040 1.9159209 3.8348415 2.9941564</span></span>
-<span id="cb4-51"><a href="#cb4-51" aria-hidden="true" tabindex="-1"></a><span class="fu">sqrt</span>(<span class="fu">mean</span>((mydata<span class="sc">$</span>Y_gwr[index_out]<span class="sc">-</span>Y_pred)<span class="sc">^</span><span class="dv">2</span>)) <span class="co"># RMSE</span></span>
-<span id="cb4-52"><a href="#cb4-52" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] 0.1883523</span></span></code></pre></div>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>model_GWR_insample<span class="ot">&lt;-</span><span class="fu">MGWRSAR</span>(<span class="at">formula =</span> <span class="st">&#39;Y_gwr~X1+X2+X3&#39;</span>, <span class="at">data =</span> mydata[index_in,],<span class="at">coord=</span>coord[index_in,], <span class="at">fixed_vars=</span><span class="cn">NULL</span>,<span class="at">kernels=</span><span class="fu">c</span>(<span class="st">&#39;gauss&#39;</span>),<span class="at">H=</span><span class="dv">10</span>, <span class="at">Model =</span> <span class="st">&#39;GWR&#39;</span>,<span class="at">control=</span><span class="fu">list</span>(<span class="at">adaptive=</span>T,<span class="at">TP=</span>TP))</span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a><span class="fu">summary_mgwrsar</span>(model_GWR_insample)</span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>newdata<span class="ot">=</span>mydata[index_out,]</span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>newdata_coord<span class="ot">=</span>coord[index_out,]</span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>newdata<span class="sc">$</span>Y_gwr<span class="ot">=</span><span class="dv">0</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>Y_pred<span class="ot">=</span><span class="fu">predict_mgwrsar</span>(model_GWR_insample, <span class="at">newdata=</span>newdata, <span class="at">newdata_coord=</span>newdata_coord,<span class="at">method_pred=</span><span class="st">&#39;tWtp_model&#39;</span>)</span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(Y_pred)</span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(mydata<span class="sc">$</span>Y_gwr[index_out])</span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a><span class="fu">sqrt</span>(<span class="fu">mean</span>((mydata<span class="sc">$</span>Y_gwr[index_out]<span class="sc">-</span>Y_pred)<span class="sc">^</span><span class="dv">2</span>)) <span class="co"># RMSE</span></span></code></pre></div>
 <p>Prediction of <em>MGWRSAR_1_0_kv</em> model using sheppard kernel
 with 4 neighbors and Best Linear Unbiased Predictor (BLUP) :</p>
 <div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>length_out<span class="ot">=</span><span class="dv">200</span></span>
-<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>index_in<span class="ot">=</span><span class="fu">sample</span>(<span class="dv">1</span><span class="sc">:</span><span class="dv">1000</span>,length_out)</span>
-<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>index_out<span class="ot">=</span>(<span class="dv">1</span><span class="sc">:</span><span class="dv">1000</span>)[<span class="sc">-</span>index_in]</span>
-<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="do">### Global Spatial Weight matrix W should be ordered by in_ sample (S) then out_sample</span></span>
-<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>W<span class="ot">=</span><span class="fu">kernel_matW</span>(<span class="at">H=</span><span class="dv">4</span>,<span class="at">kernels=</span><span class="st">&#39;rectangle&#39;</span>,<span class="at">coord_i=</span><span class="fu">rbind</span>(coord[index_in,],coord[index_out,]),<span class="at">NN=</span><span class="dv">4</span>,<span class="at">adaptive=</span><span class="cn">TRUE</span>,<span class="at">diagnull=</span><span class="cn">TRUE</span>,<span class="at">rowNorm=</span>T)</span>
-<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>W_in<span class="ot">=</span><span class="fu">kernel_matW</span>(<span class="at">H=</span><span class="dv">4</span>,<span class="at">kernels=</span><span class="st">&#39;rectangle&#39;</span>,<span class="at">coord_i=</span>coord[index_in,],<span class="at">NN=</span><span class="dv">4</span>,<span class="at">adaptive=</span><span class="cn">TRUE</span>,<span class="at">diagnull=</span><span class="cn">TRUE</span>,<span class="at">rowNorm=</span>T)</span>
-<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>model_MGWRSAR_1_0_kv_insample<span class="ot">&lt;-</span><span class="fu">MGWRSAR</span>(<span class="at">formula =</span> <span class="st">&#39;Y_mgwrsar_1_0_kv~X1+X2+X3&#39;</span>, <span class="at">data =</span> mydata[index_in,],<span class="at">coord=</span>coord[index_in,], <span class="at">fixed_vars=</span><span class="cn">NULL</span>,<span class="at">kernels=</span><span class="fu">c</span>(<span class="st">&#39;gauss&#39;</span>),<span class="at">H=</span><span class="dv">11</span>, <span class="at">Model =</span> <span class="st">&#39;MGWRSAR_1_0_kv&#39;</span>,<span class="at">control=</span><span class="fu">list</span>(<span class="at">W=</span>W_in,<span class="at">adaptive=</span><span class="cn">TRUE</span>,<span class="at">isgcv=</span>F))</span>
-<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>model_MGWRSAR_1_0_kv_insample<span class="sc">$</span>RMSE</span>
-<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] 0.796133</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>length_out<span class="ot">=</span><span class="dv">800</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>index_in<span class="ot">=</span><span class="fu">sample</span>(<span class="dv">1</span><span class="sc">:</span><span class="dv">1000</span>,length_out)</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>index_out<span class="ot">=</span>(<span class="dv">1</span><span class="sc">:</span><span class="dv">1000</span>)[<span class="sc">-</span>index_in]</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="do">### Global Spatial Weight matrix W should be ordered by in_ sample (S) then out_sample</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>W<span class="ot">=</span><span class="fu">kernel_matW</span>(<span class="at">H=</span><span class="dv">4</span>,<span class="at">kernels=</span><span class="st">&#39;rectangle&#39;</span>,<span class="at">coord_i=</span><span class="fu">rbind</span>(coord[index_in,],coord[index_out,]),<span class="at">NN=</span><span class="dv">4</span>,<span class="at">adaptive=</span><span class="cn">TRUE</span>,<span class="at">diagnull=</span><span class="cn">TRUE</span>,<span class="at">rowNorm=</span>T)</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>W_in<span class="ot">=</span><span class="fu">kernel_matW</span>(<span class="at">H=</span><span class="dv">4</span>,<span class="at">kernels=</span><span class="st">&#39;rectangle&#39;</span>,<span class="at">coord_i=</span>coord[index_in,],<span class="at">NN=</span><span class="dv">4</span>,<span class="at">adaptive=</span><span class="cn">TRUE</span>,<span class="at">diagnull=</span><span class="cn">TRUE</span>,<span class="at">rowNorm=</span>T)</span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>model_MGWRSAR_1_0_kv_insample<span class="ot">&lt;-</span><span class="fu">MGWRSAR</span>(<span class="at">formula =</span> <span class="st">&#39;Y_mgwrsar_1_0_kv~X1+X2+X3&#39;</span>, <span class="at">data =</span> mydata[index_in,],<span class="at">coord=</span>coord[index_in,], <span class="at">fixed_vars=</span><span class="cn">NULL</span>,<span class="at">kernels=</span><span class="fu">c</span>(<span class="st">&#39;gauss&#39;</span>),<span class="at">H=</span><span class="dv">11</span>, <span class="at">Model =</span> <span class="st">&#39;MGWRSAR_1_0_kv&#39;</span>,<span class="at">control=</span><span class="fu">list</span>(<span class="at">W=</span>W_in,<span class="at">adaptive=</span><span class="cn">TRUE</span>,<span class="at">isgcv=</span>F))</span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>model_MGWRSAR_1_0_kv_insample<span class="sc">$</span>RMSE</span>
 <span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a><span class="fu">summary_mgwrsar</span>(model_MGWRSAR_1_0_kv_insample)</span>
-<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Call:</span></span>
-<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; MGWRSAR(formula = &quot;Y_mgwrsar_1_0_kv~X1+X2+X3&quot;, data = mydata[index_in, </span></span>
-<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;     ], coord = coord[index_in, ], fixed_vars = NULL, kernels = c(&quot;gauss&quot;), </span></span>
-<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;     H = 11, Model = &quot;MGWRSAR_1_0_kv&quot;, control = list(W = W_in, </span></span>
-<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;         adaptive = TRUE, isgcv = F))</span></span>
-<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Model: MGWRSAR_1_0_kv </span></span>
-<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Method for spatial autocorrelation: 2SLS </span></span>
-<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Kernels function: gauss </span></span>
-<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Kernels adaptive: YES </span></span>
-<span id="cb5-24"><a href="#cb5-24" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Kernels type: GD </span></span>
-<span id="cb5-25"><a href="#cb5-25" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Bandwidth: 11 </span></span>
-<span id="cb5-26"><a href="#cb5-26" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Computation time: 0.041 </span></span>
-<span id="cb5-27"><a href="#cb5-27" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Use of parallel computing: FALSE  ncore = 1 </span></span>
-<span id="cb5-28"><a href="#cb5-28" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Use of rough kernel: NO </span></span>
-<span id="cb5-29"><a href="#cb5-29" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Use of Target Points: NO </span></span>
-<span id="cb5-30"><a href="#cb5-30" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Number of data points: 200 </span></span>
-<span id="cb5-31"><a href="#cb5-31" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Varying parameters: Intercept X1 X2 X3  </span></span>
-<span id="cb5-32"><a href="#cb5-32" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;         Intercept        X1        X2        X3  lambda</span></span>
-<span id="cb5-33"><a href="#cb5-33" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Min.    -4.365309  0.273603 -0.785388 -2.114435 -0.0410</span></span>
-<span id="cb5-34"><a href="#cb5-34" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1st Qu. -2.750992  0.435759  1.761811 -1.353889  0.2042</span></span>
-<span id="cb5-35"><a href="#cb5-35" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Median  -1.595075  0.531581  2.424498 -0.982410  0.4014</span></span>
-<span id="cb5-36"><a href="#cb5-36" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Mean    -1.914832  0.527251  2.865103 -1.022657  0.4291</span></span>
-<span id="cb5-37"><a href="#cb5-37" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 3rd Qu. -1.201738  0.608025  4.272736 -0.684898  0.6113</span></span>
-<span id="cb5-38"><a href="#cb5-38" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Max.    -0.093821  0.849071  7.359437  0.374362  0.9900</span></span>
-<span id="cb5-39"><a href="#cb5-39" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Residual sum of squares: 126.7656 </span></span>
-<span id="cb5-40"><a href="#cb5-40" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; RMSE: 0.796133</span></span>
-<span id="cb5-41"><a href="#cb5-41" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-42"><a href="#cb5-42" aria-hidden="true" tabindex="-1"></a><span class="do">## without Best Linear Unbiased Predictor</span></span>
-<span id="cb5-43"><a href="#cb5-43" aria-hidden="true" tabindex="-1"></a>newdata<span class="ot">=</span>mydata[index_out,]</span>
-<span id="cb5-44"><a href="#cb5-44" aria-hidden="true" tabindex="-1"></a>newdata_coord<span class="ot">=</span>coord[index_out,]</span>
-<span id="cb5-45"><a href="#cb5-45" aria-hidden="true" tabindex="-1"></a>newdata<span class="sc">$</span>Y_mgwrsar_1_0_kv<span class="ot">=</span><span class="dv">0</span></span>
-<span id="cb5-46"><a href="#cb5-46" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-47"><a href="#cb5-47" aria-hidden="true" tabindex="-1"></a>Y_pred<span class="ot">=</span><span class="fu">predict_mgwrsar</span>(model_MGWRSAR_1_0_kv_insample, <span class="at">newdata=</span>newdata, <span class="at">newdata_coord=</span>newdata_coord,<span class="at">W=</span>W,<span class="at">type=</span><span class="st">&#39;YTC&#39;</span>)</span>
-<span id="cb5-48"><a href="#cb5-48" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(Y_pred)</span>
-<span id="cb5-49"><a href="#cb5-49" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] 0.6150668 0.4051862 2.8899365 0.7891516 8.7393416 5.5273649</span></span>
-<span id="cb5-50"><a href="#cb5-50" aria-hidden="true" tabindex="-1"></a>RMSE_YTC<span class="ot">=</span><span class="fu">sqrt</span>(<span class="fu">mean</span>((mydata<span class="sc">$</span>Y_mgwrsar_1_0_kv[index_out]<span class="sc">-</span>Y_pred)<span class="sc">^</span><span class="dv">2</span>))</span>
-<span id="cb5-51"><a href="#cb5-51" aria-hidden="true" tabindex="-1"></a>RMSE_YTC</span>
-<span id="cb5-52"><a href="#cb5-52" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] 10.60408</span></span>
-<span id="cb5-53"><a href="#cb5-53" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-54"><a href="#cb5-54" aria-hidden="true" tabindex="-1"></a><span class="do">## Using Best Linear Unbiased Predictor</span></span>
-<span id="cb5-55"><a href="#cb5-55" aria-hidden="true" tabindex="-1"></a>Y_pred<span class="ot">=</span><span class="fu">predict_mgwrsar</span>(model_MGWRSAR_1_0_kv_insample, <span class="at">newdata=</span>newdata, <span class="at">newdata_coord=</span>newdata_coord,<span class="at">W=</span>W,<span class="at">type=</span><span class="st">&#39;BPN&#39;</span>)</span>
-<span id="cb5-56"><a href="#cb5-56" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(Y_pred)</span>
-<span id="cb5-57"><a href="#cb5-57" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] 0.6150093 0.4010825 3.0789083 0.6874408 7.2926879 5.5662324</span></span>
-<span id="cb5-58"><a href="#cb5-58" aria-hidden="true" tabindex="-1"></a>RMSE_BPN<span class="ot">=</span><span class="fu">sqrt</span>(<span class="fu">mean</span>((mydata<span class="sc">$</span>Y_mgwrsar_1_0_kv[index_out]<span class="sc">-</span>Y_pred)<span class="sc">^</span><span class="dv">2</span>))</span>
-<span id="cb5-59"><a href="#cb5-59" aria-hidden="true" tabindex="-1"></a>RMSE_BPN</span>
-<span id="cb5-60"><a href="#cb5-60" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] 1.805855</span></span></code></pre></div>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a><span class="do">## without Best Linear Unbiased Predictor</span></span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>newdata<span class="ot">=</span>mydata[index_out,]</span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>newdata_coord<span class="ot">=</span>coord[index_out,]</span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>newdata<span class="sc">$</span>Y_mgwrsar_1_0_kv<span class="ot">=</span><span class="dv">0</span></span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a>Y_pred<span class="ot">=</span><span class="fu">predict_mgwrsar</span>(model_MGWRSAR_1_0_kv_insample, <span class="at">newdata=</span>newdata, <span class="at">newdata_coord=</span>newdata_coord,<span class="at">W=</span>W,<span class="at">type=</span><span class="st">&#39;YTC&#39;</span>)</span>
+<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(Y_pred)</span>
+<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a>RMSE_YTC<span class="ot">=</span><span class="fu">sqrt</span>(<span class="fu">mean</span>((mydata<span class="sc">$</span>Y_mgwrsar_1_0_kv[index_out]<span class="sc">-</span>Y_pred)<span class="sc">^</span><span class="dv">2</span>))</span>
+<span id="cb5-24"><a href="#cb5-24" aria-hidden="true" tabindex="-1"></a>RMSE_YTC</span>
+<span id="cb5-25"><a href="#cb5-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-26"><a href="#cb5-26" aria-hidden="true" tabindex="-1"></a><span class="do">## Using Best Linear Unbiased Predictor</span></span>
+<span id="cb5-27"><a href="#cb5-27" aria-hidden="true" tabindex="-1"></a>Y_pred<span class="ot">=</span><span class="fu">predict_mgwrsar</span>(model_MGWRSAR_1_0_kv_insample, <span class="at">newdata=</span>newdata, <span class="at">newdata_coord=</span>newdata_coord,<span class="at">W=</span>W,<span class="at">type=</span><span class="st">&#39;BPN&#39;</span>)</span>
+<span id="cb5-28"><a href="#cb5-28" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(Y_pred)</span>
+<span id="cb5-29"><a href="#cb5-29" aria-hidden="true" tabindex="-1"></a>RMSE_BPN<span class="ot">=</span><span class="fu">sqrt</span>(<span class="fu">mean</span>((mydata<span class="sc">$</span>Y_mgwrsar_1_0_kv[index_out]<span class="sc">-</span>Y_pred)<span class="sc">^</span><span class="dv">2</span>))</span>
+<span id="cb5-30"><a href="#cb5-30" aria-hidden="true" tabindex="-1"></a>RMSE_BPN</span></code></pre></div>
 </div>
 <div id="accelerate-the-search-for-optimal-bandwidth" class="section level2">
 <h2>Accelerate the search for optimal bandwidth</h2>
@@ -752,7 +692,7 @@ cross validation can be performed to compare the GWR method with and
 without target points.</p>
 <div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>ptm1<span class="ot">&lt;-</span><span class="fu">proc.time</span>()</span>
-<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>mytab_TP_NN<span class="ot">&lt;-</span><span class="fu">bandwidths_mgwrsar</span>(<span class="at">formula =</span> <span class="st">&#39;Y_gwr~X1+X2+X3&#39;</span>, <span class="at">data =</span> mydata,<span class="at">coord=</span>coord, <span class="at">fixed_vars=</span><span class="cn">NULL</span>,<span class="at">Models=</span><span class="fu">c</span>(<span class="st">&#39;GWR&#39;</span>),<span class="at">Kernels=</span><span class="fu">c</span>(<span class="st">&#39;gauss&#39;</span>),<span class="at">control=</span><span class="fu">list</span>(<span class="at">TP=</span>TP,<span class="at">NN=</span><span class="dv">300</span>,<span class="at">adaptive=</span><span class="cn">FALSE</span>),<span class="at">control_search=</span><span class="fu">list</span>())</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>mytab_TP_NN<span class="ot">&lt;-</span><span class="fu">bandwidths_mgwrsar</span>(<span class="at">formula =</span> <span class="st">&#39;Y_gwr~X1+X2+X3&#39;</span>, <span class="at">data =</span> mydata,<span class="at">coord=</span>coord, <span class="at">fixed_vars=</span><span class="cn">NULL</span>,<span class="at">Models=</span><span class="fu">c</span>(<span class="st">&#39;GWR&#39;</span>),<span class="at">candidates_Kernels=</span><span class="fu">c</span>(<span class="st">&#39;gauss&#39;</span>),<span class="at">control=</span><span class="fu">list</span>(<span class="at">TP=</span>TP,<span class="at">NN=</span><span class="dv">300</span>,<span class="at">adaptive=</span><span class="cn">FALSE</span>),<span class="at">control_search=</span><span class="fu">list</span>())</span>
 <span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>(<span class="fu">proc.time</span>()<span class="sc">-</span>ptm1)[<span class="dv">3</span>]</span>
 <span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a><span class="fu">names</span>(mytab_TP_NN)</span>
@@ -761,7 +701,7 @@ without target points.</p>
 <span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>ptm1<span class="ot">&lt;-</span><span class="fu">proc.time</span>()</span>
-<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>mytab<span class="ot">&lt;-</span><span class="fu">bandwidths_mgwrsar</span>(<span class="at">formula =</span> <span class="st">&#39;Y_gwr~X1+X2+X3&#39;</span>, <span class="at">data =</span> mydata,<span class="at">coord=</span>coord, <span class="at">fixed_vars=</span><span class="cn">NULL</span>,<span class="at">Models=</span><span class="fu">c</span>(<span class="st">&#39;GWR&#39;</span>),<span class="at">Kernels=</span><span class="fu">c</span>(<span class="st">&#39;gauss&#39;</span>),<span class="at">control=</span><span class="fu">list</span>(<span class="at">adaptive=</span><span class="cn">FALSE</span>),<span class="at">control_search=</span><span class="fu">list</span>())</span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>mytab<span class="ot">&lt;-</span><span class="fu">bandwidths_mgwrsar</span>(<span class="at">formula =</span> <span class="st">&#39;Y_gwr~X1+X2+X3&#39;</span>, <span class="at">data =</span> mydata,<span class="at">coord=</span>coord, <span class="at">fixed_vars=</span><span class="cn">NULL</span>,<span class="at">Models=</span><span class="fu">c</span>(<span class="st">&#39;GWR&#39;</span>),<span class="at">candidates_Kernels=</span><span class="fu">c</span>(<span class="st">&#39;gauss&#39;</span>),<span class="at">control=</span><span class="fu">list</span>(<span class="at">adaptive=</span><span class="cn">FALSE</span>),<span class="at">control_search=</span><span class="fu">list</span>())</span>
 <span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>(<span class="fu">proc.time</span>()<span class="sc">-</span>ptm1)[<span class="dv">3</span>]</span>
 <span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a><span class="fu">names</span>(mytab)</span>

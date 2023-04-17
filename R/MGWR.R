@@ -24,15 +24,17 @@
 #' @param TP  index of target points, default NULL
 #' @param indexG  Precomputed Matrix of indexes of NN neighbors, default NULL.
 #' @param dists  Precomputed Matrix of spatial distances, default NULL
+#' @param noisland A boolean to avoid isle with no neighbours for non adaptive kernel, default FALSE
 #' @param Model character containing the type of model:
 #'  Possible values are "OLS", "SAR", "GWR" (default), "MGWR" ,
 #'   "MGWRSAR_0_0_kv","MGWRSAR_1_0_kv", "MGWRSAR_0_kc_kv",
 #'   "MGWRSAR_1_kc_kv", "MGWRSAR_1_kc_0". See Details for more
 #' @return a list of object for MGWRSAR wrapper
 #' @noRd
-MGWR<-function(Y,XC,XV,ALL_X=NULL,S,H,NN, kernels,adaptive=F, Type = "GD",SE=FALSE, isgcv=F,W=NULL,remove_local_outlier=FALSE,outv=0,TP=NULL,Model,indexG=NULL,Wd=NULL,dists=NULL,doMC=FALSE,ncore=1,S_out=NULL){
+MGWR<-function(Y,XC,XV,ALL_X=NULL,S,H,NN, kernels,adaptive=F, Type = "GD",SE=FALSE, isgcv=F,W=NULL,remove_local_outlier=FALSE,outv=0,TP=NULL,Model,indexG=NULL,Wd=NULL,dists=NULL,doMC=FALSE,ncore=1,S_out=FALSE,noisland=FALSE){
   se = NULL
   sev = NULL
+  pred=FALSE
   coord=S[,1:2]
   if(ncol(S)>2) Z=matrix(S[,3:ncol(S)]) else Z=NULL
   if (!is.null(XC)) XC <- as.matrix(XC)
@@ -50,14 +52,8 @@ MGWR<-function(Y,XC,XV,ALL_X=NULL,S,H,NN, kernels,adaptive=F, Type = "GD",SE=FAL
   ### prep wd
   ########
   if(is.null(Wd)){
-    if(is.null(S_out)) {
-      Z=S[TP,]
-      pred=FALSE
-    } else {
-      Z=S_out
-      pred=TRUE
-    }
-      stage1=prep_w(H=H,kernels=kernels,coord_i=Z,coord_j=S,NN=NN,ncolX=ncol(XV),Type=Type,adaptive=adaptive,dists=dists,indexG=indexG,rowNorm=TRUE)
+    Z=S[TP,]
+      stage1=prep_w(H=H,kernels=kernels,coord_i=Z,coord_j=S,NN=NN,ncolX=ncol(XV),Type=Type,adaptive=adaptive,dists=dists,indexG=indexG,rowNorm=TRUE,noisland=noisland)
       indexG=stage1$indexG
       dists=stage1$dists
       Wd=stage1$Wd

@@ -140,7 +140,7 @@ For mixed model that have some constant coefficients (MGWR, MGXWR_0_0_kv, MGXWR_
 
 Predictions of GWR model using sheppard kernel with 8 neighbors:
 
-```{r Prediction1}
+```{r Prediction1, eval=FALSE}
 
 length_out=800
 index_in=sample(1:1000,length_out)
@@ -158,7 +158,7 @@ summary_mgwrsar(model_GWR_insample)
 
 newdata=mydata[index_out,]
 newdata_coord=coord[index_out,]
-newdata$Y_mgwrsar_1_0_kv=0
+newdata$Y_gwr=0
 
 Y_pred=predict_mgwrsar(model_GWR_insample, newdata=newdata, newdata_coord=newdata_coord,method_pred='tWtp_model')
 head(Y_pred)
@@ -167,9 +167,10 @@ sqrt(mean((mydata$Y_gwr[index_out]-Y_pred)^2)) # RMSE
 ```
 
 Prediction of *MGWRSAR_1_0_kv* model using sheppard kernel with 4 neighbors and Best Linear Unbiased Predictor (BLUP) :
-```{r Prediction2}
+```{r Prediction2,  eval=FALSE}
 
-length_out=200
+
+length_out=800
 index_in=sample(1:1000,length_out)
 index_out=(1:1000)[-index_in]
 
@@ -212,7 +213,7 @@ Time for finding the optimal bandwith is divided by around 8, and here again, la
 ```{r bandwidths_mgwrsar with TP and NN, eval=FALSE}
 
 ptm1<-proc.time()
-mytab_TP_NN<-bandwidths_mgwrsar(formula = 'Y_gwr~X1+X2+X3', data = mydata,coord=coord, fixed_vars=NULL,Models=c('GWR'),Kernels=c('gauss'),control=list(TP=TP,NN=300,adaptive=FALSE),control_search=list())
+mytab_TP_NN<-bandwidths_mgwrsar(formula = 'Y_gwr~X1+X2+X3', data = mydata,coord=coord, fixed_vars=NULL,Models=c('GWR'),candidates_Kernels=c('gauss'),control=list(TP=TP,NN=300,adaptive=FALSE),control_search=list())
 (proc.time()-ptm1)[3]
 
 names(mytab_TP_NN)
@@ -221,7 +222,7 @@ mytab_TP_NN[['GWR_gauss']]$config_model
 
 
 ptm1<-proc.time()
-mytab<-bandwidths_mgwrsar(formula = 'Y_gwr~X1+X2+X3', data = mydata,coord=coord, fixed_vars=NULL,Models=c('GWR'),Kernels=c('gauss'),control=list(adaptive=FALSE),control_search=list())
+mytab<-bandwidths_mgwrsar(formula = 'Y_gwr~X1+X2+X3', data = mydata,coord=coord, fixed_vars=NULL,Models=c('GWR'),candidates_Kernels=c('gauss'),control=list(adaptive=FALSE),control_search=list())
 (proc.time()-ptm1)[3]
 
 names(mytab)

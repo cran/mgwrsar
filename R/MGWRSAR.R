@@ -128,10 +128,11 @@
 #' }
 MGWRSAR <- function(formula, data, coord, fixed_vars = NULL, kernels, H,Model = "GWR", control = list()){
   set.seed(123)
-  if(sum(duplicated(coord))>0) {
-    coord<-jitter(coord,0.01)
+ while(sum(duplicated(coord))>0) {
+    coord<-jitter(coord,0.001)
     warning('coords have been jittered because there is some duplicated location.')
-  }
+ }
+  colnames(coord)<-c('x_lat','y_lon')
     ptm<-proc.time()
     mycall <- match.call()
     n <-nrow(data)
@@ -177,18 +178,18 @@ MGWRSAR <- function(formula, data, coord, fixed_vars = NULL, kernels, H,Model = 
       model$Betav = NULL
       model$Y = Y
     }
-    else if (Model %in%  c("GWR","MGWRSAR_1_0_kv","GWR_multiscale") ){
+    else if (Model %in%  c("GWR","GWR_glmboost",'GWR_gamboost_linearized',"MGWRSAR_1_0_kv","GWR_multiscale") ){
       if(Model=="MGWRSAR_1_0_kv") Wx=W else Wx=NULL
-      model = GWR( Y=Y,XV=XV,ALL_X=X,S=S,H=H,NN=NN,W=Wx, kernels=MykernelS,adaptive=adaptive, Type = Type,SE=SE, isgcv=isgcv,remove_local_outlier=remove_local_outlier,outv=outv,TP=TP,doMC=doMC,ncore=ncore,dists=dists,indexG=indexG,Wd=Wd,Model=Model,S_out=S_out)
+      model = GWR(Y=Y,XV=XV,ALL_X=X,S=S,H=H,NN=NN,W=Wx, kernels=MykernelS,adaptive=adaptive, Type = Type,SE=SE, isgcv=isgcv,remove_local_outlier=remove_local_outlier,outv=outv,TP=TP,doMC=doMC,ncore=ncore,dists=dists,indexG=indexG,Wd=Wd,Model=Model,S_out=S_out,mstop=mstop,nu=nu)
       model$Betac = NULL
       model$XC = NULL
       if(Model=="MGWRSAR_1_0_kv") {
         if(is.null(new_data)) model$XV = cbind(XV, as.numeric(W %*% Y)) else model$XV = new_XV
         model$edf = model$edf - 1
-      } else model$XV = XV
+      } else if(!S_out) model$XV = XV else model$XV = XV[TP,]
     } else {
       if(Model=="MGWR") Wx=NULL else Wx=W
-      model<- MGWR(Y=Y,XC=XC,XV=XV,S=S,H=H,NN=NN, kernels=kernels,adaptive=adaptive, Type = Type,SE=SE, isgcv=isgcv,W=W,remove_local_outlier=remove_local_outlier,outv=outv,TP=TP,Model=Model,dists=dists,indexG=indexG,Wd=Wd,S_out=S_out)
+      model<- MGWR(Y=Y,XC=XC,XV=XV,S=S,H=H,NN=NN, kernels=kernels,adaptive=adaptive, Type = Type,SE=SE, isgcv=isgcv,W=W,remove_local_outlier=remove_local_outlier,outv=outv,TP=TP,Model=Model,dists=dists,indexG=indexG,Wd=Wd,S_out=S_out,doMC=doMC,ncore=ncore)
       model$Y = Y
       model$XC=XC
       if(Model =="MGWRSAR_1_kc_kv") {

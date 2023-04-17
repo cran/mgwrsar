@@ -1,7 +1,7 @@
 .onLoad <- function(libname = find.package("mgwrsar"), pkgname = "mgwrsar"){
   # CRAN Note avoidance Thanks to
   if(getRversion() >= "2.15.1")
-    utils::globalVariables(c("Lambdacor","Method","NmaxDist","Penalized","SE","TIME","Type","Wh","Wk","Z","coord","decay","doMC","isgcv","kernels_w","lower_c","lower_cW","lower_d","lower_dW","maxknn","minv","n","n_searchW","ncore","outv","remove_local_outlier","rwild","search_W","upper_c","upper_dW","verbose","xratiomin"))
+    utils::globalVariables(c("par_model2","regFun2","myseed","prof","spv","ord","myformula_gam","nu","mstop","myblock","Betac_proj_out","Betav_proj_out","Lambdacor","Method","NmaxDist","Penalized","SE","TIME","Type","Wh","Wk","Z","coord","decay","doMC","isgcv","kernels_w","lower_c","lower_cW","lower_d","lower_dW","maxknn","minv","n","n_searchW","ncore","outv","remove_local_outlier","rwild","search_W","upper_c","upper_dW","verbose","xratiomin"))
   invisible()
 }
 

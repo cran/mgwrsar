@@ -31,21 +31,29 @@ prep_var<-function(gwrenv){
       cat("\n-----------------------------------------------------\nW not used because model= ",
           gwrenv$Model, "\n-----------------------------------------------------\n")
   }
+  if(gwrenv$Model=='GWR_gamboost_linearized') {
+    mm<-gam(gwrenv$formula,data=gwrenv$data)
+    mydata2=data.frame(mm$y,model.matrix(mm)[,-1])
+    names(mydata2)[1]<-as.character(myformula_gam[[2]])
+    #names(mydata2)[2]<-'Intercept'
+    gwrenv$data<-mydata2
+    gwrenv$formula=as.formula(paste0(names(mydata2)[1],'~',paste0(colnames(mydata2)[-(1)],collapse='+')))
+  }
   gwrenv$mf <- model.frame(gwrenv$formula, gwrenv$data)
-  if(!is.null(gwrenv$new_data)) gwrenv$new_mf <- model.frame(gwrenv$formula, gwrenv$new_data)
+  #if(!is.null(gwrenv$new_data)) gwrenv$new_mf <- model.frame(gwrenv$formula, gwrenv$new_data)
   gwrenv$mt <- attr(x = gwrenv$mf, which = "terms")
   gwrenv$X = model.matrix(object = gwrenv$mt, data = gwrenv$mf, contrasts.arg = gwrenv$contrasts)
-  if(!is.null(gwrenv$new_data)) gwrenv$new_X = model.matrix(object = gwrenv$mt, data = gwrenv$new_mf, contrasts.arg = gwrenv$contrasts)
+  #if(!is.null(gwrenv$new_data)) gwrenv$new_X = model.matrix(object = gwrenv$mt, data = gwrenv$new_mf, contrasts.arg = gwrenv$contrasts)
   gwrenv$Y <- model.extract(gwrenv$mf, "response")
   idx1 <- match("(Intercept)", colnames(gwrenv$X))
-  if(!is.null(gwrenv$new_data)) new_idx1 <- match("(Intercept)", colnames(gwrenv$new_X))
+  #if(!is.null(gwrenv$new_data)) new_idx1 <- match("(Intercept)", colnames(gwrenv$new_X))
 
   if (!is.na(idx1))
     colnames(gwrenv$X)[idx1] <- "Intercept"
-  if(!is.null(gwrenv$new_data)) {
-    if (!is.na(new_idx1))
-      colnames(gwrenv$new_X)[idx1] <- "Intercept"
-  }
+  # if(!is.null(gwrenv$new_data)) {
+  #   if (!is.na(new_idx1))
+  #     colnames(gwrenv$new_X)[idx1] <- "Intercept"
+  # }
   if (!is.null(gwrenv$fixed_vars)) {
     idx.fixed <- as.numeric(na.omit(match(gwrenv$fixed_vars, colnames(gwrenv$X))))
     gwrenv$XC <- as.matrix(gwrenv$X[, idx.fixed])
@@ -54,22 +62,24 @@ prep_var<-function(gwrenv){
       gwrenv$XV <- as.matrix(gwrenv$X[, -idx.fixed])
       colnames(gwrenv$XV) <- colnames(gwrenv$X)[-idx.fixed]
     } else gwrenv$XV = NULL
-    if(!is.null(gwrenv$new_data)) {
-      gwrenv$new_XC <- as.matrix(gwrenv$new_X[, idx.fixed])
-      colnames(gwrenv$new_XC) <-colnames(gwrenv$new_X)[idx.fixed]
-      if (length(idx.fixed) < ncol(gwrenv$X)) {
-        gwrenv$new_XV <- as.matrix(gwrenv$new_X[, -idx.fixed])
-        colnames(gwrenv$new_XV) <- colnames(gwrenv$new_X)[-idx.fixed]
-      } else gwrenv$new_XV = NULL
-    }
+
+## to comment
+    # if(!is.null(gwrenv$new_data)) {
+    #   gwrenv$new_XC <- as.matrix(gwrenv$new_X[, idx.fixed])
+    #   colnames(gwrenv$new_XC) <-colnames(gwrenv$new_X)[idx.fixed]
+    #   if (length(idx.fixed) < ncol(gwrenv$X)) {
+    #     gwrenv$new_XV <- as.matrix(gwrenv$new_X[, -idx.fixed])
+    #     colnames(gwrenv$new_XV) <- colnames(gwrenv$new_X)[-idx.fixed]
+    #   } else gwrenv$new_XV = NULL
+    # }
   }
   else {
     gwrenv$XV = as.matrix(gwrenv$X)
     gwrenv$XC = NULL
-    if(!is.null(gwrenv$new_data)) {
-      gwrenv$new_XV = as.matrix(gwrenv$new_X)
-      gwrenv$new_XC = NULL
-    }
+    # if(!is.null(gwrenv$new_data)) {
+    #   gwrenv$new_XV = as.matrix(gwrenv$new_X)
+    #   gwrenv$new_XC = NULL
+    # }
   }
   gwrenv$coord = as.matrix(gwrenv$coord)
   # if (is.null(gwrenv$W))
@@ -98,6 +108,10 @@ prep_var<-function(gwrenv){
   if (!is.null(gwrenv$XV))
     gwrenv$XV = as.matrix(gwrenv$XV)
   if (is.null(gwrenv$TP)) gwrenv$TP=1:gwrenv$n
-  if (!is.null(gwrenv$S_out)) gwrenv$TP=1:nrow(gwrenv$S_out)
+  # if(gwrenv$Model=='GWR'){
+  #   if(!is.null(gwrenv$new_XV)) gwrenv$XV<-rbind(gwrenv$new_XV,gwrenv$X)
+  # }
+
+  #if (!is.null(gwrenv$S_out)) gwrenv$TP=1:nrow(gwrenv$S_out)
   gwrenv
 }

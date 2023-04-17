@@ -31,29 +31,43 @@ mgwr_stage1<-function(Y,XV,XC,ALL_X,W,indexG=indexG,Wd,NN,isgcv,TP,SE,Model,doMC
     registerDoParallel(cores=ncore)
   } else registerDoSEQ()
 
-  res<-foreach(z =1:length(TP),.combine="comb",.inorder=FALSE)  %dopar% {
-  i=TP[z]
-    index=indexG[z,loo]
-    wd<-sqrt(Wd[z,loo])
-    Yw<-wd*Y[index]
-    if(Model!='MGWRSAR_1_kc_0') Xw=wd*XV[index,] else {
-      PhWy<-try(PhWY_C(as.matrix(Y[index]),as.matrix(ALL_X[index,]*wd),W[index,index],rep(1,length(index))),silent =TRUE)
-      if(is(PhWy,'try-error')) PhWy=PhWY_R(as.matrix(Y[index]),as.matrix(ALL_X[index,]*wd),W[index,index],rep(1,length(index)))
-      Xw=PhWy*wd
-      XV<-W%*%Y
-      XVi<-XV[i]
+  if(ncore>1) myblocks<-split(1:length(TP), ceiling(seq_along(TP)/round(length(TP)/ncore))) else myblocks<-list(b1=1:length(TP))
+
+  #res<-foreach(z =1:length(TP),.combine="comb",.inorder=FALSE)  %dopar% {
+  res<-foreach(myblock =1:length(myblocks),.combine="comb",.inorder=FALSE)  %dopar% {
+    for(z in myblocks[[myblock]]){
+      i=TP[z]
+      index=indexG[z,loo]
+      wd<-sqrt(Wd[z,loo])
+      Yw<-wd*Y[index]
+      if(Model!='MGWRSAR_1_kc_0') Xw=wd*XV[index,] else {
+        PhWy<-try(PhWY_C(as.matrix(Y[index]),as.matrix(ALL_X[index,]*wd),W[index,index],rep(1,length(index))),silent =TRUE)
+        if(is(PhWy,'try-error')) PhWy=PhWY_R(as.matrix(Y[index]),as.matrix(ALL_X[index,]*wd),W[index,index],rep(1,length(index)))
+        Xw=PhWy*wd
+        XV<-W%*%Y
+        XVi<-XV[i]
+      }
+      if(Model %in% c('MGWRSAR_1_0_kv','MGWRSAR_1_kc_kv')){
+        PhWy=PhWY_R(as.matrix(Y[index]),as.matrix(ALL_X[index,]*wd),W[index,index],rep(1,length(index)))
+        Xw=cbind(Xw,PhWy*wd)
+        XVi<-c(XV[i,],(W%*%Y)[i])
+      } else XVi<-XV[i,]
+      matB<-QRcpp2_C(Xw,as.matrix(wd*Y[index]),as.matrix(wd*XC[index,]))
+      xx<- XVi %*% matB$XCw
+      sy<-as.numeric(XVi %*% matB$SY)
+      if(z==myblocks[[myblock]][1]){
+        xxz=matrix(xx,nrow=1)
+        syz=matrix(sy,nrow=1)
+      } else {
+        xxz=rbind(xxz,matrix(xx,nrow=1))
+        syz=rbind(syz,matrix(sy,nrow=1))
+      }
     }
-    if(Model %in% c('MGWRSAR_1_0_kv','MGWRSAR_1_kc_kv')){
-      PhWy=PhWY_R(as.matrix(Y[index]),as.matrix(ALL_X[index,]*wd),W[index,index],rep(1,length(index)))
-      Xw=cbind(Xw,PhWy*wd)
-      XVi<-c(XV[i,],(W%*%Y)[i])
-    } else XVi<-XV[i,]
-    matB<-QRcpp2_C(Xw,as.matrix(wd*Y[index]),as.matrix(wd*XC[index,]))
-    xx<- XVi %*% matB$XCw
-    sy<- XVi %*% matB$SY
-    list(xx=xx,sy=sy)
+    rm(index,wd,Yw,Xw,matB,XVi,xx,sy)
+    gc()
+    list(xx=xxz,sy=syz)
   }
-XX[TP,]=res$xx
+  XX[TP,]=res$xx
 SY[TP]=res$sy
   if(ntp<length(Y)){
     # Wtp<- normW(Matrix::t(sparseMatrix(i = rep(1:ntp,each=NN), j = as.numeric(t(indexG)),  dims = c(ntp,n), x =as.numeric(t(Wd))))[-TP,]) ## revoir

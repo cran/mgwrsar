@@ -4,8 +4,11 @@
 \alias{plot_mgwrsar}
 \title{plot_mgwrsar plots the value of local paramaters of a mgwrsar models using a leaflet map.}
 \usage{
-plot_mgwrsar(model,type='coef',var=NULL,crs=NULL,mypalette= "RdYlGn",opacity=1,
-fopacity=1,radius=1500)
+plot_mgwrsar(model,type='coef',var=NULL,crs=NULL,mypalette= "RdYlGn",opacity=0.5
+,fopacity=0.5,nbins=8,radius=500,mytile='Stamen.TonerBackground',myzoom=8,
+myresolution=150,LayersControl=TRUE,myzoomControl=TRUE,mytile2=NULL,ScaleBar=NULL,
+ScaleBarOptions=list(maxWidth = 200, metric = TRUE,imperial = FALSE,
+updateWhenIdle = TRUE),MyLegendTitle=NULL,lopacity=0.5)
 }
 \arguments{
 \item{model}{a mgwsar model.}
@@ -22,7 +25,29 @@ fopacity=1,radius=1500)
 
 \item{fopacity}{Opacity of fill color.}
 
+\item{nbins}{nbins.}
+
 \item{radius}{radius of circle for plot of points.}
+
+\item{mytile}{tile 1.}
+
+\item{myzoom}{level of zoom for tile 1.}
+
+\item{myresolution}{resolution for tile 1.}
+
+\item{LayersControl}{layers contols.}
+
+\item{myzoomControl}{zoem control.}
+
+\item{mytile2}{tile 2.}
+
+\item{ScaleBar}{ScaleBar.}
+
+\item{ScaleBarOptions}{options for ScaleBar.}
+
+\item{MyLegendTitle}{Legend title.}
+
+\item{lopacity}{opacity for legend.}
 }
 \value{
 A Interactive Web Maps with local parameters plot and Open Street Map layer.

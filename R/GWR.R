@@ -31,25 +31,31 @@
 #'   "MGWRSAR_0_0_kv","MGWRSAR_1_0_kv", "MGWRSAR_0_kc_kv",
 #'   "MGWRSAR_1_kc_kv", "MGWRSAR_1_kc_0". See Details.
 #' @param S_out  A matrix with variables used in kernel for out-sample prediction (jacknife mode)
+#' @param mstop   Number of iterations for mboost.
+#' @param nu  Learning rate for mboost.
+#' @param noisland A boolean to avoid isle with no neighbours for non adaptive kernel, default FALSE
 #' @return a list of objects for MGWRSAR wrapper
 #' @noRd
-GWR<-function(Y,XV,ALL_X,S,H,NN, kernels,adaptive=F, Type = "GD",SE=FALSE, isgcv=F,W=NULL,remove_local_outlier=FALSE,outv=0,TP=NULL,dists=NULL,indexG=NULL,Wd=NULL,doMC=FALSE,ncore=1,Model,S_out=NULL){
+GWR<-function(Y,XV,ALL_X,S,H,NN, kernels,adaptive=F, Type = "GD",SE=FALSE, isgcv=F,W=NULL,remove_local_outlier=FALSE,outv=0,TP=NULL,dists=NULL,indexG=NULL,Wd=NULL,doMC=FALSE,ncore=1,Model,S_out=FALSE,mstop=150,nu=0.1,noisland=FALSE){
   SEV=NULL
   X=XV
   n<-nrow(ALL_X)
   if(is.null(Wd)){
-     if(is.null(S_out)) {
-       Z=S[TP,]
-       pred=FALSE
-       } else {
-       Z=S_out
-       pred=TRUE
-     }
-      stage1=prep_w(H=H,kernels=kernels,coord_i=Z,coord_j=S,NN=NN,ncolX=ncol(XV),Type=Type,adaptive=adaptive,dists=dists,indexG=indexG,rowNorm=TRUE)
+    Z=S[TP,]
+    if(S_out){
+      pred=TRUE
+      S<-S[-TP,]
+      Y<-Y[-TP]
+      XV<-XV[-TP,]
+      ALL_X<-ALL_X[-TP,]
+      NN=length(Y)
+    } else pred=FALSE
+
+      stage1=prep_w(H=H,kernels=kernels,coord_i=Z,coord_j=S,NN=NN,ncolX=ncol(XV),Type=Type,adaptive=adaptive,dists=dists,indexG=indexG,rowNorm=TRUE,noisland=noisland)
       indexG=stage1$indexG
       dists=stage1$dists
       Wd=stage1$Wd
     }
-    model=gwr_beta(Y=Y,XV=XV,ALL_X=ALL_X,TP=TP,indexG=indexG,Wd=Wd,NN=NN,W=W,isgcv=isgcv,SE=SE,remove_local_outlier=remove_local_outlier,outv=outv,H=H,kernels=kernels,adaptive=adaptive,doMC=doMC,ncore=ncore,pred=pred)
+    if(Model %in% c('GWR_glmboost','GWR_gamboost_linearized')) model=gwr_beta_glmboost1(Y=Y,XV=XV,ALL_X=ALL_X,TP=TP,indexG=indexG,Wd=Wd,NN=NN,W=W,isgcv=isgcv,SE=SE,remove_local_outlier=remove_local_outlier,outv=outv,H=H,kernels=kernels,adaptive=adaptive,doMC=doMC,ncore=ncore,pred=pred,mstop=mstop,nu=nu) else model=gwr_beta(Y=Y,XV=XV,ALL_X=ALL_X,TP=TP,indexG=indexG,Wd=Wd,NN=NN,W=W,isgcv=isgcv,SE=SE,remove_local_outlier=remove_local_outlier,outv=outv,H=H,kernels=kernels,adaptive=adaptive,doMC=doMC,ncore=ncore,pred=pred)
   if(SE & !isgcv) list(Betav=model$Betav,SEV=model$SEV,edf=n-model$tS,tS=model$tS) else list(Betav=model$Betav,SEV=NULL,edf=NULL,tS=NULL)
 }

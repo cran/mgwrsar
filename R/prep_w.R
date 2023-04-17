@@ -12,9 +12,10 @@
 #' @param dists  Precomputed Matrix of spatial distances, default NULL
 #' @param indexG  Precomputed Matrix of indexes of NN neighbors, default NULL
 #' @param rowNorm  A boolean, row normalization of weights, default TRUE
+#' @param noisland A boolean to avoid isle with no neighbours for non adaptive kernel,default FALSE
 #' @noRd
 #' @return to be documented
-prep_w<-function(H,kernels,coord_i,coord_j,NN,ncolX,Type='GD',adaptive=F,dists=NULL,indexG=NULL,rowNorm=TRUE){
+prep_w<-function(H,kernels,coord_i,coord_j,NN,ncolX,Type='GD',adaptive=F,dists=NULL,indexG=NULL,rowNorm=TRUE,noisland=FALSE){
   if(ncol(coord_i)!=ncol(coord_j)) stop("coord_i and coord_j must have the same number of columns")
   n=nrow(coord_j)
   ntp=nrow(coord_i)
@@ -76,7 +77,10 @@ prep_w<-function(H,kernels,coord_i,coord_j,NN,ncolX,Type='GD',adaptive=F,dists=N
     nn=knn(coord_j,k=min(NN,n),query=coord_i)
     indexG=nn$nn.idx
     dists=list(coord=nn$nn.dists)
-  } else dists=list(coord=dists)
+  } else {
+    if(is.null(indexG)) stop('You must provide indexG and dists')
+    dists=list(coord=dists)
+  }
   ## GPK with D
   mykernels=kernels
   kernels=list(coord=mykernels[1])
@@ -84,7 +88,7 @@ prep_w<-function(H,kernels,coord_i,coord_j,NN,ncolX,Type='GD',adaptive=F,dists=N
   if(rowNorm) Wd=Wd/rowSums(Wd)
    nv=apply(Wd,1,function(x) sum(x>0))
    ### case non adaptive with locally not enough neighbors :
-   if(any(nv<2*ncolX & !adaptive[1] & kernels$coord!='sheppard' )){
+   if(any(nv<2*ncolX & !adaptive[1] & kernels$coord!='sheppard' ) & noisland){
      index=which(nv<2*ncolX)
      Wd[index,]<-do.call(paste0(kernels$coord,'_adapt_sorted'),args=list(matrix(dists$coord[index,],ncol=ncol(dists$coord)),rep(2*ncolX,length(index))))
    }
@@ -94,7 +98,7 @@ prep_w<-function(H,kernels,coord_i,coord_j,NN,ncolX,Type='GD',adaptive=F,dists=N
       kernels[[colnames(Z)[t]]]=mykernels[t+1]
       typek=substr(Type,t+2,t+2)
       if(typek!='C'){
-      if(sum(duplicated(Z[,t]))>0) Z[,t]=jitter(Z[,t],0.001)
+      while(sum(duplicated(Z[,t]))>0) Z[,t]=jitter(Z[,t],0.0001)
       dists[[colnames(Z)[t]]]=t(apply(cbind(1:nrow(indexG),indexG),1, function(x) abs(Z[x[1],t]-Z_in[x[-1],t]) ))
       wd=do.call(kernels[[colnames(Z)[t]]],args=list(dists[[colnames(Z)[t]]],H[[colnames(Z)[t]]]))
       } else {

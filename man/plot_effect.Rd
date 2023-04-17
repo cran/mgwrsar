@@ -5,14 +5,16 @@
 \title{plot_effect
 plot_effect is a function that plots the effect of a variable X_k with spatially varying coefficient, i.e X_k * Beta_k(u_i,v_i) for comparing the magnitude of effects of between variables.}
 \usage{
-plot_effect(model,sampling=TRUE,nsample=2000,title='')
+plot_effect(model,sampling=TRUE,nsample=2000,nsample_max=5000,title='')
 }
 \arguments{
 \item{model}{a model of mgwrsar class with some spatially varying coefficients.}
 
-\item{sampling}{Bolean, if nrow(model$Betav)> 5000 a sample of size nsample is randomly selected, default TRUE.}
+\item{sampling}{Bolean, if nrow(model$Betav)> nsample_max a sample of size nsample is randomly selected, default TRUE.}
 
 \item{nsample}{integer,  size of the sample if sampling is TRUE, default 2000.}
+
+\item{nsample_max}{integer, size max to engage sampling if sampling is TRUE, default 5000.}
 
 \item{title}{a title for the plot.}
 }

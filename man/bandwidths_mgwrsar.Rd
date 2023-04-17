@@ -6,7 +6,7 @@
 Select optimal kernel and bandwidth from a list of models, kernels and bandwidth candidates.}
 \usage{
 bandwidths_mgwrsar(formula, data,coord,
-fixed_vars='Intercept',Models='GWR',Kernels_candidates='bisq',
+fixed_vars='Intercept',Models='GWR',candidates_Kernels='bisq',
 control=list(),control_search=list())
 }
 \arguments{
@@ -23,7 +23,7 @@ control=list(),control_search=list())
 "SAR", "GWR" (default), "MGWR" , "MGWRSAR_0_0_kv","MGWRSAR_1_0_kv",
 "MGWRSAR_0_kc_kv", "MGWRSAR_1_kc_kv", "MGWRSAR_1_kc_0".}
 
-\item{Kernels_candidates}{a vector with the names of kernel type.}
+\item{candidates_Kernels}{a vector with the names of kernel type.}
 
 \item{control}{list of extra control arguments for MGWRSAR wrapper - see MGWRSAR help.}
 
@@ -66,7 +66,7 @@ library(mgwrsar)
 data(mydata)
 coord=as.matrix(mydata[,c("x_lat","y_lon")])
 mytab<-bandwidths_mgwrsar(formula = 'Y_gwr~X1+X2+X3', data = mydata,coord=coord,
-fixed_vars=c('Intercept','X1'),Models=c('GWR','MGWR'),Kernels=c('bisq','gauss'),
+fixed_vars=c('Intercept','X1'),Models=c('GWR','MGWR'),candidates_Kernels=c('bisq','gauss'),
 control=list(NN=300,adaptive=TRUE),control_search=list())
 
 names(mytab)

@@ -6,7 +6,7 @@
 #' A cross validated criteria is also used for selecting the best kernel type for a given model.
 #'
 #' @usage bandwidths_mgwrsar(formula, data,coord,
-#' fixed_vars='Intercept',Models='GWR',Kernels_candidates='bisq',
+#' fixed_vars='Intercept',Models='GWR',candidates_Kernels='bisq',
 #' control=list(),control_search=list())
 #'
 #' @param formula  a formula.
@@ -17,7 +17,7 @@
 #' @param Models character containing the type of model: Possible values are "OLS",
 #' "SAR", "GWR" (default), "MGWR" , "MGWRSAR_0_0_kv","MGWRSAR_1_0_kv",
 #' "MGWRSAR_0_kc_kv", "MGWRSAR_1_kc_kv", "MGWRSAR_1_kc_0".
-#' @param Kernels_candidates a vector with the names of kernel type.
+#' @param candidates_Kernels a vector with the names of kernel type.
 #' @param control list of extra control arguments for MGWRSAR wrapper - see MGWRSAR help.
 #' @param control_search list of extra control arguments for bandwidth/kernel search - see section below.
 #'  @details
@@ -64,7 +64,7 @@
 #' data(mydata)
 #' coord=as.matrix(mydata[,c("x_lat","y_lon")])
 #' mytab<-bandwidths_mgwrsar(formula = 'Y_gwr~X1+X2+X3', data = mydata,coord=coord,
-#' fixed_vars=c('Intercept','X1'),Models=c('GWR','MGWR'),Kernels=c('bisq','gauss'),
+#' fixed_vars=c('Intercept','X1'),Models=c('GWR','MGWR'),candidates_Kernels=c('bisq','gauss'),
 #' control=list(NN=300,adaptive=TRUE),control_search=list())
 #'
 #' names(mytab)
@@ -77,11 +77,11 @@
 #' mybestmodel=mytab[['GWR_gauss_adaptive']]$model
 #' plot_mgwrsar(mybestmodel,type='B_coef',var='X2')
 #' }
-bandwidths_mgwrsar <- function(formula, data,coord, fixed_vars='Intercept',Models='GWR',Kernels_candidates='bisq',control=list(),control_search=list()){
+bandwidths_mgwrsar <- function(formula, data,coord, fixed_vars='Intercept',Models='GWR',candidates_Kernels='bisq',control=list(),control_search=list()){
   set.seed(123)
-  if(sum(duplicated(coord))>0) {
-    coord<-jitter(coord,0.01)
-    warning('coords have been jittered because there is some duplicated location.',immediate. = TRUE)
+  while(sum(duplicated(coord))>0) {
+    coord<-jitter(coord,0.001)
+    warning('coords have been jittered because there is some duplicated location.')
   }
   ptmb<-proc.time()
   ### OLS
@@ -97,7 +97,7 @@ bandwidths_mgwrsar <- function(formula, data,coord, fixed_vars='Intercept',Model
   {
     assign(names(con)[i],con[[i]])
   }
-  con_S=list(adaptive_W=F,kernel_w='rectangle',search_W=FALSE,Penalized=TRUE,n_searchW=1,verbose=TRUE)
+  con_S=list(adaptive_W=F,kernel_w='rectangle',search_W=FALSE,Penalized=TRUE,n_searchW=1,verbose=FALSE)
   nmsC <- names(con_S)
   con_S[(namc <- names(control_search))] <- control_search
   if (length(noNms <- namc[!namc %in% nmsC]))  warning("unknown names in con_Strol: ", paste(noNms, collapse = ", "))
@@ -126,7 +126,7 @@ bandwidths_mgwrsar <- function(formula, data,coord, fixed_vars='Intercept',Model
     stage1=prep_d(coord,NN,TP)
     con$indexG=stage1$indexG
     con$dists=stage1$dists
-    for(kernels in Kernels_candidates) {
+    for(kernels in candidates_Kernels) {
       if(verbose) cat('##### ', kernels, ' adaptive=',adaptive,' #####\n')
         if(!adaptive){
           lower=quantile(as.numeric(con$dists[,-1])[as.numeric(con$dists[,-1])>0],0.001)

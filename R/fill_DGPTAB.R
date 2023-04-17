@@ -15,6 +15,6 @@
 fill_DGPTAB <-function(formula,data,coord,fixed_vars,Model,control,opt,search_W,config_model){
   est_model=model_conf(formula,data,coord,fixed_vars,Model,control,config_model,search_W)
   if(!(Model %in% c('OLS','SAR'))){
-    list(config_model=config_model,CV=opt$objective,SSR=est_model$SSR,model=est_model)
+    list(config_model=config_model,CV=opt$objective,SSR=est_model$SSR,model=est_model,dists=control$dists,indexG=control$indexG)
   } else {list(config_model=config_model,CV=0,SSR=est_model$SSR,model=est_model)}
 }

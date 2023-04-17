@@ -10,7 +10,7 @@ If Type!='GD' then S should have additional columns and several
 kernels and bandwidths should be be specified by the user.}
 \usage{
 kernel_matW(H,kernels,coord_i,coord_j=NULL,NN,ncolX=1,
-Type='GD',adaptive=F,diagnull=TRUE,rowNorm=TRUE)
+Type='GD',adaptive=F,diagnull=TRUE,rowNorm=TRUE,noisland=FALSE)
 }
 \arguments{
 \item{H}{A vector of bandwidths}
@@ -34,6 +34,8 @@ spatial + a categorical variable,'GDX' spatial + a continuous variable,
 \item{diagnull}{Zero on diagonal, default FALSE}
 
 \item{rowNorm}{A boolean, row normalization of weights, default TRUE}
+
+\item{noisland}{A boolean to avoid isle with no neighbours for non adaptive kernel, default FALSE}
 }
 \value{
 A sparse Matrix of weights (dgCMatrix).
