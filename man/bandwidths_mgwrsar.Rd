@@ -2,10 +2,9 @@
 % Please edit documentation in R/bandwidths_MGWRSAR.R
 \name{bandwidths_mgwrsar}
 \alias{bandwidths_mgwrsar}
-\title{bandwidths_mgwrsar
-Select optimal kernel and bandwidth from a list of models, kernels and bandwidth candidates.}
+\title{bandwidths_mgwrsar}
 \usage{
-bandwidths_mgwrsar(formula, data,coord,
+bandwidths_mgwrsar(formula, data,coords,
 fixed_vars='Intercept',Models='GWR',candidates_Kernels='bisq',
 control=list(),control_search=list())
 }
@@ -14,7 +13,7 @@ control=list(),control_search=list())
 
 \item{data}{a dataframe or a spatial dataframe (sp package).}
 
-\item{coord}{a dataframe or a matrix with coordinates, not required if data is a spatial dataframe, default NULL.}
+\item{coords}{a dataframe or a matrix with coordinates, not required if data is a spatial dataframe, default NULL.}
 
 \item{fixed_vars}{a vector with the names of spatially constant coefficient. For mixed model, if NULL, the default
 #' is set to 'Intercept'.}
@@ -27,9 +26,25 @@ control=list(),control_search=list())
 
 \item{control}{list of extra control arguments for MGWRSAR wrapper - see MGWRSAR help.}
 
-\item{control_search}{list of extra control arguments for bandwidth/kernel search - see section below.
- @details
- \itemize{
+\item{control_search}{list of extra control arguments for bandwidth/kernel search - see details below.}
+}
+\value{
+bandwiths_MGWRSAR returns a list with:
+\describe{
+\item{config_model}{a vector with information about model, optimal kernel and
+bandwidth for local regression, and optimal kernel and bandwith for spatial weight matrix W.}
+\item{SSR}{The sum of square residuals.}
+\item{CV}{The CV criteria.}
+\item{model}{objects of class mgwrsar estimated using config_model}
+}
+}
+\description{
+Select optimal kernel and bandwidth from a list of models, kernels and bandwidth candidates.
+a bandwidth value for each of the chosen models and kernel types using a leave-one-out cross validation criteria.
+A cross validated criteria is also used for selecting the best kernel type for a given model.
+}
+\details{
+\describe{
 \item{search_W}{if TRUE select an optimal spatial weight matrix using a moment estimator, default FALSE.}
 \item{kernels_w}{if search_W is TRUE, kernels_w is a vector of candidated kernels types, default NULL.}
 \item{lower_c}{lower bound for bandwidth search (default, the approximate first decile of distances).}
@@ -38,34 +53,15 @@ control=list(),control_search=list())
 \item{lower_dW}{ower bound for discrete kernels for finding optimal spatial weight matrix, default 2.}
 \item{lower_cW}{lower bound for  bandwidth search for finding optimal spatial
 weight matrix  (default approximate 0.005 quantile of distances).}
-}}
 }
-\value{
-bandwiths_MGWRSAR returns  a list with:
-\item{config_model}{a vector with information about model, optimal kernel and
-bandwidth for local regression, and optimal kernel and bandwith for spatial weight matrix W.}
-\item{SSR}{The sum of square residuals.}
-\item{CV}{The CV criteria.}
-\item{model}{objects of class mgwrsar estimated using config_model}
-}
-\description{
-Given a lm formula and a dataframe with coordinates, function bandwidths_mgwrsar optimizes the choice of
-a bandwidth value for each of the chosen models and kernel types using a leave-one-out cross validation criteria.
-A cross validated criteria is also used for selecting the best kernel type for a given model.
-}
-\details{
-Given a lm formula and a dataframe with coordinates, for each model in
- \code{Models} for wich a bandwidth is required, this function optimizes the choice of
-a bandwidth value for each of the chosen models and kernel types using a leave one out
-cross validation criteria. A cross validated criteria is also used for selecting the best kernel type for a given model.
 }
 \examples{
 \donttest{
 library(mgwrsar)
 ## loading data example
 data(mydata)
-coord=as.matrix(mydata[,c("x_lat","y_lon")])
-mytab<-bandwidths_mgwrsar(formula = 'Y_gwr~X1+X2+X3', data = mydata,coord=coord,
+coords=as.matrix(mydata[,c("x","y")])
+mytab<-bandwidths_mgwrsar(formula = 'Y_gwr~X1+X2+X3', data = mydata,coords=coords,
 fixed_vars=c('Intercept','X1'),Models=c('GWR','MGWR'),candidates_Kernels=c('bisq','gauss'),
 control=list(NN=300,adaptive=TRUE),control_search=list())
 

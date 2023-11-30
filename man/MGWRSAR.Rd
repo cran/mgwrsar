@@ -4,7 +4,7 @@
 \alias{MGWRSAR}
 \title{Estimation of linear and local linear model with spatial autocorrelation model (mgwrsar).}
 \usage{
-MGWRSAR(formula,data,coord,fixed_vars=NULL,kernels,H,
+MGWRSAR(formula,data,coords,fixed_vars=NULL,kernels,H,
 Model='GWR',control=list())
 }
 \arguments{
@@ -12,7 +12,7 @@ Model='GWR',control=list())
 
 \item{data}{a dataframe or a spatial dataframe (sp package).}
 
-\item{coord}{default NULL, a dataframe or a matrix with coordinates, not
+\item{coords}{default NULL, a dataframe or a matrix with coordinates, not
 required if data is a spatial dataframe.}
 
 \item{fixed_vars}{a vector with the names of spatiallay constant coefficient for
@@ -34,7 +34,8 @@ explanation.}
 \item{control}{list of extra control arguments for MGWRSAR wrapper - see Details below}
 }
 \value{
-MGWRSAR returns an object  of class mgwrsar with at least the following components:
+MGWRSAR returns an object of class mgwrsar with at least the following components:
+\describe{
 \item{Betav}{ matrix of coefficients of dim(n,kv) x kv.}
 \item{Betac}{ vector of coefficients of length kc.}
 \item{Model}{ The sum of square residuals.}
@@ -48,7 +49,7 @@ MGWRSAR returns an object  of class mgwrsar with at least the following componen
 \item{formula}{The formula.}
 \item{data}{ The dataframe used for computation.}
 \item{Method}{ The type of model.}
-\item{coord}{ The spatial coordinates of observations.}
+\item{coords}{ The spatial coordinates of observations.}
 \item{H}{ The bandwidth vector.}
 \item{fixed_vars}{ The names of constant coefficients.}
 \item{kernels}{ The kernel vector.}
@@ -56,8 +57,9 @@ MGWRSAR returns an object  of class mgwrsar with at least the following componen
 \item{residuals}{ The vector of residuals.}
 \item{fit}{ the vector of fitted values.}
 \item{sev}{ local standard error of parameters.}
+\item{get_ts}{Boolean, if trace of hat matrix Tr(S) should be stored.}
 \item{NN}{ Maximum number of neighbors for weights computation}
-
+}
 MGWRSAR is is a wrapper function for estimating linear and local linear model
 with spatial autocorrelation that  allows to estimate the following models :
 \eqn{y=\beta_c X_c+\,\epsilon_i} (OLS)
@@ -98,7 +100,7 @@ MGWRSAR is is a wrapper function for estimating linear and local linear models
 with spatial autocorrelation (SAR models with spatially varying coefficients).
 }
 \details{
-\itemize{
+\describe{
 \item{Z}{ a matrix of variables for genralized kernel product, default NULL.}
 \item{W}{ a row-standardized spatial weight matrix for Spatial Aurocorrelation, default NULL.}
 \item{type}{ verbose mode, default FALSE.}
@@ -107,6 +109,8 @@ with spatial autocorrelation (SAR models with spatially varying coefficients).
 \item{h_w}{ the bandwidth value for computing W, default 0.}
 \item{Method}{ estimation technique for computing the models with Spatial Dependence. '2SLS' or 'B2SLS', default '2SLS'.}
 \item{TP}{ A vector of target points, default NULL.}
+\item{doMC}{Parallel computation, default FALSE}
+\item{ncore}{number of CPU core for parallel computation, default 1}
 \item{isgcv}{ computing LOOCV criteria (for example for selecting optimal bandwidth), default FALSE.}
 \item{isfgcv}{ if TRUE, simplify the computation of CV criteria (remove or not i
 when using local instruments for model with lambda spatially varying), default TRUE.}
@@ -120,13 +124,13 @@ when using local instruments for model with lambda spatially varying), default T
  library(mgwrsar)
  ## loading data example
  data(mydata)
- coord=as.matrix(mydata[,c("x_lat","y_lon")])
+ coords=as.matrix(mydata[,c("x","y")])
  ## Creating a spatial weight matrix (sparce dgCMatrix)
  ## of 4 nearest neighbors with 0 in diagonal
- W=kernel_matW(H=4,kernels='rectangle',coord_i=coord,NN=4,adaptive=TRUE,
+ W=kernel_matW(H=4,kernels='rectangle',coord_i=coords,NN=4,adaptive=TRUE,
  diagnull=TRUE,rowNorm=TRUE)
  mgwrsar_0_kc_kv<-MGWRSAR(formula = 'Y_mgwrsar_0_kc_kv~X1+X2+X3', data = mydata,
- coord=coord, fixed_vars='X2',kernels=c('gauss'),H=20, Model = 'MGWRSAR_0_kc_kv',
+ coords=coords, fixed_vars='X2',kernels=c('gauss'),H=20, Model = 'MGWRSAR_0_kc_kv',
  control=list(SE=FALSE,adaptive=TRUE,W=W))
  summary_mgwrsar(mgwrsar_0_kc_kv)
 }

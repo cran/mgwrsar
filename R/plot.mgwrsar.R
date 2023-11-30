@@ -30,10 +30,10 @@
 #'  library(mgwrsar)
 #'  ## loading data example
 #'  data(mydata)
-#'  coord=as.matrix(mydata[,c("x_lat","y_lon")])
+#'  coords=as.matrix(mydata[,c("x","y")])
 #'  ## Creating a spatial weight matrix (sparce dgCMatrix)
 #'  ## of 4 nearest neighbors with 0 in diagonal
-#'  model_GWR0<-MGWRSAR(formula = 'Y_gwr~X1+X2+X3', data = mydata,coord=coord,
+#'  model_GWR0<-MGWRSAR(formula = 'Y_gwr~X1+X2+X3', data = mydata,coords=coords,
 #'  fixed_vars=NULL,kernels=c('gauss'),H=0.13, Model='GWR',control=list(SE=TRUE))
 #'  summary_mgwrsar(model_GWR0)
 #'  plot_mgwrsar(model_GWR0,type='B_coef',var='X2')
@@ -62,7 +62,7 @@ mytitle=paste("Beta(ui,vi)",var)
 if(!is.null(MyLegendTitle)) mytitle=MyLegendTitle
 if(!is.null(model$id)) toplot$id=model$id else toplot$id=1:nrow(toplot)
 #toplot$id_insee=commune=commune
-toplot = st_as_sf(cbind(toplot,model$coord), coords = c('x_lat','y_lon'), remove = TRUE)
+toplot = st_as_sf(cbind(toplot,model$coords), coords = c('x','y'), remove = TRUE)
 if(is.null(crs)) toplot <- st_set_crs(toplot, '+proj=longlat +datum=WGS84')  else toplot <- st_transform(st_set_crs(toplot,crs),'+proj=longlat +datum=WGS84')
 # graph carto_pos
 palnum <- colorQuantile(palette = mypalette, domain =NULL,n=nbins,reverse = TRUE)

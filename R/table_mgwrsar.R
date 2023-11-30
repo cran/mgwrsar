@@ -59,7 +59,7 @@ i=i+1
 nmodel=(ncol(mytabF)-1)/2
 myheader<-c(" ", "GWR TP16" = 2,"GWR TP8" = 2,"GWR TP4" = 2,"GWR full" = 2)
 
-mytab1<-kbl(mytabF,row.names =FALSE,linesep = "",align=c('l',rep('c',2*nmodel)), col.names =c('',rep(c('$\\beta$','Student t'),nmodel)),'latex') %>% add_header_above(myheader)%>% kable_styling(latex_options = c("repeat_header")) %>% pack_rows("Varying Coefficient", 1, 14) %>% pack_rows("non Varying Coefficient", 15, 19) %>% kable_styling(full_width = F) %>% row_spec(seq(2,14,by=2), italic=T) %>% row_spec(20:30, align = 'l')
+mytab1<-kbl(mytabF,row.names =FALSE,linesep = "",align=c('l',rep('c',2*nmodel)), col.names =c('',rep(c('$\\beta$','Student t'),nmodel)),'latex') %>% add_header_above(myheader)%>% kable_styling(latex_options = c("repeat_header")) %>% pack_rows("Varying Coefficient", 1, 14) %>% pack_rows("non Varying Coefficient", 15, 19) %>% kable_styling(full_width = FALSE) %>% row_spec(seq(2,14,by=2), italic=T) %>% row_spec(20:30, align = 'l')
 }
 
 

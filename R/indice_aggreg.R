@@ -7,8 +7,8 @@
 #' @return to be documented
 indice_aggreg <-
 function(D){
-#rx=max(coord[,1])-min(coord[,1])
-#ry=max(coord[,2])-min(coord[,2])
+#rx=max(coords[,1])-min(coords[,1])
+#ry=max(coords[,2])-min(coords[,2])
 #surf=rx*ry
 surf=1
 lambda=surf/n

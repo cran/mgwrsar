@@ -5,11 +5,11 @@
 #' @noRd
 #' @return to be documented
 prep_var<-function(gwrenv){
-  if (is.null(gwrenv$coord)) {
-    if (class(gwrenv$data) %in% c("SpatialPointsDataFrame", "SpatialGridDataFrame","SpatialPixelsDataFrame")) gwrenv$coord = as.matrix(coordinates(gwrenv$data)) else stop("coord required")
+  if (is.null(gwrenv$coords)) {
+    if (class(gwrenv$data) %in% c("SpatialPointsDataFrame", "SpatialGridDataFrame","SpatialPixelsDataFrame")) gwrenv$coords = as.matrix(coordinates(gwrenv$data)) else stop("coords required")
   }
 
-  if (length(gwrenv$kernels) > 1) gwrenv$S = as.matrix(cbind(gwrenv$coord, gwrenv$Z)) else gwrenv$S = as.matrix(gwrenv$coord)
+  if (length(gwrenv$kernels) > 1) gwrenv$S = as.matrix(cbind(gwrenv$coords, gwrenv$Z)) else gwrenv$S = as.matrix(gwrenv$coords)
   if(gwrenv$Model!='SAR'){
   if (!gwrenv$searchB  & (is.null(gwrenv$H[1]) | is.null(gwrenv$kernels[1]))) stop("kernels list and bandwidths H required")
   if (!gwrenv$searchB & gwrenv$adaptive[1] & gwrenv$kernels[1]!='gauss') {
@@ -17,7 +17,8 @@ prep_var<-function(gwrenv){
   }
   if (is.null(gwrenv$fixed_vars) & gwrenv$Model %in% c("MGWR", "MGWRSAR_0_kc_kv","MGWRSAR_1_kc_kv"))
     stop("You must provide fixed_vars for mixed models")
-}
+  }
+  if(!is.null(gwrenv$W) & gwrenv$Model %in% c('GWR_glmboost','GWR_gamboost_linearized','GWR_glm')) stop('GWR with spatial autocorrelation are not implemented with glm family')
   if (is.null(gwrenv$W) & !gwrenv$searchB & gwrenv$Model %in% c("SAR", "MGWRSAR_1_0_kv", "MGWRSAR_0_0_kv","MGWRSAR_0_kc_kv", "MGWRSAR_1_kc_kv", "MGWRSAR_1_kc_0"))
     stop("You must provide W for models with spatial dependence")
   if (!is.null(gwrenv$fixed_vars) & gwrenv$Model %in% c("GWR", "SAR", "MGWRSAR_1_0_kv","MGWRSAR_0_0_kv")) {
@@ -81,7 +82,7 @@ prep_var<-function(gwrenv){
     #   gwrenv$new_XC = NULL
     # }
   }
-  gwrenv$coord = as.matrix(gwrenv$coord)
+  gwrenv$coords = as.matrix(gwrenv$coords)
   # if (is.null(gwrenv$W))
   #   gwrenv$W <- as(Matrix(0, nrow = gwrenv$n, ncol = gwrenv$n), "dgCMatrix")
   gwrenv$names_betac = colnames(gwrenv$XC)

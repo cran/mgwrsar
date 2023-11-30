@@ -11,10 +11,10 @@
 #'  library(mgwrsar)
 #'  ## loading data example
 #'  data(mydata)
-#'  coord=as.matrix(mydata[,c("x_lat","y_lon")])
+#'  coords=as.matrix(mydata[,c("x","y")])
 #'  ## Creating a spatial weight matrix (sparce dgCMatrix)
 #'  ## of 8 nearest neighbors with 0 in diagonal
-#'  model_GWR0<-MGWRSAR(formula = 'Y_gwr~X1+X2+X3', data = mydata,coord=coord,
+#'  model_GWR0<-MGWRSAR(formula = 'Y_gwr~X1+X2+X3', data = mydata,coords=coords,
 #'  fixed_vars=NULL,kernels=c('gauss'),H=0.13, Model = 'GWR',control=list(SE=TRUE))
 #'  plot_effect(model_GWR0)
 #' }

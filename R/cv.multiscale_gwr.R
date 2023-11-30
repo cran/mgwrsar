@@ -17,6 +17,7 @@
 #' @param myseed seed for random number.
 #' @param namesXtraArgs2Split character, names of the objects in extra_args_pred that need to be split for cross validation.
 multiscale_gwr.cv=function(dataName, argDataName="data", target='Y', K=5, regFun, par_model,par_model2=NULL,regFun2=NULL, predFun, args_predNames, extra_args_pred=NULL, namesXtraArgs2Split=NULL,myseed=1){
+  debut<-proc.time()
   data=get(dataName)
   extra_args_pred_copy=extra_args_pred
   n=nrow(data)
@@ -30,8 +31,8 @@ multiscale_gwr.cv=function(dataName, argDataName="data", target='Y', K=5, regFun
     assign(dataName,data[-cvFoldsList[[i]],])
     param_model=eval(parse(text=par_model))
 
-    if(!is.null(param_model$coord)){
-      if(nrow(param_model$coord)==nrow(data)) param_model$coord=param_model$coord[-cvFoldsList[[i]],]
+    if(!is.null(param_model$coords)){
+      if(nrow(param_model$coords)==nrow(data)) param_model$coords=param_model$coords[-cvFoldsList[[i]],]
     }
 
     # Estimation
@@ -43,8 +44,8 @@ multiscale_gwr.cv=function(dataName, argDataName="data", target='Y', K=5, regFun
     if(regFun=='gwr.multiscale') {
       if(!is.null(par_model2)) param_model2=eval(parse(text=par_model2))
       error=Model$SDF$residual
-      param_model2$coord<-param_model2$coord[-cvFoldsList[[i]],]
-      param_model2$data<-param_model2$data[-cvFoldsList[[i]],]
+      #param_model2$coords<-param_model2$coords[-cvFoldsList[[i]],]
+      #param_model2$data<-param_model2$data[-cvFoldsList[[i]],]
       data2=data@data
       Model2=do.call(regFun2, param_model2)
       m=ncol(Model2$Betav)
@@ -85,5 +86,7 @@ multiscale_gwr.cv=function(dataName, argDataName="data", target='Y', K=5, regFun
   Resultat$Global$MAPE_insample=mean(unlist(Resultat$MAPE_in))
   Resultat$Global$RMSE_outsample=sqrt(mean((data2[[target]]-prediction)^2))
   Resultat$Global$MAPE_outsample=mean(abs((data2[[target]]-prediction)/data[[target]]))*100
+  fin<-proc.time()
+  cat('Time: ',(fin-debut)[3])
   return(Resultat)
 }

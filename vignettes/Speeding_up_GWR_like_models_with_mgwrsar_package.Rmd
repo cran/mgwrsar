@@ -47,7 +47,7 @@ This package proposes two ways of selecting target points, first by using a quad
 library(mgwrsar)
 ## loading data example
 data(mydata)
-coord=as.matrix(mydata[,c("x_lat","y_lon")])
+coord=as.matrix(mydata[,c("x","y")])
 ```
 The GWR model can be expressed as:
 \begin{equation}

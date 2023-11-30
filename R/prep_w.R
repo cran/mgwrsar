@@ -1,6 +1,6 @@
 #' prep_w
 #' to be documented
-#' @usage prep_w(H,kernels,coord_i,coord_j,NN,ncolX,Type='GD',adaptive=F,dists=NULL,
+#' @usage prep_w(H,kernels,coord_i,coord_j,NN,ncolX,Type='GD',adaptive=FALSE,dists=NULL,
 #' indexG=NULL,rowNorm=TRUE,extrapTP=0,correctionNB=TRUE)
 #' @param H  A vector of bandwidths
 #' @param kernels  A vector of kernel types
@@ -15,7 +15,7 @@
 #' @param noisland A boolean to avoid isle with no neighbours for non adaptive kernel,default FALSE
 #' @noRd
 #' @return to be documented
-prep_w<-function(H,kernels,coord_i,coord_j,NN,ncolX,Type='GD',adaptive=F,dists=NULL,indexG=NULL,rowNorm=TRUE,noisland=FALSE){
+prep_w<-function(H,kernels,coord_i,coord_j,NN,ncolX,Type='GD',adaptive=FALSE,dists=NULL,indexG=NULL,rowNorm=TRUE,noisland=FALSE){
   if(ncol(coord_i)!=ncol(coord_j)) stop("coord_i and coord_j must have the same number of columns")
   n=nrow(coord_j)
   ntp=nrow(coord_i)
@@ -39,7 +39,7 @@ prep_w<-function(H,kernels,coord_i,coord_j,NN,ncolX,Type='GD',adaptive=F,dists=N
   if(is.null(colnames(Z)) & !is.null(Z)) colnames(Z)=paste('Z',1:ncol(Z))
 
   if(length(H)<ntp) {
-    H=list(coord=rep(H[1],ntp)) # ifelse(extrapTP==0,n,ntp)
+    H=list(coords=rep(H[1],ntp)) # ifelse(extrapTP==0,n,ntp)
     if(nchar(Type)>2) for(t in 1:(nchar(Type)-2)) {
       if(substr(Type,t+2,t+2)=='C'){
         nbcs=max(Z[,t])
@@ -48,49 +48,49 @@ prep_w<-function(H,kernels,coord_i,coord_j,NN,ncolX,Type='GD',adaptive=F,dists=N
         }
       } else  H[[colnames(Z)[t]]]=rep(myH[t+1],ntp)
     }
-  } else H=list(coord=H)
+  } else H=list(coords=H)
   ### distance and rank matrices
   if(is.null(dists)){
 
     # if(extrapTP==0) { # here we want length(TP) x nrow(X) weight matrix for estimation on Betav(TP)
-    #   nn=knn(coord,k=NN,query=coord[TP,])
+    #   nn=knn(coords,k=NN,query=coords[TP,])
     #   indexG=nn$nn.idx
     # } else if(extrapTP==1) {# here we want nrow(X) x length(TP) weight matrix for extrapolating Betav(-TP) using Betav(TP), this function return a n x n matrix and the selection of -TP lines is done after, outside this function.
     #   ## option 1 : projection classique
-    #   nn=knn(coord[TP,],k=NN,query=coord)
+    #   nn=knn(coords[TP,],k=NN,query=coords)
     #   indexG=matrix(TP[nn$nn.idx],ncol=ncol(nn$nn.idx),nrow=nrow(nn$nn.idx))
     # } else if(extrapTP==2) {# here we want nrow(rbind(S,O)) x length(S) weight matrix for extrapolating Betav(O) using Betav(S), this function return a n x n matrix and the selection of -TP lines is done after, outside this function.
     #   ## option 1 : projection classique
-    #   nn=knn(coord[TP,],k=NN,query=coord)
+    #   nn=knn(coords[TP,],k=NN,query=coords)
     #   indexG=matrix(TP[nn$nn.idx],ncol=ncol(nn$nn.idx),nrow=nrow(nn$nn.idx))
     # } else if(extrapTP==3){
-    #   nn=knn(coord[TP,],k=min(NN,length(TP)-1),query=coord[-TP,])
+    #   nn=knn(coords[TP,],k=min(NN,length(TP)-1),query=coords[-TP,])
     #   indexG=nn$nn.idx
     # }
 
     ####
-    ## if no TP estimation : coord_i = coord_j=coord , matrix W n x n
-    ## if TP estimation : coord_i=coord[TP] \in coord_j=coord , matrix W ntp x n
+    ## if no TP estimation : coord_i = coord_j=coords , matrix W n x n
+    ## if TP estimation : coord_i=coords[TP] \in coord_j=coords , matrix W ntp x n
     ## if m extrapolation from Beta : coord_i \not in coord_j=new_data, matrix W n x m
-    ## if m extrapolation from Beta(TP) : coord_i=coord[TP] \not in coord_j=new_data, matrix W ntp x m
+    ## if m extrapolation from Beta(TP) : coord_i=coords[TP] \not in coord_j=new_data, matrix W ntp x m
 
     nn=knn(coord_j,k=min(NN,n),query=coord_i)
     indexG=nn$nn.idx
-    dists=list(coord=nn$nn.dists)
+    dists=list(coords=nn$nn.dists)
   } else {
     if(is.null(indexG)) stop('You must provide indexG and dists')
-    dists=list(coord=dists)
+    dists=list(coords=dists)
   }
   ## GPK with D
   mykernels=kernels
-  kernels=list(coord=mykernels[1])
-  Wd=do.call(kernels$coord,args=list(dists$coord,H$coord))
+  kernels=list(coords=mykernels[1])
+  Wd=do.call(kernels$coords,args=list(dists$coords,H$coords))
   if(rowNorm) Wd=Wd/rowSums(Wd)
    nv=apply(Wd,1,function(x) sum(x>0))
    ### case non adaptive with locally not enough neighbors :
-   if(any(nv<2*ncolX & !adaptive[1] & kernels$coord!='sheppard' ) & noisland){
+   if(any(nv<2*ncolX & !adaptive[1] & kernels$coords!='sheppard' ) & noisland){
      index=which(nv<2*ncolX)
-     Wd[index,]<-do.call(paste0(kernels$coord,'_adapt_sorted'),args=list(matrix(dists$coord[index,],ncol=ncol(dists$coord)),rep(2*ncolX,length(index))))
+     Wd[index,]<-do.call(paste0(kernels$coords,'_adapt_sorted'),args=list(matrix(dists$coords[index,],ncol=ncol(dists$coords)),rep(2*ncolX,length(index))))
    }
   if(nchar(Type)>2){
     cases='D'
@@ -122,5 +122,5 @@ prep_w<-function(H,kernels,coord_i,coord_j,NN,ncolX,Type='GD',adaptive=F,dists=N
     }
   }
   if(rowNorm) Wd=Wd/rowSums(Wd)
-  list(indexG=indexG,Wd=Wd,dists=dists$coord)
+  list(indexG=indexG,Wd=Wd,dists=dists$coords)
 }

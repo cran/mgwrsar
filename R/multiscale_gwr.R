@@ -1,209 +1,152 @@
 #' multiscale_gwr
-#' to be documented (experimental)
-#' @usage multiscale_gwr(formula, data,coord, fixed_vars=NULL,Model=c('GWR'),
-#' kernels=c('bisq'),maxiter=10,control=list(),fd=c(0.6,0.9,0.99,1,1.01,1.1,1.4),
-#' H=NULL,BETA=NULL,grad=FALSE,nstable=3,nfull=2,init='GWR')
-#' @param formula  a formula.
-#' @param fixed_vars a vector with the names of spatiallay constant coefficient for
-#' mixed model. All other variables present in formula are supposed to be spatially
-#' varying. If empty or NULL (default), all variables in formula are supposed to be
-#' spatially varying.
-#' @param data a dataframe or a spatial dataframe (sp package).
-#' @param coord default NULL, a dataframe or a matrix with coordinates, not
-#' required if data is a spatial dataframe.
-#' @param Model character containing the type of model: Possible values are "OLS",
-#' "SAR", "GWR" (default), "MGWR" , "MGWRSAR_0_0_kv","MGWRSAR_1_0_kv",
-#' "MGWRSAR_0_kc_kv", "MGWRSAR_1_kc_kv", "MGWRSAR_1_kc_0". See Details for more
-#' explanation.
+#' This function adapts the multiscale Geographically Weighted Regression (GWR) methodology
+#' proposed by Fotheringam et al. in 2017, employing a backward fitting procedure within
+#' the MGWRSAR subroutines. The consecutive bandwidth optimizations are performed by
+#' minimizing the corrected Akaike criteria.
+#' @usage multiscale_gwr(formula,data,coords,Model = 'GWR',kernels='bisq',
+#' control=list(SE=FALSE,adaptive=TRUE,NN=800,isgcv=FALSE),init='GWR',maxiter=100,
+#' nstable=6,crit=0.000001,doMC=FALSE,ncore=1,HF=NULL,H0=NULL,model=NULL)
+#' @param formula A formula.
+#' @param data A dataframe.
+#' @param coords default NULL, a dataframe or a matrix with coordinates.
+#' @param Model The type of model: Possible values are "GWR" (default),
+#' and "MGWRSAR_1_0_kv". See Details for more explanation.
 #' @param kernels A vector containing the kernel types. Possible types:
-#' rectangle ("rectangle"), bisquare ("bisq"), tricube ("tcub"), epanechnikov ("epane"), gaussian
-#' ("gauss")) .
-#' @param H vector containing the bandwidth parameters for each covariate.
-#' @param maxiter maximum number of backfiting iteration
-#' @param BETA to be documented (experimental)
-#' @param nstable to be documented (experimental)
-#' @param init to be documented (experimental)
-#' @param fd to be documented (experimental)
-#' @param grad to be documented (experimental)
-#' @param nfull to be documented (experimental)
-#' @param control list of extra control arguments for MGWRSAR wrapper - see Details below
+#' rectangle ("rectangle"), bisquare ("bisq"), tricube ("tcub"), epanechnikov ("epane"),
+#' gaussian("gauss")).
+#' @param control a list of extra control arguments, see MGWRSAR help.
+#' @param init starting model (lm or GWR)
+#' @param maxiter maximum number of iterations in the back-fitting procedure.
+#' @param nstable required number of consecutive unchanged optimal bandwidth (by covariate)
+#' before leaving optimisation of bandwidth size, default 3.
+#' @param crit value to terminate the back-fitting iterations (ratio of change in RMSE)
+#' @param doMC A boolean for Parallel computation, default FALSE.
+#' @param ncore number of CPU cores for parallel computation, default 1.
+#' @param HF if available, a vector containing the optimal bandwidth parameters for each
+#' covariate, default NULL.
+#' @param H0 A bandwidth value for the starting GWR model, default NULL.
+#' @param model A previous model estimated using multiscale_gwr function, default NULL.
+#' @return  Return an object of class mgwrsar with at least the following components:
+#' \describe{
+#' \item{Betav}{ matrix of coefficients of dim(n,kv) x kv.}
+#' \item{Betac}{ vector of coefficients of length kc.}
+#' \item{Model}{ The sum of square residuals.}
+#' \item{Y}{ The dependent variable.}
+#' \item{XC}{ The explanatory variables with constant coefficients.}
+#' \item{XV}{ The explanatory variables with varying coefficients.}
+#' \item{X}{ The explanatory variables.}
+#' \item{W}{ The spatial weight matrix for spatial dependence.}
+#' \item{isgcv}{ if gcv has been computed.}
+#' \item{edf}{ The estimated degrees of freedom.}
+#' \item{formula}{The formula.}
+#' \item{data}{ The dataframe used for computation.}
+#' \item{Method}{ The type of model.}
+#' \item{coords}{ The spatial coordinates of observations.}
+#' \item{H}{ A vector of bandwidths.}
+#' \item{fixed_vars}{ The names of constant coefficients.}
+#' \item{kernels}{ The kernel vector.}
+#' \item{SSR}{ The sum of square residuals.}
+#' \item{residuals}{ The vector of residuals.}
+#' \item{fit}{ the vector of fitted values.}
+#' \item{sev}{ local standard error of parameters.}
+#' \item{get_ts}{Boolean, if trace of hat matrix Tr(S) should be stored.}
+#' \item{NN}{ Maximum number of neighbors for weights computation}
+#' }
+#' @seealso  tds_mgwr, bandwidths_mgwrsar, summary_mgwrsar, plot_mgwrsar, predict_mgwrsar
+#' @examples
+#' \donttest{
+#' library(mgwrsar)
+#' mysimu<-simu_multiscale(n=1000)
+#' mydata=mysimu$mydata
+#' coords=mysimu$coords
+#' model_multiscale<-multiscale_gwr(formula=as.formula('Y~X1+X2+X3'),data=mydata,
+#' coords=coords,Model = 'GWR',kernels='bisq',control=list(SE=FALSE,
+#' adaptive=TRUE,NN=900,isgcv=FALSE),init='GWR',nstable=6,crit=0.000001)
+#' summary_mgwrsar(model_multiscale)
+#' }
+multiscale_gwr<-function(formula,data,coords,Model = 'GWR',kernels='bisq',control=list(SE=FALSE,adaptive=TRUE,NN=800,isgcv=FALSE),init='GWR',maxiter=100,nstable=6,crit=0.000001,doMC=FALSE,ncore=1,HF=NULL,H0=NULL,model=NULL){
+  start<-proc.time()
+  n=nrow(data)
+  mf <- model.frame(formula, data)
+  mt <- attr(x = mf, which = "terms")
+  Y <- model.extract(mf, "response")
+  X = model.matrix(object = mt, data = mf)
+  namesX =colnames(X)
+  if(colnames(X)[1]== "(Intercept)") colnames(X)[1]<-namesX[1]<-'Intercept'
+  data$Intercept=rep(1,n)
+  K=length(namesX)
 
-multiscale_gwr<-function(formula, data,coord, fixed_vars=NULL,Model=c('GWR'),kernels=c('bisq'),maxiter=10,control=list(),fd=c(0.6,0.9,0.99,1,1.01,1.1,1.4),H=NULL,BETA=NULL,grad=FALSE,nstable=3,nfull=2,init='GWR'){
-  # Stage 1 global bandwidth
-  #control$verbose=0
-  controlGCV=control
-  controlGCV$isgcv=TRUE
-  RES<-list()
-  find_end_cycle<-function(v,prof){
-    cycling=FALSE
-    myprof=NA
-    fin=length(v)
-    for(l in 2:prof){
-      mycycle=tail(v,l)
-      for(j in 0:(l-1)){
-        if(all(tail(v[-((fin-j):fin) ],l)==mycycle)) {
-          cycling=TRUE
-          myprof=l
-        }
-      }
-    }
-    list(iscycling=cycling,prof=myprof)
-  }
-  mytab<-bandwidths_mgwrsar(formula = formula, data = data,coord=coord, fixed_vars=fixed_vars,Models=Model,candidates_Kernels=kernels,control=control)
-  initmodelGCV<-MGWRSAR(formula = formula, data = data,coord=coord, fixed_vars=fixed_vars,kernels=kernels,H=mytab[[1]]$model$H, Model = Model,control=controlGCV)
-  initmodel<-MGWRSAR(formula = formula, data = data,coord=coord, fixed_vars=fixed_vars,kernels=kernels,H=mytab[[1]]$model$H, Model = Model,control=control)
-  RES[[1]]<-list(Betav=initmodelGCV$Betav,residuals=initmodelGCV$residuals,fit=initmodelGCV$fit,RMSE=initmodelGCV$RMSE,H=initmodelGCV$H,CV=initmodelGCV$RMSE)
-
-  if(!is.null(BETA)) cat('\n STARTING RMSE_beta=',apply(mytab[[1]]$model$Betav-BETA,2,function(x) sqrt(mean(x^2))),'\n')
-  ##### Stage 2 backfit
-  # INIT
-  namesX<-attr(terms(formula),"term.labels")
-  if(attr(terms(formula),'intercept')==1) {
-    intercept=TRUE
-    namesX=c('Intercept',namesX)
-    data$Intercept<-rep(1,nrow(data))
-  }
-  m=length(namesX)
-  for(i in 1:(m)){
-    RES[[i]]<-RES[[1]]
-  }
-  started<-convcrit<-FALSE
-
-  iter=2
-  stable=rep(0,m)
-  RMSEs<-NA
-  CVs<-rmse<-RES[[1]]$RMSE
-  H_p<-matrix(NA,ncol=maxiter+1,nrow=m)
-  H_p[,1]<-RES[[1]]$H
-
-  ## FIND H using LOOCV
-  cat('\n##############################\n')
-  cat('########## FIND H using LOOCV \n')
-  cat('##############################\n')
-  if(is.null(H)){
-    instable=1:m
-    while(length(instable)>0){
-      instable=which(stable<nstable)
-      for(i in 1:m){
-        control$isgcv=FALSE
-        myformula_b<-as.formula(paste0('Ybackfit~-1+',namesX[i]))
-        cat('\n VARIABLE : ',namesX[i] ,' stable since ',stable[i],' iterations')
-        if(i==1) j=m else j=i-1
-        data$Ybackfit<-RES[[j]]$residuals+RES[[i]]$Betav[,namesX[i]]*data[,namesX[i]]
-        ## soit H connu soit non
-        if(i %in% instable){
-          if(grad & iter>nfull) {
-            RES[[i]]<-bandwidth_backfit(formula = myformula_b, data = data,coord=coord, H= RES[[i]]$H,fixed_vars=fixed_vars,Model=Model,kernels=kernels,control=control,fd=fd,isgcv=TRUE)
-            H_p[i,iter]<-RES[[i]]$H
-          } else {
-            myres<-bandwidths_mgwrsar(formula = myformula_b, data = data,coord=coord, fixed_vars=fixed_vars,Models=Model,candidates_Kernels=kernels,control=control,control_search=list())
-            model<-MGWRSAR(formula = myformula_b, data = data,coord=coord, fixed_vars=fixed_vars,kernels=kernels,H=myres[[1]]$model$H, Model = Model,control=controlGCV)
-            RES[[i]]<-list(Betav=model$Betav,fit=model$fit,residuals=model$residuals,CV=model$RMSE,RMSE=model$RMSE,H=model$H)
-            H_p[i,iter]<-RES[[i]]$H
-          }
-          cat('\n new value ',RES[[i]]$H)
-          if(H_p[i,iter]==H_p[i,iter-1]) stable[i]=stable[i]+1
-          if(iter>5 & stable<nstable) {
-            test_cylcing<-find_end_cycle(H_p[i,1:iter],4)
-            if(test_cylcing$iscycling) {
-              H_p[i,iter]=ceiling(mean(H_p[i,((iter-prof+1):iter)]))
-              stable[i]=nstable
-            }
-          }
-        } else {
-          H_p[i,iter]<- H_p[i,iter-1]
-          modelGCV<-MGWRSAR(formula = myformula_b, data = data,coord=coord, fixed_vars=fixed_vars,kernels=kernels,H=H_p[i,iter], Model = Model,control=controlGCV)
-          RES[[i]]<-list(Betav=modelGCV$Betav,fit=modelGCV$fit,residuals=modelGCV$residuals,CV=modelGCV$RMSE,RMSE=modelGCV$RMSE,H=H_p[i,iter])
-        }
-      }
-      deltaCVp=(rmse-RES[[m]]$RMSE)/RES[[m]]$RMSE
-      rmse=RES[[m]]$RMSE
-      CVs<-c(CVs,rmse)
-      RMSEs<-c(RMSEs,NA)
-      if(any(stable==nstable) & all(H_p[,iter]==H_p[,iter-2])) {
-       # browser()
-        stable[1:m]=nstable
-        for(i in 1:m) H_p[i,iter]=round((H_p[i,iter]+H_p[i,iter-1])/2)
-      }
-      cat('\n bandwidths : ',H_p[,iter],' deltaCVp =',deltaCVp,'\n ')
-      iter=iter+1
-    }
-  } else   {
-    H_p[,iter]<-H
-    iter=iter+1
-  }
-  cat('\n##############################\n')
-  cat('########## BETA estimation    \n')
-  cat('##############################\n')
-  RES<-list()
-  if(init=='0'){
-    initmodel$Betav=matrix(0,nrow=nrow(data),ncol=ncol(initmodel$Betav),byrow=T)
-    colnames(initmodel$Betav)<-namesX
-    initmodel$residuals=initmodel$Y #residuals(lmmodel)
-    initmodel$fit=rep(0,nrow(data)) #fitted(lmmodel)
-    initmodel$RMSE=sqrt(mean(initmodel$residuals^2))
+  if(!is.null(model)){
+    HF=model$H
+    BETA=model$Betav
+    data$eps<-model$residuals
   } else if(init=='lm'){
-    lmmodel=lm(formula = formula, data = data)
-    initmodel$Betav=matrix(coefficients(lmmodel),nrow=nrow(data),ncol=ncol(initmodel$Betav),byrow=T)
-    colnames(initmodel$Betav)<-namesX
-    initmodel$residuals=residuals(lmmodel)
-    initmodel$fit=fitted(lmmodel)
-    initmodel$RMSE=sqrt(mean(initmodel$residuals^2))
+    model0=lm(formula,data)
+    BETA=matrix(rep(coef(model0),each=nrow(data)),byrow=FALSE,ncol=length(coef(model0)))
+    data$eps<-residuals(model0)
+    H=rep(n,K)
+  } else {
+    if(is.null(H0)) {
+      res=golden_search_bandwidth_AICc(formula = formula, data = data,coords=coords, fixed_vars=NULL,kernels=kernels,Model=Model,control=control,lower.bound=5, upper.bound=control$NN-2)
+     H0= res$minimum
+    }
+    modelGWR<-MGWRSAR(formula = formula, data = data,coords=coords, fixed_vars=NULL,kernels=kernels,H=H0, Model = Model,control=control)
+    BETA=modelGWR$Betav
+    H=rep(modelGWR$H,K)
+    data$eps<-modelGWR$residuals
+    cat('H0=',H0,'\n')
   }
 
-  RES[[1]]<-list(Betav=initmodel$Betav,residuals=initmodel$residuals,fit=initmodel$fit,RMSE=initmodel$RMSE,H=initmodel$H,CV=initmodel$RMSE)
-  for(i in 1:(m)){
-  RES[[i]]<-RES[[1]]
-  }
-  SRES<-RES
-  started<-convcrit<-FALSE
-  rmse=initmodel$RMSE
-  iterbeta=1
-  while(!convcrit & iter<maxiter){
-    for(i in 1:m){
-      control$isgcv=FALSE
-      myformula_b<-as.formula(paste0('Ybackfit~-1+',namesX[i]))
-      if(i==1) j=m else j=i-1
-      data$Ybackfit<-RES[[j]]$residuals+RES[[i]]$Betav[,namesX[i]]*data[,namesX[i]]
-      H_p[i,iter]<- H_p[i,iter-1]
-      model<-MGWRSAR(formula = myformula_b, data = data,coord=coord, fixed_vars=fixed_vars,kernels=kernels,H=H_p[i,iter], Model = Model,control=control)
-      ### taux apprentissage ??
-      #model$Betav=nu*RES[[i]]$Betav[,namesX[i]]+(1-nu)*model$Betav
-      model$fit=model$Betav*data[,namesX[i]]
-      model$residuals=data$Ybackfit- model$fit
-      model$RMSE=sqrt(mean(model$residuals^2))
-      RES[[i]]<-list(Betav=model$Betav,fit=model$fit,residuals=model$residuals,CV=model$RMSE,RMSE=model$RMSE,H=H_p[i,iter])
-    }
-    deltaRMSEp=(rmse-RES[[m]]$RMSE)/RES[[m]]$RMSE
-    if(deltaRMSEp>0)  SRES<-RES
-    cat('\n deltaRMSEp =',deltaRMSEp,'\n ')
-    if(deltaRMSEp<0.00001 & iterbeta>2) {
-      convcrit=TRUE;
-      cat('\n Delta RMSE <0.00001\n')
-    }
-    rmse=RES[[m]]$RMSE
-    CVs<-c(CVs,NA)
-    RMSEs<-c(RMSEs,rmse)
+  drmse<-delta_rmse<-sqrt(mean(Y^2))
+  isgcv=FALSE
+  iter=0
+  G<-prep_d(coords,control$NN,TP=1:nrow(coords))
+  control$dists=G$dists
+  control$indexG=G$indexG
+  stable<-rep(1,K)
+  if(!is.null(HF)) H=HF
+
+  while((abs(delta_rmse)>crit | any(stable<nstable)) & iter<=maxiter){
     iter=iter+1
-    iterbeta=iterbeta+1
-  }
-  cat('\n##############################\n')
-  cat('########## output model   \n')
-  cat('##############################\n')
+    cat('\n')
+    for(k in 1:K){
+      var = namesX[k]
+      cat(' ', var,' ')
+      data$epst<-data$eps+BETA[,k]*data[,var] %>% as.matrix(ncol=1)
+      myformula=as.formula(paste0('epst~',var,'-1'))
+      if(is.null(HF)){
+        if(stable[k]<nstable){
+          res=golden_search_bandwidth_AICc(formula = myformula, data = data,coords=coords, kernels=kernels,fixed_vars=NULL,Model=Model,control=control,lower.bound=5, upper.bound=control$NN-2)
+          modellm=lm(formula = myformula, data = data)
+          if(res$objective>AIC(modellm)){
+            res$minimum=n
+            res$objective=AIC(modellm)
+          }
+          H[k]<-h<-res$minimum } else h=H[k]} else h=HF[k]
 
-  mymodel=mytab[[1]]$model
-
-  for(i in 1:m){
-    mymodel$Betav[,i]<-SRES[[i]]$Betav[,1]
+      if(h==n){
+        modelGWR<-lm(myformula,data)
+        modelGWR$H=n
+        modelGWR$Betav=rep(coef(modelGWR),n)
+      } else {
+        if(stable[k]<nstable & is.null(HF)) modelGWR<-res$model else modelGWR<-MGWRSAR(formula =myformula, data = data,coords=coords, fixed_vars=NULL,kernels=kernels,H=h, Model = Model,control=control)
+      }
+      BETA[,k]<-modelGWR$Betav
+      data$eps=modelGWR$residuals
+      if(iter>1) if(oldH[k]==H[k]) stable[k]=stable[k]+1 else stable[k]=1
+    }
+    oldH<-H
+    delta_rmse=(drmse - sqrt(mean(data$eps^2)))/drmse
+    drmse= sqrt(mean(data$eps^2))
+    cat('\n iter ',iter,' H ',H,' RMSE=',sqrt(mean(data$eps^2)),' delta_rmse ',delta_rmse,' stable',stable,'\n')
   }
-  mymodel$fit=SRES[[i]]$fit
-  mymodel$residuals=SRES[[i]]$residuals
-  mymodel$RMSE=sqrt(mean(mymodel$residuals^2))
-  mymodel$Hs=H_p[,1:(iter-1)]
-  mymodel$H=H_p[,(iter-1)]
-  mymodel$iter=iter
-  mymodel$RMSE_iter=RMSEs
-  mymodel$CV_iter=CVs
-  mymodel$Model<-'multiscale_GWR'
-  mymodel
+  cat('Duree = ',(proc.time()- start)[3],'\n')
+  modelGWR$Model='multiscale_gwr'
+  modelGWR$Betav=BETA
+  modelGWR$residuals=data$eps
+  modelGWR$fitted=Y-data$eps
+  modelGWR$RMSE=sqrt(mean(modelGWR$residuals^2))
+  modelGWR$H=H
+  modelGWR$X=X
+  modelGWR
 }

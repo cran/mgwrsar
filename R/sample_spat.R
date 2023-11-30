@@ -15,7 +15,7 @@ mysample=c()
 	prob_i= bisq(D[i,], h0)
 	#cat('sum(prob_i>0)',sum(prob_i>0))
 	if(focal=='median') prob_i[i]<-median(prob_i[-i][prob_i[-i]>0]) else prob_i[i]<-0
-	mysample<-c(mysample,sample(1:nrow(coord),1,prob=prob_i))
+	mysample<-c(mysample,sample(1:nrow(D),1,prob=prob_i))
 	}
 mysample
 }

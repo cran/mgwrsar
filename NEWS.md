@@ -1,5 +1,17 @@
 NEWS/ChangeLog
 -----------------------------
+# 1.0.5 2023-11-16
+* Removing dependency to qlcMatrix
+* Introducing experimental multiscale GWR Model
+* Introducing experimental GWR with glm family
+* Introducing experimental GWR with glmboost Model
+* Adding the ability to calculate the trace of S without calculating the standard deviation matrix (control$get_ts parameter)
+* bandwidths_mgwrsar subroutines improved
+* AICc criteria added for bandwidth search
+* Removing the remove_local_outlier method
+* Rename all variables "coord" to "coords"
+* Rename the coordinates in the data example to c('x','y')
+
 
 # 1.0.4 2023-03-01
 * Improved kernel_matW function by reintroducing possibility of island with no neighbours for non adaptie kernel

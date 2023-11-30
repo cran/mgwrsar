@@ -1,15 +1,15 @@
 #' An extrapolation method using shepard smooth with a given number of neighbors.
-#' @usage Beta_extropolation(coord=coord,k=16,O=NULL,type='SxS')
-#' @param coord a matrix of coordinates
+#' @usage Beta_extropolation(coords=coords,k=16,O=NULL,type='SxS')
+#' @param coords a matrix of coordinates
 #' @param k The number of neighbors for extrapolation
 #' @param O An index vector for outsample
 #' @param type Insample/outsample size configuration : 'S+OxS+O' or 'SxS'(default)
 #' @noRd
 #' @return A weight dgCMatrix of size $type$
 Beta_extropolation <-
-function(coord=coord,k=16,O=NULL,type='SxS'){
+function(coords=coords,k=16,O=NULL,type='SxS'){
 if(is.null(O) & type=='S+OxS+O') stop('You have to priovide O when type= "S+OxS+O"')
-n=nrow(coord)
+n=nrow(coords)
 S=1:n
 m=n
 if(!is.null(O)) {S=S[-O]
@@ -19,11 +19,11 @@ type='S+OxS+O'
 if(length(S)<k) stop(paste('choose at least a insample size >=', k))
 
 if (type=='SxS') {
-nb1<-knn(as.matrix(coord), query =  as.matrix(coord), k = k+1)
+nb1<-knn(as.matrix(coords), query =  as.matrix(coords), k = k+1)
 nb1$nn.dists<-nb1$nn.dists[,-1]
 nb1$nn.idx<-nb1$nn.idx[,-1]
 } else {
-nb1<-knn(as.matrix(coord)[S,], query =  as.matrix(coord)[O,], k = k)
+nb1<-knn(as.matrix(coords)[S,], query =  as.matrix(coords)[O,], k = k)
 }
 DMmax<-apply(nb1$nn.dists,1,max)
 d<-as.numeric(t(nb1$nn.dists))

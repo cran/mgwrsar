@@ -15,7 +15,7 @@ res<-matrix(nrow = length(names_x), ncol = 2)
 for(i in 1:(k-1)){
 name_x<-names_x[i]
 
-x0<-MGWRSAR(formula=update(x1$formula,paste('~.-',name_x,sep='')),data=x1$data,coord=x1$coord,fixed_vars=x1$fixed_vars,kernels=x1$kernel,H=x1$H,Model=x1$Model,control=list(Method=x1$Method,W=x1$W,isgcv=FALSE,SE=TRUE))
+x0<-MGWRSAR(formula=update(x1$formula,paste('~.-',name_x,sep='')),data=x1$data,coords=x1$coords,fixed_vars=x1$fixed_vars,kernels=x1$kernel,H=x1$H,Model=x1$Model,control=list(Method=x1$Method,W=x1$W,isgcv=FALSE,SE=TRUE))
 cat(name_x,' ')
 res[i,]<-unlist(mgwrsar_bootstrap_test(x0,x1,B=B,domc=domc,type='standard',eps='H1',df='H1',focal='median',D=NULL))
 }

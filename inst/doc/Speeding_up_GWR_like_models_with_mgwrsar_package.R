@@ -10,7 +10,7 @@ knitr::opts_chunk$set(
 library(mgwrsar)
 ## loading data example
 data(mydata)
-coord=as.matrix(mydata[,c("x_lat","y_lon")])
+coord=as.matrix(mydata[,c("x","y")])
 
 ## ----GWR_NN-------------------------------------------------------------------
 

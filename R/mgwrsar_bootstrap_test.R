@@ -32,8 +32,8 @@ if(is.null(D) & type=='spatial') stop("When type='spatial' ou have to provide D 
         simWS=x0$data
    		  simWS[, all.vars(as.formula(x0$formula))[1]]=Y_star
 
-   x_star0<-MGWRSAR(formula=x0$formula,data=simWS,coord=x0$coord,fixed_vars=x0$fixed_vars,kernels=x0$kernel,H=x0$H,Model=x0$Model,control=list(Method=x0$Method,W=x0$W,isgcv=x0$isgcv,SE=TRUE,NN=x0$NN,adaptive=x0$adaptive,TP=x0$TP))
-   x_star1<-MGWRSAR(formula=x1$formula,data=simWS,coord=x1$coord,fixed_vars=x1$fixed_vars,kernels=x1$kernel,H=x1$H,Model=x1$Model,control=list(Method=x1$Method,W=x1$W,isgcv=x1$isgcv,SE=TRUE,NN=x1$NN,adaptive=x1$adaptive,TP=x1$TP))
+   x_star0<-MGWRSAR(formula=x0$formula,data=simWS,coords=x0$coords,fixed_vars=x0$fixed_vars,kernels=x0$kernel,H=x0$H,Model=x0$Model,control=list(Method=x0$Method,W=x0$W,isgcv=x0$isgcv,SE=TRUE,NN=x0$NN,adaptive=x0$adaptive,TP=x0$TP))
+   x_star1<-MGWRSAR(formula=x1$formula,data=simWS,coords=x1$coords,fixed_vars=x1$fixed_vars,kernels=x1$kernel,H=x1$H,Model=x1$Model,control=list(Method=x1$Method,W=x1$W,isgcv=x1$isgcv,SE=TRUE,NN=x1$NN,adaptive=x1$adaptive,TP=x1$TP))
         T_star[i]=Tf(x_star0,x_star1)
         cat('T_star[',i,'] ',T_star[i],' ')
     	}
@@ -49,8 +49,8 @@ if(is.null(D) & type=='spatial') stop("When type='spatial' ou have to provide D 
         simWS=x0$data
         simWS[, all.vars(as.formula(x0$formula))[1]]=Y_star
 
-  		x_star0<-MGWRSAR(formula=x0$formula,data=simWS,coord=x0$coord,fixed_vars=x0$fixed_vars,kernels=x0$kernel,H=x0$H,Model=x0$Model,control=list(Method=x0$Method,W=x0$W,isgcv=x0$isgcv,SE=TRUE,NN=x0$NN,adaptive=x0$adaptive,TP=x0$TP))
-   		x_star1<-MGWRSAR(formula=x1$formula,data=simWS,coord=x1$coord,fixed_vars=x1$fixed_vars,kernels=x1$kernel,H=x1$H,Model=x1$Model,control=list(Method=x1$Method,W=x1$W,isgcv=x1$isgcv,SE=TRUE,NN=x1$NN,adaptive=x1$adaptive,TP=x1$TP))
+  		x_star0<-MGWRSAR(formula=x0$formula,data=simWS,coords=x0$coords,fixed_vars=x0$fixed_vars,kernels=x0$kernel,H=x0$H,Model=x0$Model,control=list(Method=x0$Method,W=x0$W,isgcv=x0$isgcv,SE=TRUE,NN=x0$NN,adaptive=x0$adaptive,TP=x0$TP))
+   		x_star1<-MGWRSAR(formula=x1$formula,data=simWS,coords=x1$coords,fixed_vars=x1$fixed_vars,kernels=x1$kernel,H=x1$H,Model=x1$Model,control=list(Method=x1$Method,W=x1$W,isgcv=x1$isgcv,SE=TRUE,NN=x1$NN,adaptive=x1$adaptive,TP=x1$TP))
       Tf(x_star0,x_star1)
     	}
 

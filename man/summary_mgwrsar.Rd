@@ -20,13 +20,13 @@ Print a summary of mgwrsar models
  library(mgwrsar)
  ## loading data example
  data(mydata)
- coord=as.matrix(mydata[,c("x_lat","y_lon")])
+ coords=as.matrix(mydata[,c("x","y")])
  ## Creating a spatial weight matrix (sparce dgCMatrix)
  ## of 4 nearest neighbors with 0 in diagonal
- W=kernel_matW(H=4,kernels='rectangle',coord_i=coord,NN=4,adaptive=TRUE,
+ W=kernel_matW(H=4,kernels='rectangle',coord_i=coords,NN=4,adaptive=TRUE,
  diagnull=TRUE,rowNorm=TRUE)
  mgwrsar_0_kc_kv<-MGWRSAR(formula = 'Y_mgwrsar_0_kc_kv~X1+X2+X3', data = mydata,
- coord=coord, fixed_vars='X2',kernels=c('gauss'),H=20, Model = 'MGWRSAR_0_kc_kv',
+ coords=coords, fixed_vars='X2',kernels=c('gauss'),H=20, Model = 'MGWRSAR_0_kc_kv',
  control=list(SE=FALSE,adaptive=TRUE,W=W))
  summary_mgwrsar(mgwrsar_0_kc_kv)
 }

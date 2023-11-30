@@ -10,7 +10,7 @@ If Type!='GD' then S should have additional columns and several
 kernels and bandwidths should be be specified by the user.}
 \usage{
 kernel_matW(H,kernels,coord_i,coord_j=NULL,NN,ncolX=1,
-Type='GD',adaptive=F,diagnull=TRUE,rowNorm=TRUE,noisland=FALSE)
+Type='GD',adaptive=FALSE,diagnull=TRUE,rowNorm=TRUE,noisland=FALSE)
 }
 \arguments{
 \item{H}{A vector of bandwidths}
@@ -53,8 +53,8 @@ kernels and bandwidths should be be specified by the user.
  library(mgwrsar)
  ## loading data example
  data(mydata)
- coord=as.matrix(mydata[,c("x_lat","y_lon")])
+ coords=as.matrix(mydata[,c("x","y")])
  ## Creating a spatial weight matrix (sparce dgCMatrix) of 4 nearest neighbors with 0 in diagonal
- W=kernel_matW(H=4,kernels='rectangle',coord_i=coord,NN=4,adaptive=TRUE,diagnull=TRUE,rowNorm=TRUE)
+ W=kernel_matW(H=4,kernels='rectangle',coord_i=coords,NN=4,adaptive=TRUE,diagnull=TRUE,rowNorm=TRUE)
 }
 }

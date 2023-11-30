@@ -5,7 +5,7 @@
 \title{mgwrsar Model Predictions
 predict_mgwrsar is a function for computing predictions of a mgwrsar models. It uses Best Linear Unbiased Predictor for mgwrsar models with spatial autocorrelation.}
 \usage{
-predict_mgwrsar(model, newdata, newdata_coord, W = NULL, type = "BPN",
+predict_mgwrsar(model, newdata, newdata_coords, W = NULL, type = "BPN",
 h_w = 100,kernel_w = "rectangle",maxobs=4000,beta_proj=FALSE,
 method_pred='TP', k_extra = 8)
 }
@@ -14,7 +14,7 @@ method_pred='TP', k_extra = 8)
 
 \item{newdata}{a matrix or data.frame of new data.}
 
-\item{newdata_coord}{a matrix of new coordinates, and eventually other variables if a General Kernel Product is used.}
+\item{newdata_coords}{a matrix of new coordinates, and eventually other variables if a General Kernel Product is used.}
 
 \item{W}{the spatial weight matrix for models with  spatial autocorrelation.}
 
@@ -54,22 +54,22 @@ and number of neighbors as for computing the MGWRSAR model is used.
 \donttest{
 library(mgwrsar)
  data(mydata)
- coord=as.matrix(mydata[,c("x_lat","y_lon")])
+ coords=as.matrix(mydata[,c("x","y")])
 length_out=800
 index_in=sample(1:1000,length_out)
 index_out=(1:1000)[-index_in]
 
 model_GWR_insample<-MGWRSAR(formula = 'Y_gwr~X1+X2+X3', data = mydata[index_in,],
-coord=coord[index_in,],fixed_vars=NULL,kernels=c ('gauss'),H=8, Model = 'GWR',
+coords=coords[index_in,],fixed_vars=NULL,kernels=c ('gauss'),H=8, Model = 'GWR',
 control=list(adaptive=TRUE))
 summary_mgwrsar(model_GWR_insample)
 
 newdata=mydata[index_out,]
-newdata_coord=coord[index_out,]
+newdata_coords=coords[index_out,]
 newdata$Y_mgwrsar_1_0_kv=0
 
 Y_pred=predict_mgwrsar(model_GWR_insample, newdata=newdata,
-newdata_coord=newdata_coord)
+newdata_coords=newdata_coords)
 head(Y_pred)
 head(mydata$Y_gwr[index_out])
 sqrt(mean((mydata$Y_gwr[index_out]-Y_pred)^2)) # RMSE

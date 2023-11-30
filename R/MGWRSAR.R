@@ -3,7 +3,7 @@
 #' MGWRSAR is is a wrapper function for estimating linear and local linear models
 #' with spatial autocorrelation (SAR models with spatially varying coefficients).
 #'
-#' @usage MGWRSAR(formula,data,coord,fixed_vars=NULL,kernels,H,
+#' @usage MGWRSAR(formula,data,coords,fixed_vars=NULL,kernels,H,
 #' Model='GWR',control=list())
 #'
 #' @param formula  a formula.
@@ -12,7 +12,7 @@
 #' varying. If empty or NULL (default), all variables in formula are supposed to be
 #' spatially varying.
 #' @param data a dataframe or a spatial dataframe (sp package).
-#' @param coord default NULL, a dataframe or a matrix with coordinates, not
+#' @param coords default NULL, a dataframe or a matrix with coordinates, not
 #' required if data is a spatial dataframe.
 #' @param Model character containing the type of model: Possible values are "OLS",
 #' "SAR", "GWR" (default), "MGWR" , "MGWRSAR_0_0_kv","MGWRSAR_1_0_kv",
@@ -24,7 +24,7 @@
 #' @param H vector containing the bandwidth parameters for the kernel functions.
 #' @param control list of extra control arguments for MGWRSAR wrapper - see Details below
 #' @details
-#' \itemize{
+#' \describe{
 #' \item{Z}{ a matrix of variables for genralized kernel product, default NULL.}
 #' \item{W}{ a row-standardized spatial weight matrix for Spatial Aurocorrelation, default NULL.}
 #' \item{type}{ verbose mode, default FALSE.}
@@ -33,6 +33,8 @@
 #' \item{h_w}{ the bandwidth value for computing W, default 0.}
 #' \item{Method}{ estimation technique for computing the models with Spatial Dependence. '2SLS' or 'B2SLS', default '2SLS'.}
 #' \item{TP}{ A vector of target points, default NULL.}
+#' \item{doMC}{Parallel computation, default FALSE}
+#' \item{ncore}{number of CPU core for parallel computation, default 1}
 #' \item{isgcv}{ computing LOOCV criteria (for example for selecting optimal bandwidth), default FALSE.}
 #' \item{isfgcv}{ if TRUE, simplify the computation of CV criteria (remove or not i
 #' when using local instruments for model with lambda spatially varying), default TRUE.}
@@ -40,7 +42,8 @@
 #' \item{NmaxDist}{ when n >NmaxDist only the maxknn first neighbours are used for distance compution, default 5000}
 #' \item{verbose}{ verbose mode, default FALSE.}
 #'}
-#' @return MGWRSAR returns an object  of class mgwrsar with at least the following components:
+#' @return MGWRSAR returns an object of class mgwrsar with at least the following components:
+#' \describe{
 #' \item{Betav}{ matrix of coefficients of dim(n,kv) x kv.}
 #' \item{Betac}{ vector of coefficients of length kc.}
 #' \item{Model}{ The sum of square residuals.}
@@ -54,7 +57,7 @@
 #' \item{formula}{The formula.}
 #' \item{data}{ The dataframe used for computation.}
 #' \item{Method}{ The type of model.}
-#' \item{coord}{ The spatial coordinates of observations.}
+#' \item{coords}{ The spatial coordinates of observations.}
 #' \item{H}{ The bandwidth vector.}
 #' \item{fixed_vars}{ The names of constant coefficients.}
 #' \item{kernels}{ The kernel vector.}
@@ -62,8 +65,9 @@
 #' \item{residuals}{ The vector of residuals.}
 #' \item{fit}{ the vector of fitted values.}
 #' \item{sev}{ local standard error of parameters.}
+#' \item{get_ts}{Boolean, if trace of hat matrix Tr(S) should be stored.}
 #' \item{NN}{ Maximum number of neighbors for weights computation}
-#'
+#'}
 #' MGWRSAR is is a wrapper function for estimating linear and local linear model
 #' with spatial autocorrelation that  allows to estimate the following models :
 #' \eqn{y=\beta_c X_c+\,\epsilon_i} (OLS)
@@ -116,23 +120,23 @@
 #'  library(mgwrsar)
 #'  ## loading data example
 #'  data(mydata)
-#'  coord=as.matrix(mydata[,c("x_lat","y_lon")])
+#'  coords=as.matrix(mydata[,c("x","y")])
 #'  ## Creating a spatial weight matrix (sparce dgCMatrix)
 #'  ## of 4 nearest neighbors with 0 in diagonal
-#'  W=kernel_matW(H=4,kernels='rectangle',coord_i=coord,NN=4,adaptive=TRUE,
+#'  W=kernel_matW(H=4,kernels='rectangle',coord_i=coords,NN=4,adaptive=TRUE,
 #'  diagnull=TRUE,rowNorm=TRUE)
 #'  mgwrsar_0_kc_kv<-MGWRSAR(formula = 'Y_mgwrsar_0_kc_kv~X1+X2+X3', data = mydata,
-#'  coord=coord, fixed_vars='X2',kernels=c('gauss'),H=20, Model = 'MGWRSAR_0_kc_kv',
+#'  coords=coords, fixed_vars='X2',kernels=c('gauss'),H=20, Model = 'MGWRSAR_0_kc_kv',
 #'  control=list(SE=FALSE,adaptive=TRUE,W=W))
 #'  summary_mgwrsar(mgwrsar_0_kc_kv)
 #' }
-MGWRSAR <- function(formula, data, coord, fixed_vars = NULL, kernels, H,Model = "GWR", control = list()){
+MGWRSAR <- function(formula, data, coords, fixed_vars = NULL, kernels, H,Model = "GWR", control = list()){
   set.seed(123)
- while(sum(duplicated(coord))>0) {
-    coord<-jitter(coord,0.001)
-    warning('coords have been jittered because there is some duplicated location.')
+ while(sum(duplicated(coords))>0) {
+    coords<-jitter(coords,0.001)
+    #warning('coords have been jittered because there is some duplicated location.')
  }
-  colnames(coord)<-c('x_lat','y_lon')
+  colnames(coords)<-c('x','y')
     ptm<-proc.time()
     mycall <- match.call()
     n <-nrow(data)
@@ -178,9 +182,9 @@ MGWRSAR <- function(formula, data, coord, fixed_vars = NULL, kernels, H,Model = 
       model$Betav = NULL
       model$Y = Y
     }
-    else if (Model %in%  c("GWR","GWR_glmboost",'GWR_gamboost_linearized',"MGWRSAR_1_0_kv","GWR_multiscale") ){
+    else if (Model %in%  c("GWR","GWR_glm","GWR_glmboost",'GWR_gamboost_linearized',"MGWRSAR_1_0_kv","GWR_multiscale") ){
       if(Model=="MGWRSAR_1_0_kv") Wx=W else Wx=NULL
-      model = GWR(Y=Y,XV=XV,ALL_X=X,S=S,H=H,NN=NN,W=Wx, kernels=MykernelS,adaptive=adaptive, Type = Type,SE=SE, isgcv=isgcv,remove_local_outlier=remove_local_outlier,outv=outv,TP=TP,doMC=doMC,ncore=ncore,dists=dists,indexG=indexG,Wd=Wd,Model=Model,S_out=S_out,mstop=mstop,nu=nu)
+      model = GWR(Y=Y,XV=XV,ALL_X=X,S=S,H=H,NN=NN,W=Wx, kernels=MykernelS,adaptive=adaptive, Type = Type,SE=SE, isgcv=isgcv,TP=TP,doMC=doMC,ncore=ncore,dists=dists,indexG=indexG,Wd=Wd,Model=Model,S_out=S_out,get_ts=get_ts,mstop=mstop,nu=nu,family=family)
       model$Betac = NULL
       model$XC = NULL
       if(Model=="MGWRSAR_1_0_kv") {
@@ -189,7 +193,7 @@ MGWRSAR <- function(formula, data, coord, fixed_vars = NULL, kernels, H,Model = 
       } else if(!S_out) model$XV = XV else model$XV = XV[TP,]
     } else {
       if(Model=="MGWR") Wx=NULL else Wx=W
-      model<- MGWR(Y=Y,XC=XC,XV=XV,S=S,H=H,NN=NN, kernels=kernels,adaptive=adaptive, Type = Type,SE=SE, isgcv=isgcv,W=W,remove_local_outlier=remove_local_outlier,outv=outv,TP=TP,Model=Model,dists=dists,indexG=indexG,Wd=Wd,S_out=S_out,doMC=doMC,ncore=ncore)
+      model<- MGWR(Y=Y,XC=XC,XV=XV,S=S,H=H,NN=NN, kernels=kernels,adaptive=adaptive, Type = Type,SE=SE, isgcv=isgcv,W=W,TP=TP,Model=Model,dists=dists,indexG=indexG,Wd=Wd,S_out=S_out,doMC=doMC,ncore=ncore,get_ts=get_ts)
       model$Y = Y
       model$XC=XC
       if(Model =="MGWRSAR_1_kc_kv") {
@@ -253,7 +257,8 @@ MGWRSAR <- function(formula, data, coord, fixed_vars = NULL, kernels, H,Model = 
     try(names(model$Betac) <- names_betac, silent = TRUE)
     try(names(model$se) <- names_betac, silent = TRUE)
     if(!is.null(new_data)) {z <- list(Betav = model$Betav, Betac = model$Betac,pred = pred,XC = model$XC, XV = model$XV)} else {
-      z <- list(Betav = model$Betav, Betac = model$Betac, sev = model$SEV,se = model$se, Model = Model, Y = Y, XC = model$XC, XV = model$XV,X = X, W = W, isgcv = isgcv, edf = model$edf, tS = model$tS,formula = formula, data = data, Method = Method, coord = coord,H = H, fixed_vars = fixed_vars, kernels = kernels,adaptive=adaptive, fit = fit,pred=pred,residuals = residuals, RMSE=sqrt(mean((residuals[TP])^2)),RMSEn=sqrt(mean((residuals)^2)),SSR = sum(residuals^2), Type = Type,S = S,NN=NN,TP=TP, doMC=doMC,ncore=ncore,mycall = mycall,ctime=(proc.time()-ptm)[3])
+      if(is.null(model$tS)) AICc=NULL else AICc<- n*log(sqrt(mean((residuals[TP])^2)))+n*log(2*pi)+n*(n+model$tS)/(n-2-model$tS)
+      z <- list(Betav = model$Betav, Betac = model$Betac, sev = model$SEV,se = model$se, Model = Model, Y = Y, XC = model$XC, XV = model$XV,X = X, W = W, isgcv = isgcv, edf = model$edf, tS = model$tS,AICc=AICc,formula = formula, data = data, Method = Method, coords = coords,H = H, fixed_vars = fixed_vars, kernels = kernels,adaptive=adaptive, fit = fit,pred=pred,residuals = residuals, RMSE=sqrt(mean((residuals[TP])^2)),RMSEn=sqrt(mean((residuals)^2)),SSR = sum(residuals^2), Type = Type,S = S,NN=NN,TP=TP, doMC=doMC,ncore=ncore,mycall = mycall,ctime=(proc.time()-ptm)[3])
     class(z) <- "mgwrsar"}
     invisible(z)
   }

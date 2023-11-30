@@ -1,9 +1,9 @@
 #' MGWR
 #' to be documented
-#' @usage MGWR(Y,XC,XV,ALL_X=NULL,S,H,NN, kernels,adaptive=F,Type="GD",
-#' SE=FALSE,isgcv=F,W=NULL,remove_local_outlier=FALSE,outv=0,TP=NULL,
+#' @usage MGWR(Y,XC,XV,ALL_X=NULL,S,H,NN, kernels,adaptive=FALSE,Type="GD",
+#' SE=FALSE,isgcv=FALSE,W=NULL,TP=NULL,
 #' KernelTP='sheppard',kWtp=8,Model,indexG=NULL,Wd=NULL,dists=NULL,
-#' doMC=FALSE,ncore=1,S_out=NULL)
+#' doMC=FALSE,ncore=1,S_out=NULL,get_ts=FALSE)
 #' @param Y  A vector
 #' @param XC  A matrix with covariates with stationnary parameters
 #' @param XV   A matrix with covariates with spatially varying parameters
@@ -19,8 +19,6 @@
 #' @param SE  If standard error are computed, default FALSE
 #' @param isgcv  leave one out cross validation, default FALSE
 #' @param W  A weight matrix for spatial autocorrelation
-#' @param remove_local_outlier Remove local outlier
-#' @param outv  A treshold for removing local outlier
 #' @param TP  index of target points, default NULL
 #' @param indexG  Precomputed Matrix of indexes of NN neighbors, default NULL.
 #' @param dists  Precomputed Matrix of spatial distances, default NULL
@@ -31,11 +29,11 @@
 #'   "MGWRSAR_1_kc_kv", "MGWRSAR_1_kc_0". See Details for more
 #' @return a list of object for MGWRSAR wrapper
 #' @noRd
-MGWR<-function(Y,XC,XV,ALL_X=NULL,S,H,NN, kernels,adaptive=F, Type = "GD",SE=FALSE, isgcv=F,W=NULL,remove_local_outlier=FALSE,outv=0,TP=NULL,Model,indexG=NULL,Wd=NULL,dists=NULL,doMC=FALSE,ncore=1,S_out=FALSE,noisland=FALSE){
+MGWR<-function(Y,XC,XV,ALL_X=NULL,S,H,NN, kernels,adaptive=FALSE, Type = "GD",SE=FALSE, isgcv=FALSE,W=NULL,TP=NULL,Model,indexG=NULL,Wd=NULL,dists=NULL,doMC=FALSE,ncore=1,S_out=FALSE,noisland=FALSE,get_ts=FALSE){
   se = NULL
   sev = NULL
   pred=FALSE
-  coord=S[,1:2]
+  coords=S[,1:2]
   if(ncol(S)>2) Z=matrix(S[,3:ncol(S)]) else Z=NULL
   if (!is.null(XC)) XC <- as.matrix(XC)
   if (!is.null(XV)) XV <- as.matrix(XV)
@@ -64,7 +62,7 @@ MGWR<-function(Y,XC,XV,ALL_X=NULL,S,H,NN, kernels,adaptive=F, Type = "GD",SE=FAL
   if (Model %in% c("MGWRSAR_1_kc_kv","MGWRSAR_1_kc_0")) {
     W2=W
   } else W2=NULL
-  model=gwr_beta(Y=mgwr1$ZZ,XV=XV,ALL_X=ALL_X,TP=TP,indexG=indexG,Wd=Wd,NN=NN,W=W2,isgcv=isgcv,SE=SE,remove_local_outlier=remove_local_outlier,outv=outv,doMC=doMC,ncore=ncore, pred=pred)
+  model=gwr_beta(Y=mgwr1$ZZ,XV=XV,ALL_X=ALL_X,TP=TP,indexG=indexG,Wd=Wd,NN=NN,W=W2,isgcv=isgcv,SE=SE,doMC=doMC,ncore=ncore, pred=pred,get_ts=get_ts)
 
-  if(SE & !isgcv) list(Betac=mgwr1$Betac,Betav=model$Betav,SEV=model$SEV,se=mgwr1$se,edf=n-model$tS-length(mgwr1$Betac),tS=model$tS+length(mgwr1$Betac)) else list(Betac=mgwr1$Betac,Betav=model$Betav,SEV=NULL,edf=NULL,tS=NULL)
+  if(SE & !isgcv) list(Betac=mgwr1$Betac,Betav=model$Betav,SEV=model$SEV,se=mgwr1$se,edf=n-model$tS-length(mgwr1$Betac),tS=model$tS+length(mgwr1$Betac)) else if(get_ts) list(Betac=mgwr1$Betac,Betav=model$Betav,SEV=NULL,edf=NULL,tS=model$tS) else list(Betac=mgwr1$Betac,Betav=model$Betav,SEV=NULL,edf=NULL,tS=NULL)
 }
