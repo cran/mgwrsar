@@ -10,7 +10,7 @@ plot_effect(model,sampling=TRUE,nsample=2000,nsample_max=5000,title='')
 \arguments{
 \item{model}{a model of mgwrsar class with some spatially varying coefficients.}
 
-\item{sampling}{Bolean, if nrow(model$Betav)> nsample_max a sample of size nsample is randomly selected, default TRUE.}
+\item{sampling}{Bolean, if nrow(model@Betav)> nsample_max a sample of size nsample is randomly selected, default TRUE.}
 
 \item{nsample}{integer,  size of the sample if sampling is TRUE, default 2000.}
 

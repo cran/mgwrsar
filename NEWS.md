@@ -1,5 +1,19 @@
 NEWS/ChangeLog
 -----------------------------
+
+
+# 1.1 2023-12-24
+* Introducing top-down scale/multiscale GWR (tds_mgwr), adaptive top-down scale/multiscale GWR (atds_mgwr) and regular multiscale GWR (multiscale_gwr)
+* Introducing generalized GWR for binomial (bionomial and quasibinomial families).
+* Introducing GAM/GWR with gradient descent boosting.
+* Improving kernels for spatio-temporal GWR to introduce seasonnality (GDT)
+* Removing unused experimental General kernel Product functions (GDX,GDC)
+* Correcting a bug for MGWRSAR_x_x_x models with spatial autocorrelation when SE=TRUE.
+* Correcting a bug for GWR model with a single explanatory variable when doMC=TRUE.
+* Correcting a bug for formula without explicit names of variable (like "~.").
+* Correcting a bug in GWR with parallel computation (split error in gwr_beta)
+
+
 # 1.0.5 2023-11-16
 * Removing dependency to qlcMatrix
 * Introducing experimental multiscale GWR Model
@@ -35,7 +49,7 @@ NEWS/ChangeLog
 
 * All models of mgwrsar package based on local linear regression can now be estimated using a target points set. Several functions that allows to choose an optimal set of target points to obtain a faster approximation of GWR coefficients has been added.
 
-* Predictions on new data can now be done using the jacknife estimation method instead of spatial extrapolation of local coefficients from a preliminarily estimated model. Only the optimal value of the bandwidth modeled from the initial data is then used. In the function 'predict_mgwrsar', if the parameter method_pred = 'TP' (default), the prediction is done by recalculating a MGWRSAR model with the new data as target points keeping the bandwidth at the optimal value chosen with the training data, otherwise if method_pred= ('tWtp_model', 'model', 'sheppard') then a matrix is used for the spatial extrapolation of the estimated coefficients, and prediction are done using these extrapolated coefficients (as in the previous version of mgwrsar package).
+* Predictions on new data can now be done using the jacknife estimation method instead of spatial extrapolation of local coefficients from a preliminarily estimated model. Only the optimal value of the bandwidth modeled from the initial data is then used. In the function 'predict_mgwrsar', if the parameter method_pred = 'TP' (default), the prediction is done by recalculating a MGWRSAR model with the new data as target points keeping the bandwidth at the optimal value chosen with the training data, otherwise if method_pred= ('tWtp_model', 'model', 'shepard') then a matrix is used for the spatial extrapolation of the estimated coefficients, and prediction are done using these extrapolated coefficients (as in the previous version of mgwrsar package).
 
 * 'KNN' function is deprecated and replaced by 'kernel_matW' function that allows to build spatial weight matrix and interaction matrix based on General Kernel Product. In kernel_matW function it's possible to specify the maximum number of neighbors to consider in gaussian kernel (rough gaussian kernel) to increase speed and sparsity of weights matrix.
 

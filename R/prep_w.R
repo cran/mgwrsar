@@ -1,126 +1,84 @@
 #' prep_w
 #' to be documented
-#' @usage prep_w(H,kernels,coord_i,coord_j,NN,ncolX,Type='GD',adaptive=FALSE,dists=NULL,
-#' indexG=NULL,rowNorm=TRUE,extrapTP=0,correctionNB=TRUE)
+#' @usage prep_w(H,kernels,Type='GD',adaptive=FALSE,dists=NULL,indexG=NULL,
+#' alpha=1,K=4,theta=0.5)
 #' @param H  A vector of bandwidths
 #' @param kernels  A vector of kernel types
-#' @param coord_i  A matrix with spatial coordinates and eventually other variables  (ref)
-#' @param coord_j  A matrix with spatial coordinates and eventually other variables (neighbors), default NULL.
-#' @param NN Number of spatial Neighbours for kernels computations
+#' @param Type  Type of Kernel ('T','GDT','GD'), default 'GD'
 #' @param adaptive  A vector of boolean to choose adaptive version for each kernel
-#' @param ncolX  The number of model covariates
-#' @param dists  Precomputed Matrix of spatial distances, default NULL
+#' @param dists  List of precomputed Matrix of spatial distances, default NULL
 #' @param indexG  Precomputed Matrix of indexes of NN neighbors, default NULL
-#' @param rowNorm  A boolean, row normalization of weights, default TRUE
-#' @param noisland A boolean to avoid isle with no neighbours for non adaptive kernel,default FALSE
+#' @param alpha A ratio between 0 and 1 for GDT kernels,default 1
+#' @param theta A ratio between 0 and 1 for seasonnal GDT kernels, default 0.5
+
 #' @noRd
 #' @return to be documented
-prep_w<-function(H,kernels,coord_i,coord_j,NN,ncolX,Type='GD',adaptive=FALSE,dists=NULL,indexG=NULL,rowNorm=TRUE,noisland=FALSE){
-  if(ncol(coord_i)!=ncol(coord_j)) stop("coord_i and coord_j must have the same number of columns")
-  n=nrow(coord_j)
-  ntp=nrow(coord_i)
-  if(ncol(coord_i)>2) {
-    Z=as.matrix(coord_i[,-(1:2)])
-    Z_in=as.matrix(coord_j[,-(1:2)])
-    coord_i<-as.matrix(coord_i[,(1:2)])
-    coord_j<-as.matrix(coord_j[,(1:2)])
-    } else Z=NULL
-
-  ### adpative : if adaptive round(H) and rename kernel
+prep_w<-function(H,kernels,Type='GD',adaptive=FALSE,dists=NULL,indexG=NULL,alpha=1,K=4,theta=0.5){
+  normW<-function(x){
+    rs=rowSums(x)
+    x[rs>0]<-x[rs>0]/rs[rs>0]
+    x
+  }
+  mycycle=function(x) ifelse(x<=cycling,x,pmin(abs(x-trunc(x/cycling)*cycling),abs(cycling-x%%cycling)))  ### adaptive : if adaptive round(H) and rename kernel
   for(j in 1:length(adaptive)){
     case = adaptive[j]
     if(case) {
-      if(Type=='GD' & any(H!=H[1])) H=round(H) else H[j]=round(H[j])
+      if(Type=='GD' & any(H!=H[1])) H=round(H) else H[j]=round(H[j]) # old condition for local H, to clean
       kernels[j]= paste0(kernels[j],'_adapt_sorted')
     }
   }
-
-  myH=H
-  if(is.null(colnames(Z)) & !is.null(Z)) colnames(Z)=paste('Z',1:ncol(Z))
-
-  if(length(H)<ntp) {
-    H=list(coords=rep(H[1],ntp)) # ifelse(extrapTP==0,n,ntp)
-    if(nchar(Type)>2) for(t in 1:(nchar(Type)-2)) {
-      if(substr(Type,t+2,t+2)=='C'){
-        nbcs=max(Z[,t])
-        for(nbc in 1:nbcs){
-          H[[paste0(colnames(Z)[t],'_',nbc)]]=rep(myH[t+nbc],ntp)
-        }
-      } else  H[[colnames(Z)[t]]]=rep(myH[t+1],ntp)
+  if(Type=='T') {
+    if(kernels=='past') Wd<-(dists[['dist_t']]>0)*1 ### only past observations ~ rectangle kernel
+    else  {
+      Wd=do.call(kernels[1],args=list(dists[['dist_t']],H[1]))
     }
-  } else H=list(coords=H)
-  ### distance and rank matrices
-  if(is.null(dists)){
-
-    # if(extrapTP==0) { # here we want length(TP) x nrow(X) weight matrix for estimation on Betav(TP)
-    #   nn=knn(coords,k=NN,query=coords[TP,])
-    #   indexG=nn$nn.idx
-    # } else if(extrapTP==1) {# here we want nrow(X) x length(TP) weight matrix for extrapolating Betav(-TP) using Betav(TP), this function return a n x n matrix and the selection of -TP lines is done after, outside this function.
-    #   ## option 1 : projection classique
-    #   nn=knn(coords[TP,],k=NN,query=coords)
-    #   indexG=matrix(TP[nn$nn.idx],ncol=ncol(nn$nn.idx),nrow=nrow(nn$nn.idx))
-    # } else if(extrapTP==2) {# here we want nrow(rbind(S,O)) x length(S) weight matrix for extrapolating Betav(O) using Betav(S), this function return a n x n matrix and the selection of -TP lines is done after, outside this function.
-    #   ## option 1 : projection classique
-    #   nn=knn(coords[TP,],k=NN,query=coords)
-    #   indexG=matrix(TP[nn$nn.idx],ncol=ncol(nn$nn.idx),nrow=nrow(nn$nn.idx))
-    # } else if(extrapTP==3){
-    #   nn=knn(coords[TP,],k=min(NN,length(TP)-1),query=coords[-TP,])
-    #   indexG=nn$nn.idx
-    # }
-
-    ####
-    ## if no TP estimation : coord_i = coord_j=coords , matrix W n x n
-    ## if TP estimation : coord_i=coords[TP] \in coord_j=coords , matrix W ntp x n
-    ## if m extrapolation from Beta : coord_i \not in coord_j=new_data, matrix W n x m
-    ## if m extrapolation from Beta(TP) : coord_i=coords[TP] \not in coord_j=new_data, matrix W ntp x m
-
-    nn=knn(coord_j,k=min(NN,n),query=coord_i)
-    indexG=nn$nn.idx
-    dists=list(coords=nn$nn.dists)
   } else {
-    if(is.null(indexG)) stop('You must provide indexG and dists')
-    dists=list(coords=dists)
+    Wd=do.call(kernels[1],args=list(dists[['dist_s']],H[1]))
   }
-  ## GPK with D
-  mykernels=kernels
-  kernels=list(coords=mykernels[1])
-  Wd=do.call(kernels$coords,args=list(dists$coords,H$coords))
-  if(rowNorm) Wd=Wd/rowSums(Wd)
-   nv=apply(Wd,1,function(x) sum(x>0))
-   ### case non adaptive with locally not enough neighbors :
-   if(any(nv<2*ncolX & !adaptive[1] & kernels$coords!='sheppard' ) & noisland){
-     index=which(nv<2*ncolX)
-     Wd[index,]<-do.call(paste0(kernels$coords,'_adapt_sorted'),args=list(matrix(dists$coords[index,],ncol=ncol(dists$coords)),rep(2*ncolX,length(index))))
-   }
-  if(nchar(Type)>2){
-    cases='D'
-    for(t in 1:(nchar(Type)-2)) {
-      kernels[[colnames(Z)[t]]]=mykernels[t+1]
-      typek=substr(Type,t+2,t+2)
-      if(typek!='C'){
-      while(sum(duplicated(Z[,t]))>0) Z[,t]=jitter(Z[,t],0.0001)
-      dists[[colnames(Z)[t]]]=t(apply(cbind(1:nrow(indexG),indexG),1, function(x) abs(Z[x[1],t]-Z_in[x[-1],t]) ))
-      wd=do.call(kernels[[colnames(Z)[t]]],args=list(dists[[colnames(Z)[t]]],H[[colnames(Z)[t]]]))
-      } else {
-        wd=matrix(NA,nrow=ntp,ncol=NN)
-        for(i in 1:ntp){
-          wd[i,] <- ifelse(Z[indexG[i,],t] != Z[i,t], myH[[as.numeric(t + Z[i,t])]], 1)
-        }
+  #Wd=normW(Wd)
+  if(Type=='GDT') {
+    kernels_t<-unlist(str_split(kernels[2], '_'))[1]
+    format_t<-unlist(str_split(kernels[2], '_'))[2] ## a modifier passer dans control
+    cycling<-as.numeric(unlist(str_split(kernels[2], '_'))[3])  ## a modifier passer dans control
+    if(adaptive[2]) stop('Only non adptive kernel are allowed for time when type=GDT')
+    ## on transforme les distances pour l'adapter au cycle
+    if(!is.na(cycling)) {
+      same_cycle<-(dists[['dist_t']]<=cycling)*1
+      dist_t=mycycle(dists[['dist_t']])
+      } else dist_t=dists[['dist_t']]
 
+    wt=do.call(kernels_t,args=list(dist_t,H[2]))
+    if(!is.na(cycling)) {wt=(theta*same_cycle+(1-theta)*(1-same_cycle))*wt}
+    #wt=normW(wt)
+    #### noyau temporel gaussien non adaptatif
+    #### spatial + temporel + spatio-temp ?
+    #### autre année ?
+
+
+    ## A ce stade la ponderation est symétrique dans le temps
+    if(!is.na(format_t)){
+      if(format_t=='past') { ### only past observations for i> H[2]
+        past=(dists[['dist_t']]>=0)*1
+        id<-which(rowSums(past)>K)
+        if(length(id)>0) wt[id,]<-wt[id,]*past[id,] else wt<-wt*past
       }
-      # if(typek=='T'){
-      #     post<-t(apply(indexG,1, function(x) {
-      #       post<-as.numeric(Z[x[1],t]>=Z[x,t])
-      #       post[post==0]<-0.3
-      #       post
-      #       }))
-      #     wd<-wd*post
-      # }
-      if(rowNorm) wd=wd/rowSums(wd)
-      cases=c(cases,typek)
-      Wd=Wd*wd
     }
+    #browser()
+    wdt<-Wd*wt ## spatio-temporal
+   # wdt<-normW(wdt)
+    ## si alpha<1 on rajouter un poids egal à tous les observations
+    ## A CORRIGER POUR NN != n
+    if(alpha<1) {
+      wdt<-alpha*wdt + (1-alpha)*1/nrow(wdt)
+    }
+
+    if(alpha<1 & !is.na(format_t)){
+      if(format_t=='past') {
+      past<-normW(past)
+      Wd=alpha*wdt+(1-alpha)*past ## spatio-temp + past aspatial
+    } else  Wd=wdt
+    } else  Wd=wdt
   }
-  if(rowNorm) Wd=Wd/rowSums(Wd)
-  list(indexG=indexG,Wd=Wd,dists=dists$coords)
+  Wd=Wd/rowSums(Wd)
+  list(indexG=indexG,Wd=Wd,dists=dists)
 }

@@ -1,7 +1,7 @@
 #' mgwr_stage1
 #' to be documented
-#' @usage mgwr_stage1(Y,XV,XC,ALL_X,W,indexG=indexG,Wd,NN,isgcv,
-#' TP,SE,Model,doMC,ncore)
+#' @usage mgwr_stage1(Y,XV,XC,ALL_X,W,indexG=indexG,Wd,NN,isgcv,TP,SE,
+#' Model,doMC,ncore)
 #' @param Y  A vector
 #' @param XV A matrix with covariates with spatially varying parameters
 #' @param XC A matrix with covariates with stationnary parameters
@@ -16,7 +16,6 @@
 #'   "MGWRSAR_0_0_kv","MGWRSAR_1_0_kv", "MGWRSAR_0_kc_kv",
 #'   "MGWRSAR_1_kc_kv", "MGWRSAR_1_kc_0". See Details for more
 #' @param KernelTP  Kernel type for extrapolation of Beta from Beta(TP)
-#' @param kWtp  Number of neighbours for extrapolation of Beta from Beta(TP)
 #' @noRd
 mgwr_stage1<-function(Y,XV,XC,ALL_X,W,indexG=indexG,Wd,NN,isgcv,TP,SE,Model,doMC,ncore){
   n=length(Y)

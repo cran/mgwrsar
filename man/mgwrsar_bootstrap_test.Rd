@@ -4,8 +4,8 @@
 \alias{mgwrsar_bootstrap_test}
 \title{A bootstrap test for Betas for mgwrsar class model.}
 \usage{
-mgwrsar_bootstrap_test(x0,x1,B=100,domc=FALSE,ncore=1,
-type='standard',eps='H1',df='H1',focal='median',D=NULL)
+mgwrsar_bootstrap_test(x0,x1,B=100,doMC=FALSE,ncore=1,type='standard'
+,eps='H1',df='H1',focal='median',D=NULL)
 }
 \arguments{
 \item{x0}{The H0 mgwrsar model}
@@ -14,7 +14,7 @@ type='standard',eps='H1',df='H1',focal='median',D=NULL)
 
 \item{B}{number of bootstrap repetitions, default 100}
 
-\item{domc}{If TRUE, doParallel parallelization}
+\item{doMC}{If TRUE, doParallel parallelization}
 
 \item{ncore}{number of cores}
 

@@ -1,21 +1,34 @@
 Package: mgwrsar
 Type: Package
-Title: GWR and MGWR with Spatial Autocorrelation
-Version: 1.0.5
-Date: 2023-11-28
-Author: Ghislain Geniaux and Davide Martinetti
+Title: GWR, Mixed GWR and Multiscale GWR with Spatial Autocorrelation
+Version: 1.1
+Date: 2025-02-18
 Maintainer: Ghislain Geniaux <ghislain.geniaux@inrae.fr>
-Description: Functions for computing (Mixed) Geographically Weighted Regression with spatial autocorrelation, Geniaux and Martinetti (2017) <doi:10.1016/j.regsciurbeco.2017.04.001>.
+Description: Functions for computing (Mixed and Multiscale) Geographically Weighted Regression with spatial autocorrelation, Geniaux and Martinetti (2017) <doi:10.1016/j.regsciurbeco.2017.04.001>.
 License: GPL (>= 2)
 Depends: R (>= 3.5.0), Rcpp, sp, leaflet, Matrix
-Imports: ggplot2, sf, knitr, spgwr, methods, doParallel, foreach,
-        htmltools, nabor, mapview, microbenchmark, rlang, dplyr,
-        gridExtra, grid, mboost, mgcv, caret
-VignetteBuilder: knitr
+Imports: ggplot2, sf, knitr, methods, doParallel, foreach, htmltools,
+        nabor, mapview, microbenchmark, rlang, dplyr, gridExtra, grid,
+        mboost, mgcv, caret, stringr, SMUT
+Suggests: R.rsp
+VignetteBuilder: R.rsp
 LinkingTo: RcppEigen, Rcpp
-RoxygenNote: 7.2.3
+RoxygenNote: 7.3.2
 NeedsCompilation: yes
 Encoding: UTF-8
-Packaged: 2023-11-30 13:14:49 UTC; geniaux
+Authors@R: c(person(given = "Ghislain",
+                      family = "Geniaux",
+                      role = c("aut", "cre"),
+                      email = "ghislain.geniaux@inrae.fr"),
+               person(given = "Davide",
+                      family = "Martinetti",
+                      role = "aut"),
+               person(given = "César",
+                      family = "Martinez",
+                      role = "aut"))
+Packaged: 2025-02-20 11:26:46 UTC; geniaux
+Author: Ghislain Geniaux [aut, cre],
+  Davide Martinetti [aut],
+  César Martinez [aut]
 Repository: CRAN
-Date/Publication: 2023-11-30 15:00:02 UTC
+Date/Publication: 2025-02-20 12:20:06 UTC

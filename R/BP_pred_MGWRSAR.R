@@ -1,6 +1,7 @@
 #' BP_pred_MGWRSAR
 #' to be documented
-#' @usage BP_pred_MGWRSAR(YS,X,W,e,beta_hat,lambda_hat,S,O,coords,type='BPN',k=16,Wk=NULL)
+#' @usage BP_pred_MGWRSAR(YS,X,W,e,beta_hat,lambda_hat,S,O,coords,
+#' type='BPN',k=16,Wk=NULL)
 #' @param YS to be documented
 #' @param X to be documented
 #' @param W to be documented

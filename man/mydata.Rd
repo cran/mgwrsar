@@ -3,12 +3,15 @@
 \name{mydata}
 \alias{mydata}
 \title{mydata is a simulated data set of a mgwrsar model}
+\format{
+A data frames with 1000 rows 22 variables and a matrix of coordinates with two columns
+}
 \description{
 mydata is a simulated data set of a mgwrsar model
 }
 \references{
-\url{https://www.sciencedirect.com/science/article/pii/S0166046216302381}
+\doi{10.1016/j.regsciurbeco.2017.04.001}
 }
 \author{
-Ghislain Geniaux and Davide Martinetti \email{ghislain.geniaux@inra.fr}
+Ghislain Geniaux and Davide Martinetti \email{ghislain.geniaux@inrae.fr}
 }

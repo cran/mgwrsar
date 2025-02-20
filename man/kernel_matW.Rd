@@ -9,21 +9,19 @@ provides in S and a given bandwidth. If NN<nrow(S) only NN firts neighbours are 
 If Type!='GD' then S should have additional columns and several
 kernels and bandwidths should be be specified by the user.}
 \usage{
-kernel_matW(H,kernels,coord_i,coord_j=NULL,NN,ncolX=1,
-Type='GD',adaptive=FALSE,diagnull=TRUE,rowNorm=TRUE,noisland=FALSE)
+kernel_matW(H,kernels,coords,NN,TP=NULL,Type='GD',adaptive=FALSE,
+diagnull=TRUE,alpha=1,theta=1,dists=NULL,indexG=NULL,extrapol=FALSE,QP=NULL,K=0)
 }
 \arguments{
 \item{H}{A vector of bandwidths}
 
 \item{kernels}{A vector of kernel types}
 
-\item{coord_i}{A matrix with  variables used in kernel (reference)}
-
-\item{coord_j}{A matrix with  variables used in kernel (neighbors), default NULL (if NULL coord_j=coord_i)}
+\item{coords}{A matrix with  variables used in kernel (reference)}
 
 \item{NN}{Number of spatial Neighbours for kernels computations}
 
-\item{ncolX}{control parameter}
+\item{TP}{A vector with index of target points}
 
 \item{Type}{Type of Genelarized kernel product ('GD' only spatial,'GDC'
 spatial + a categorical variable,'GDX' spatial + a continuous variable,
@@ -33,9 +31,19 @@ spatial + a categorical variable,'GDX' spatial + a continuous variable,
 
 \item{diagnull}{Zero on diagonal, default FALSE}
 
-\item{rowNorm}{A boolean, row normalization of weights, default TRUE}
+\item{alpha}{TO BE DOCUMENTED}
 
-\item{noisland}{A boolean to avoid isle with no neighbours for non adaptive kernel, default FALSE}
+\item{theta}{TO BE DOCUMENTED}
+
+\item{dists}{TO BE DOCUMENTED}
+
+\item{indexG}{TO BE DOCUMENTED}
+
+\item{extrapol}{TO BE DOCUMENTED}
+
+\item{QP}{A matrix with  variables used in kernel (neighbors), default NULL (if NULL coord_j=coord_i)}
+
+\item{K}{TO BE DOCUMENTED}
 }
 \value{
 A sparse Matrix of weights (dgCMatrix).
@@ -55,6 +63,6 @@ kernels and bandwidths should be be specified by the user.
  data(mydata)
  coords=as.matrix(mydata[,c("x","y")])
  ## Creating a spatial weight matrix (sparce dgCMatrix) of 4 nearest neighbors with 0 in diagonal
- W=kernel_matW(H=4,kernels='rectangle',coord_i=coords,NN=4,adaptive=TRUE,diagnull=TRUE,rowNorm=TRUE)
+ W=kernel_matW(H=4,kernels='rectangle',coords=coords,NN=4,adaptive=TRUE,diagnull=TRUE)
 }
 }

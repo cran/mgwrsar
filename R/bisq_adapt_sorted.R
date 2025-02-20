@@ -5,7 +5,7 @@
 #' @param h a scalar or vector of number of neighbours as bandiwdths (lenght(h)=1 or length(h)=length(d))
 #' @noRd
 #' @return a vector of weights.
-bisq_adapt_sorted <- function(d,h) {     #adapative bisquare kernel
+bisq_adapt_sorted <- function(d,h) {     #adaptive bisquare kernel
   if(is.unsorted(d[1,])) {
     dd=t(apply(d,1,sort))
   } else dd=d

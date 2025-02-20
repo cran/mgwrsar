@@ -4,8 +4,8 @@
 \alias{MGWRSAR}
 \title{Estimation of linear and local linear model with spatial autocorrelation model (mgwrsar).}
 \usage{
-MGWRSAR(formula,data,coords,fixed_vars=NULL,kernels,H,
-Model='GWR',control=list())
+MGWRSAR(formula, data, coords, fixed_vars = NULL, kernels, H,
+Model = "GWR", control = list())
 }
 \arguments{
 \item{formula}{a formula.}
@@ -51,7 +51,7 @@ MGWRSAR returns an object of class mgwrsar with at least the following component
 \item{Method}{ The type of model.}
 \item{coords}{ The spatial coordinates of observations.}
 \item{H}{ The bandwidth vector.}
-\item{fixed_vars}{ The names of constant coefficients.}
+\item{fixed_vars}{The names of constant coefficients.}
 \item{kernels}{ The kernel vector.}
 \item{SSR}{ The sum of square residuals.}
 \item{residuals}{ The vector of residuals.}
@@ -101,22 +101,29 @@ with spatial autocorrelation (SAR models with spatially varying coefficients).
 }
 \details{
 \describe{
-\item{Z}{ a matrix of variables for genralized kernel product, default NULL.}
-\item{W}{ a row-standardized spatial weight matrix for Spatial Aurocorrelation, default NULL.}
-\item{type}{ verbose mode, default FALSE.}
-\item{adaptive}{A vector of boolean to choose adaptive version for each kernel.}
-\item{kernel_w}{ the type of kernel for computing W, default NULL.}
-\item{h_w}{ the bandwidth value for computing W, default 0.}
-\item{Method}{ estimation technique for computing the models with Spatial Dependence. '2SLS' or 'B2SLS', default '2SLS'.}
-\item{TP}{ A vector of target points, default NULL.}
-\item{doMC}{Parallel computation, default FALSE}
-\item{ncore}{number of CPU core for parallel computation, default 1}
-\item{isgcv}{ computing LOOCV criteria (for example for selecting optimal bandwidth), default FALSE.}
-\item{isfgcv}{ if TRUE, simplify the computation of CV criteria (remove or not i
-when using local instruments for model with lambda spatially varying), default TRUE.}
-\item{maxknn}{ when n >NmaxDist, only the maxknn first neighbours are used for distance compution, default 500.}
-\item{NmaxDist}{ when n >NmaxDist only the maxknn first neighbours are used for distance compution, default 5000}
-\item{verbose}{ verbose mode, default FALSE.}
+\item{Z}{A matrix of variables for genralized kernel product, default NULL.}
+\item{W}{A row-standardized spatial weight matrix for Spatial
+ Aurocorrelation, default NULL.}
+\item{type}{Verbose mode, default FALSE.}
+\item{adaptive}{A vector of boolean to choose adaptive version for
+ each kernel.}
+\item{kernel_w}{The type of kernel for computing W, default NULL.}
+\item{h_w}{The bandwidth value for computing W, default 0.}
+\item{Method}{Estimation method for computing the models with Spatial
+Dependence. '2SLS' or 'B2SLS', default '2SLS'.}
+\item{TP}{Avector of target points, default NULL.}
+\item{doMC}{Parallel computation, default FALSE. If TRUE and
+ control_tds$doMC is also TRUE, then control$doMC is set to FALSE.}
+\item{ncore}{Number of CPU core for parallel computation, default 1}
+\item{isgcv}{If TRUE, compute a LOOCV criteria, default FALSE.}
+\item{isfgcv}{If TRUE, simplify the computation of CV criteria
+(remove or not i when using local instruments for model with lambda
+spatially varying), default TRUE.}
+\item{maxknn}{When n >NmaxDist, only the maxknn first neighbours are used
+for distance compution, default 500.}
+\item{NmaxDist}{When n >NmaxDist only the maxknn first neighbours are used
+for distance compution, default 5000}
+\item{verbose}{Verbose mode, default FALSE.}
 }
 }
 \examples{
@@ -127,12 +134,12 @@ when using local instruments for model with lambda spatially varying), default T
  coords=as.matrix(mydata[,c("x","y")])
  ## Creating a spatial weight matrix (sparce dgCMatrix)
  ## of 4 nearest neighbors with 0 in diagonal
- W=kernel_matW(H=4,kernels='rectangle',coord_i=coords,NN=4,adaptive=TRUE,
- diagnull=TRUE,rowNorm=TRUE)
+ W=kernel_matW(H=4,kernels='rectangle',coords=coords,NN=4,adaptive=TRUE,
+ diagnull=TRUE)
  mgwrsar_0_kc_kv<-MGWRSAR(formula = 'Y_mgwrsar_0_kc_kv~X1+X2+X3', data = mydata,
  coords=coords, fixed_vars='X2',kernels=c('gauss'),H=20, Model = 'MGWRSAR_0_kc_kv',
  control=list(SE=FALSE,adaptive=TRUE,W=W))
- summary_mgwrsar(mgwrsar_0_kc_kv)
+ summary(mgwrsar_0_kc_kv)
 }
 }
 \references{
@@ -147,5 +154,5 @@ Franke, R. and Nielson, G. (1980). Smooth interpolation of large sets of scatter
 International journal for numerical methods in engineering, 15(11):1691-1704.
 }
 \seealso{
-bandwidths_mgwrsar, summary_mgwrsar, plot_mgwrsar, predict_mgwrsar, kernel_matW
+bandwidths_mgwrsar, summary, plot, predict, kernel_matW
 }

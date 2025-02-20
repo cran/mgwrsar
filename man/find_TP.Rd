@@ -3,9 +3,10 @@
 \name{find_TP}
 \alias{find_TP}
 \title{Search of a suitable set of target points.
-find_TP is a wrapper function that identifies  a set of target points based on spatial smoothed OLS residuals.}
+find_TP is a wrapper function that identifies  a set of target points
+based on spatial smoothed OLS residuals.}
 \usage{
-find_TP(formula, data,coords,K,kWtp=16,Wtp=NULL,type='residuals',
+find_TP(formula, data,coords,kt,ks=16,Wtp=NULL,type='residuals',
 model_residuals=NULL,verbose=0,prev_TP=NULL,nTP=NULL)
 }
 \arguments{
@@ -13,36 +14,48 @@ model_residuals=NULL,verbose=0,prev_TP=NULL,nTP=NULL)
 
 \item{data}{a dataframe or a spatial dataframe (SP package)}
 
-\item{coords}{a dataframe or a matrix with coordinates, not required if data is a spatial dataframe}
+\item{coords}{a dataframe or a matrix with coordinates, not required if
+data is a spatial dataframe}
 
-\item{K}{the minimum number of first neighbors with lower (resp.higer) absolute value of the smoothed residuals.}
+\item{kt}{the minimum number of first neighbors with lower (resp.higer)
+absolute value of the smoothed residuals.}
 
-\item{kWtp}{the number of first neighbors for computing  the smoothed residuals, default 16.}
+\item{ks}{the number of first neighbors for computing  the smoothed
+residuals, default 16.}
 
 \item{Wtp}{a precomputed matrix of weights, default NULL.}
 
-\item{type}{method for choosing TP, could be 'residuals', 'equidistantGrid','random',  default 'residuals'}
+\item{type}{method for choosing TP, could be 'residuals', '
+kdtree','random',  default 'residuals'}
 
 \item{model_residuals}{(optional) a vector of residuals.}
 
 \item{verbose}{verbose mode, default FALSE.}
 
-\item{prev_TP}{index of already used TP (version length(K)>1), default NULL.}
+\item{prev_TP}{index of already used TP (version length(kt)>1),
+default NULL.}
 
-\item{nTP}{numbeer of target points for random choice of target points, default NULL.}
+\item{nTP}{numbeer of target points for random choice of target points,
+default NULL.}
 }
 \value{
 find_TP returns an index vector of Target Points set.
 }
 \description{
 Search of a suitable set of target points.
-find_TP is a wrapper function that identifies  a set of target points based on spatial smoothed OLS residuals.
+find_TP is a wrapper function that identifies  a set of target points
+based on spatial smoothed OLS residuals.
 }
 \details{
-find_TP is a wrapper function that identifies a set of target points, based on spatial smoothed residuals by default.
+find_TP is a wrapper function that identifies a set of target
+points, based on spatial smoothed residuals by default.
 If no vector of residuals are provided, OLS residuals are computed.
-The function first computes the smooth of model residuals using a Sheppard's kernel with kWtp neighbors (default 16).
-Then it identifies local maxima (resp. minima) that fits the requirement of having at least K neighbors with lower (resp.higer) absolute value of the smoothed residuals. As K increases the number of target points decreases.
+The function first computes the smooth of model residuals using a
+Shepard's kernel with ks neighbors (default 16).
+Then it identifies local maxima (resp. minima) that fits the requirement
+of having at least kt neighbors with lower (resp.higer) absolute value
+of the smoothed residuals. As kt increases the number of target points
+decreases.
 }
 \examples{
 \donttest{
@@ -50,13 +63,14 @@ Then it identifies local maxima (resp. minima) that fits the requirement of havi
  ## loading data example
  data(mydata)
  coords=as.matrix(mydata[,c("x","y")])
- TP=find_TP(formula = 'Y_gwr~X1+X2+X3', data =mydata,coords=coords,K=6,type='residuals')
+ TP=find_TP(formula = 'Y_gwr~X1+X2+X3', data =mydata,coords=coords,kt=6,
+ type='residuals')
  # only 60 targets points are used
  length(TP)
 
- model_GWR_tp<-MGWRSAR(formula = 'Y_gwr~X1+X2+X3', data = mydata,coords=coords,
- fixed_vars=NULL,kernels=c('gauss'),  H=0.03, Model = 'GWR',
- control=list(SE=TRUE,TP=TP,kWtp=12))
- summary(model_GWR_tp$Betav)
+ model_GWR_tp<-MGWRSAR(formula = 'Y_gwr~X1+X2+X3', data = mydata,
+ coords=coords, fixed_vars=NULL,kernels=c('gauss'),  H=0.03, Model = 'GWR',
+ control=list(SE=TRUE,TP=TP,ks=12))
+ summary(model_GWR_tp@Betav)
  }
 }

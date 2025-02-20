@@ -2,7 +2,6 @@
 #' @usage summary_mgwrsar(model)
 #' @param model a model of class mgwrsar
 #' @return a summary of mgwrsar models
-#' @seealso  MGWRSAR, bandwidths_mgwrsar, plot_mgwrsar, predict_mgwrsar, kernel_matW
 #' @examples
 #' \donttest{
 #'  library(mgwrsar)
@@ -11,13 +10,14 @@
 #'  coords=as.matrix(mydata[,c("x","y")])
 #'  ## Creating a spatial weight matrix (sparce dgCMatrix)
 #'  ## of 4 nearest neighbors with 0 in diagonal
-#'  W=kernel_matW(H=4,kernels='rectangle',coord_i=coords,NN=4,adaptive=TRUE,
-#'  diagnull=TRUE,rowNorm=TRUE)
+#'  W=kernel_matW(H=4,kernels='rectangle',coords=coords,NN=4,adaptive=TRUE,
+#'  diagnull=TRUE)
 #'  mgwrsar_0_kc_kv<-MGWRSAR(formula = 'Y_mgwrsar_0_kc_kv~X1+X2+X3', data = mydata,
 #'  coords=coords, fixed_vars='X2',kernels=c('gauss'),H=20, Model = 'MGWRSAR_0_kc_kv',
 #'  control=list(SE=FALSE,adaptive=TRUE,W=W))
 #'  summary_mgwrsar(mgwrsar_0_kc_kv)
 #' }
+#' @noRd
 summary_mgwrsar <- function(model) {
   if(!is(model,'mgwrsar')) stop("not a mgwrsar object")
   cat("Call:\n")
@@ -49,6 +49,7 @@ summary_mgwrsar <- function(model) {
     cat("Effective degrees of freedom:", model$edf, "\n")
   }
   if (!is.null( model$tS)) cat("AICc:", model$AICc, "\n")
+  if (!is.null(model$CV)) cat("LOOCV:", model$CV, "\n")
 
   cat("Residual sum of squares:", model$SSR, "\n")
   cat("RMSE:", model$RMSE, "\n")

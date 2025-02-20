@@ -5,7 +5,7 @@
 #' @param h a scalar or vector of number of neighbours as bandiwdths (lenght(h)=1 or length(h)=length(d))
 #' @return a vector of weights.
 #' @noRd
-triangle_adapt_sorted <-function(d,h) {   #adapative triangle function
+triangle_adapt_sorted <-function(d,h) {   #adaptive triangle function
   if(is.unsorted(d[1,])) {
     dd=t(apply(d,1,sort))
   } else dd=d

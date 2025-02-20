@@ -1,6 +1,6 @@
-#' aic_model
+#' AICc_CV
 #' This funciton estimate a MGWRSAR model and return the AICc.
-#' @usage AICc(H,formula, data ,coords, fixed_vars,kernels, Model,control)
+#' @usage AICc_CV(H,formula, data ,coords, fixed_vars,kernels, Model,control)
 #' @param H vector containing the bandwidth parameters for the kernel functions.
 #' @param formula  a formula.
 #' @param data a dataframe or a spatial dataframe (sp package).
@@ -18,13 +18,20 @@
 #' "MGWRSAR_0_kc_kv", "MGWRSAR_1_kc_kv", "MGWRSAR_1_kc_0".
 #' @param control list of extra control arguments for MGWRSAR wrapper - see MGWRSAR
 #' @noRd
-#' @return AICc value.
-AICc<-function(H,formula, data ,coords, fixed_vars,kernels, Model,control){
+#' @return AICc or CV value.
+AICc_CV<-function(H,formula, data ,coords, fixed_vars,kernels, Model,control){
+  #cat('\n H= ',H,'\n')
+  if(is.null(control$criterion)) control$criterion<-'AICc'
+
+  if(control$criterion %in% c('AICc','AICctp')){
   control$get_ts=TRUE
-  control$NN=H+2
   model<-MGWRSAR(formula=formula , data = data,coords=coords, fixed_vars=fixed_vars,kernels=kernels,H=H, Model = Model,control=control)
-  n <- length(model$Y)
-  AICc=n*log(model$SSR/n)+n*log(2*pi)+n*(n+model$tS)/(n-2-model$tS)
-  #cat('H ',H,' AICc ',AICc,'\n')
-  AICc
+   result=slot(model,control$criterion)
+  } else if(control$criterion %in% c('CV','CVtp')) {
+    control2=control
+    control2$isgcv=TRUE
+    model<-MGWRSAR(formula=formula, data = data,coords=coords, fixed_vars=fixed_vars,Model=Model,kernels=kernels,H=H,control=control2);
+    if(control$criterion =='CV') result=slot(model,'RMSE') else result=slot(model,'RMSEtp')
+  }
+  return(result)
 }

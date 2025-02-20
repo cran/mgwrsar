@@ -3,14 +3,15 @@
 \name{multiscale_gwr}
 \alias{multiscale_gwr}
 \title{multiscale_gwr
-This function adapts the multiscale Geographically Weighted Regression (GWR) methodology
-proposed by Fotheringam et al. in 2017, employing a backward fitting procedure within
-the MGWRSAR subroutines. The consecutive bandwidth optimizations are performed by
-minimizing the corrected Akaike criteria.}
+This function adapts the multiscale Geographically Weighted Regression (GWR)
+methodology proposed by Fotheringam et al. in 2017, employing a backward
+fitting procedure within the MGWRSAR subroutines. The consecutive bandwidth
+optimizations are performed by minimizing the corrected Akaike criteria.}
 \usage{
-multiscale_gwr(formula,data,coords,Model = 'GWR',kernels='bisq',
-control=list(SE=FALSE,adaptive=TRUE,NN=800,isgcv=FALSE),init='GWR',maxiter=100,
-nstable=6,crit=0.000001,doMC=FALSE,ncore=1,HF=NULL,H0=NULL,model=NULL)
+multiscale_gwr(formula,data,coords,kernels='bisq',init='GWR',
+maxiter=20,nstable=6,tolerance=0.000001,doMC=FALSE,ncore=1,HF=NULL,
+H0=NULL,H2=NULL,Model=NULL,model=NULL,get_AICg=FALSE,verbose=FALSE,
+control=list(SE=FALSE,adaptive=TRUE,NN=800,isgcv=FALSE,family=gaussian()))
 }
 \arguments{
 \item{formula}{A formula.}
@@ -19,23 +20,16 @@ nstable=6,crit=0.000001,doMC=FALSE,ncore=1,HF=NULL,H0=NULL,model=NULL)
 
 \item{coords}{default NULL, a dataframe or a matrix with coordinates.}
 
-\item{Model}{The type of model: Possible values are "GWR" (default),
-and "MGWRSAR_1_0_kv". See Details for more explanation.}
-
 \item{kernels}{A vector containing the kernel types. Possible types:
-rectangle ("rectangle"), bisquare ("bisq"), tricube ("tcub"), epanechnikov ("epane"),
-gaussian("gauss")).}
-
-\item{control}{a list of extra control arguments, see MGWRSAR help.}
+rectangle ("rectangle"), bisquare ("bisq"), tricube ("tcub"), epanechnikov ("epane")}
 
 \item{init}{starting model (lm or GWR)}
 
 \item{maxiter}{maximum number of iterations in the back-fitting procedure.}
 
-\item{nstable}{required number of consecutive unchanged optimal bandwidth (by covariate)
-before leaving optimisation of bandwidth size, default 3.}
+\item{nstable}{required number of consecutive unchanged optimal bandwidth (by covariate) before leaving optimisation of bandwidth size, default 3.}
 
-\item{crit}{value to terminate the back-fitting iterations (ratio of change in RMSE)}
+\item{tolerance}{value to terminate the back-fitting iterations (ratio of change in RMSE)}
 
 \item{doMC}{A boolean for Parallel computation, default FALSE.}
 
@@ -46,55 +40,25 @@ covariate, default NULL.}
 
 \item{H0}{A bandwidth value for the starting GWR model, default NULL.}
 
-\item{model}{A previous model estimated using multiscale_gwr function, default NULL.}
+\item{H2}{A bandwidth temporal value for the starting GWR model, default NULL.}
+
+\item{Model}{Type of Model.}
+
+\item{model}{A previous model estimated using multiscale_gwr function, default NULL}
+
+\item{get_AICg}{Boolean, should Global AICc be estimated.}
+
+\item{verbose}{Boolean, verbose mode.}
+
+\item{control}{a list of extra control arguments, see MGWRSAR help.}
 }
 \value{
-Return an object of class mgwrsar with at least the following components:
-\describe{
-\item{Betav}{ matrix of coefficients of dim(n,kv) x kv.}
-\item{Betac}{ vector of coefficients of length kc.}
-\item{Model}{ The sum of square residuals.}
-\item{Y}{ The dependent variable.}
-\item{XC}{ The explanatory variables with constant coefficients.}
-\item{XV}{ The explanatory variables with varying coefficients.}
-\item{X}{ The explanatory variables.}
-\item{W}{ The spatial weight matrix for spatial dependence.}
-\item{isgcv}{ if gcv has been computed.}
-\item{edf}{ The estimated degrees of freedom.}
-\item{formula}{The formula.}
-\item{data}{ The dataframe used for computation.}
-\item{Method}{ The type of model.}
-\item{coords}{ The spatial coordinates of observations.}
-\item{H}{ A vector of bandwidths.}
-\item{fixed_vars}{ The names of constant coefficients.}
-\item{kernels}{ The kernel vector.}
-\item{SSR}{ The sum of square residuals.}
-\item{residuals}{ The vector of residuals.}
-\item{fit}{ the vector of fitted values.}
-\item{sev}{ local standard error of parameters.}
-\item{get_ts}{Boolean, if trace of hat matrix Tr(S) should be stored.}
-\item{NN}{ Maximum number of neighbors for weights computation}
-}
+Return an object of class mgwrsar
 }
 \description{
 multiscale_gwr
-This function adapts the multiscale Geographically Weighted Regression (GWR) methodology
-proposed by Fotheringam et al. in 2017, employing a backward fitting procedure within
-the MGWRSAR subroutines. The consecutive bandwidth optimizations are performed by
-minimizing the corrected Akaike criteria.
-}
-\examples{
-\donttest{
-library(mgwrsar)
-mysimu<-simu_multiscale(n=1000)
-mydata=mysimu$mydata
-coords=mysimu$coords
-model_multiscale<-multiscale_gwr(formula=as.formula('Y~X1+X2+X3'),data=mydata,
-coords=coords,Model = 'GWR',kernels='bisq',control=list(SE=FALSE,
-adaptive=TRUE,NN=900,isgcv=FALSE),init='GWR',nstable=6,crit=0.000001)
-summary_mgwrsar(model_multiscale)
-}
-}
-\seealso{
-tds_mgwr, bandwidths_mgwrsar, summary_mgwrsar, plot_mgwrsar, predict_mgwrsar
+This function adapts the multiscale Geographically Weighted Regression (GWR)
+methodology proposed by Fotheringam et al. in 2017, employing a backward
+fitting procedure within the MGWRSAR subroutines. The consecutive bandwidth
+optimizations are performed by minimizing the corrected Akaike criteria.
 }
