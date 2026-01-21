@@ -1,0 +1,33 @@
+    ---
+    title: "Speeding up GWR like models with mgwrsar package using Target Points, rough gaussian kernel and parallelisation"
+    author: "Ghislain Geniaux"
+date: "`r Sys.Date()`"
+    output:
+      rmarkdown::html_vignette:
+        keep_md: false
+    vignette: >
+      %\VignetteIndexEntry{Speeding up GWR like models with mgwrsar package using Target Points, rough gaussian kernel and parallelisation}
+      %\VignetteEngine{knitr::rmarkdown}
+      %\VignetteEncoding{UTF-8}
+    ---
+
+    ```{r setup, include=FALSE}
+    target_url <- "https://ggeniaux.github.io/mgwrsar_vignettes/Speeding_up_GWR_like_models.html"
+    ```
+
+    This vignette is hosted online due to size and computational constraints.
+
+    **Online version:** <https://ggeniaux.github.io/mgwrsar_vignettes/Speeding_up_GWR_like_models.html>
+
+    ```{r redirect, echo=FALSE, results='asis'}
+    cat(sprintf(
+      '<p><strong>Online version:</strong> <a href="%s">%s</a></p>',
+      target_url, target_url
+    ))
+
+    # Meta refresh (works without JS); short delay to keep the page readable
+    cat(sprintf('<meta http-equiv="refresh" content="3; url=%s">', target_url))
+
+    # JS redirect as a fallback
+    cat(sprintf("<script>setTimeout(function(){ window.location.href = '%s'; }, 3000);</script>", target_url))
+    ```

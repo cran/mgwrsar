@@ -1,27 +1,43 @@
-#' gwr_beta_glm
-#' to be documented
-#' @usage gwr_beta_glm(Y,XV,ALL_X,TP,indexG,Wd,NN,W=NULL,isgcv=FALSE,SE=FALSE,
-#' KernelTP='shepard',doMC=FALSE,ncore=1,TP_estim_as_extrapol=FALSE,
-#' get_ts=FALSE, family=NULL)
-#' @param Y A vector of response
-#' @param XV A matrix with covariates with non stationnary parameters
-#' @param ALL_X A matrix with all covariates
-#' @param TP An index of target points.
-#' @param indexG Precomputed Matrix of indexes of NN neighbors.
-#' @param Wd Precomputed Matrix of weights.
-#' @param NN Number of spatial Neighbours for kernels computations
-#' @param W The spatial weight matrix for spatial dependence
-#' @param isgcv leave one out cross validation, default FALSE
-#' @param SE If standard error are computed, default FALSE
-#' @param KernelTP  Kernel type for extrapolation of Beta from Beta(TP)
-#' @param doMC  Boolean for parallel computation.
-#' @param ncore  Number of cores for parallel computation.
-#' @param TP_estim_as_extrapol  Boolean for prediction mode
-#' @param get_ts Boolean for computing Trace(S)
-#' @param family 	a Family object see(glmboost help)
+#' Internal GWR-GLM Estimation
+#'
+#' @description
+#' This function estimates Geographically Weighted Generalized Linear Models (GW-GLM).
+#' It fits a GLM (e.g., Poisson, Binomial) at each target location using spatial kernel weights.
+#' It allows for parallel computation and computation of diagnostic matrices (Hat matrix trace).
+#'
+#' @usage gwr_beta_glm(Y, XV, ALL_X, TP, indexG, Wd, NN, W = NULL, isgcv = FALSE,
+#' SE = FALSE, kernels = NULL, H = NULL, adaptive = NULL, ncore = 1,
+#' TP_estim_as_extrapol = FALSE, get_ts = FALSE, get_s = FALSE, family = NULL)
+#'
+#' @param Y A vector of the response variable.
+#' @param XV A matrix with covariates with spatially varying parameters.
+#' @param ALL_X A matrix with all covariates (used for internal structure).
+#' @param TP A vector of indices for target points.
+#' @param indexG A precomputed matrix of indices of Nearest Neighbours.
+#' @param Wd A precomputed matrix of spatial weights.
+#' @param NN An integer indicating the number of spatial neighbours.
+#' @param W A spatial weight matrix for spatial dependence (optional).
+#' @param isgcv Logical; if TRUE, performs leave-one-out cross-validation. Default is FALSE.
+#' @param SE Logical; if TRUE, computes standard errors. Default is FALSE.
+#' @param kernels A character vector of kernel types.
+#' @param H A vector of bandwidths.
+#' @param adaptive Logical/Vector; indicates if bandwidths are adaptive.
+#' @param ncore Integer; number of cores for parallel computation. Default is 1.
+#' @param TP_estim_as_extrapol Logical; if TRUE, prediction mode is enabled (target points are excluded from calibration).
+#' @param get_ts Logical; if TRUE, computes the trace of the Hat matrix (Trace S).
+#' @param get_s Logical; if TRUE, returns the full Hat matrix S.
+#' @param family A family object (e.g., \code{gaussian()}, \code{poisson()}, \code{binomial()}). See \code{\link[stats]{glm}}.
+#'
+#' @return A list containing:
+#'   \item{Betav}{Matrix of local coefficients.}
+#'   \item{SEV}{Matrix of standard errors (if requested).}
+#'   \item{edf}{Effective degrees of freedom.}
+#'   \item{tS}{Trace of the Hat matrix.}
+#'   \item{Shat}{The full Hat matrix (if requested).}
+#'
+#' @keywords internal
 #' @noRd
-#' @return A list with Betav, standard error, edf and trace(hatMatrix)
-gwr_beta_glm<-function(Y,XV,ALL_X,TP,indexG,Wd,NN,W=NULL,isgcv=FALSE,SE=FALSE,kernels=NULL,H=NULL,adaptive=NULL,doMC=FALSE,ncore=1,TP_estim_as_extrapol=FALSE,get_ts=FALSE,get_s=FALSE,family=NULL)
+gwr_beta_glm<-function(Y,XV,ALL_X,TP,indexG,Wd,NN,W=NULL,isgcv=FALSE,SE=FALSE,kernels=NULL,H=NULL,adaptive=NULL,ncore=1,TP_estim_as_extrapol=FALSE,get_ts=FALSE,get_s=FALSE,family=NULL)
 {
   if(is.null(family)) family = gaussian(link = "identity")
   if(!is.null(XV)) m=ncol(XV) else m=0
@@ -39,25 +55,19 @@ gwr_beta_glm<-function(Y,XV,ALL_X,TP,indexG,Wd,NN,W=NULL,isgcv=FALSE,SE=FALSE,ke
   if(!is.null(XV)) m=ncol(XV) else m=0
   namesXV=colnames(XV)
   if(isgcv) loo=-1 else loo=1:NN
-  if(doMC) {
+  if(ncore>1) {
     registerDoParallel(cores=ncore)
   } else registerDoSEQ()
   if(ncore>1) myblocks<-split(1:length(TP), ceiling(seq_along(TP)/round(length(TP)/ncore))) else myblocks<-list(b1=1:length(TP))
   res<-foreach(myblock =1:length(myblocks),.combine="comb",.inorder=FALSE)  %dopar% {
 
     for(z in myblocks[[myblock]]){
-      #browser()
       index=indexG[z,loo]
       wd2<-Wd[z,loo]
       wd<-sqrt(wd2)
       dataglm<-data.frame(Y=as.matrix(Y[index]),as.matrix(XV[index,]))
-      # if(iwls) {
-      # lml<-IWLS(as.matrix(Y[index]),as.matrix(XV[index,]),1,wd=wd)
-      # betav=lml$beta
-      # } else {
       lml=glm(formula=as.formula('Y~.-1'),data=dataglm,family=family,weights=wd)
       betav=lml$coefficients
-      #}
       coefNA<-which(is.na(betav))
       betav[coefNA]<-0
       if(SE & !isgcv) {

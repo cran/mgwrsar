@@ -1,12 +1,8 @@
-#' INST_C
 #' to be documented
-#' @usage INST_C(XX, WW, withlambda, llambda)
-#' @param XX  to be documented
-#' @param WW  to be documented
-#' @param withlambda  to be documented
-#' @param llambda  to be documented
+#' @usage INST_C(A, B, C, D)
 #' @keywords internal
 #' @return to be documented
-INST_C <-
-function (XX, WW, withlambda, llambda)
-.Call("INST_C", XX, WW, withlambda, llambda, PACKAGE = "mgwrsar")
+#' @noRd
+INST_C <- function(A, B, C, D) {
+  .Call("_mgwrsar_INST_C", A, B, C, D, PACKAGE = "mgwrsar")
+}

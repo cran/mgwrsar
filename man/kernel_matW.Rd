@@ -10,7 +10,7 @@ If Type!='GD' then S should have additional columns and several
 kernels and bandwidths should be be specified by the user.}
 \usage{
 kernel_matW(H,kernels,coords,NN,TP=NULL,Type='GD',adaptive=FALSE,
-diagnull=TRUE,alpha=1,theta=1,dists=NULL,indexG=NULL,extrapol=FALSE,QP=NULL,K=0)
+diagnull=TRUE,alpha=1,dists=NULL,indexG=NULL,extrapol=FALSE,QP=NULL,K=0)
 }
 \arguments{
 \item{H}{A vector of bandwidths}
@@ -32,8 +32,6 @@ spatial + a categorical variable,'GDX' spatial + a continuous variable,
 \item{diagnull}{Zero on diagonal, default FALSE}
 
 \item{alpha}{TO BE DOCUMENTED}
-
-\item{theta}{TO BE DOCUMENTED}
 
 \item{dists}{TO BE DOCUMENTED}
 

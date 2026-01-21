@@ -5,10 +5,10 @@
 \title{normW
 row normalization of dgCMatrix}
 \usage{
-normW(W)
+normW(x)
 }
 \arguments{
-\item{W}{A dgCMatrix class matrix}
+\item{x}{A dgCMatrix class matrix}
 }
 \value{
 A row normalized dgCMatrix

@@ -1,28 +1,44 @@
-#' gwr_beta_glmboost
-#' to be documented
-#' @usage gwr_beta_glmboost((Y,XV,ALL_X,TP,indexG,Wd,NN,W=NULL,isgcv=FALSE,
-#' SE=FALSE,kernels=NULL,H=NULL,adaptive=NULL,doMC=FALSE,ncore=1,
-#' TP_estim_as_extrapol=FALSE, mstop=150,nu=0.1,family=NULL)
-#' @param Y A vector of response
-#' @param XV A matrix with covariates with non stationnary parameters
-#' @param ALL_X A matrix with all covariates
-#' @param TP An index of target points.
-#' @param indexG Precomputed Matrix of indexes of NN neighbors.
-#' @param Wd Precomputed Matrix of weights.
-#' @param NN Number of spatial Neighbours for kernels computations
-#' @param W The spatial weight matrix for spatial dependence
-#' @param isgcv leave one out cross validation, default FALSE
-#' @param SE If standard error are computed, default FALSE
-#' @param KernelTP  Kernel type for extrapolation of Beta from Beta(TP)
-#' @param doMC  Boolean for parallel computation.
-#' @param TP_estim_as_extrapol  Is the GWR used for prediction for
-#' target points ?
-#' @param mstop   Number of iterations for mboost.
-#' @param nu  Learning rate for mboost.
-#' @param family 	a Family object see(glmboost help)
+#' Internal GWR Estimation via Boosting (mboost)
+#'
+#' @description
+#' This function estimates GWR coefficients using Component-wise Gradient Boosting (`mboost`).
+#' It is particularly useful for high-dimensional data or when variable selection is required
+#' locally. It fits a `glmboost` model at each target location.
+#'
+#' @usage gwr_beta_glmboost(Y, XV, ALL_X, TP, indexG, Wd, NN, W = NULL, isgcv = FALSE,
+#' SE = FALSE, kernels = NULL, H = NULL, adaptive = NULL, ncore = 1,
+#' TP_estim_as_extrapol = FALSE, mstop = 150, nu = 0.1, family = NULL)
+#'
+#' @param Y A numeric vector of the response variable.
+#' @param XV A matrix of covariates with spatially varying parameters.
+#' @param ALL_X A matrix containing all covariates (used for SAR computations).
+#' @param TP A vector of indices for target points.
+#' @param indexG A precomputed matrix of indices of Nearest Neighbours.
+#' @param Wd A precomputed matrix of spatial weights.
+#' @param NN An integer indicating the number of spatial neighbours.
+#' @param W A spatial weight matrix for spatial dependence (optional).
+#' @param isgcv Logical; Not used for boosting (CV is usually internal to mboost), default FALSE.
+#' @param SE Logical; Standard errors are NOT available for boosting methods. Must be FALSE.
+#' @param kernels Character vector of kernel types (unused inside, kept for compatibility).
+#' @param H Vector of bandwidths (unused inside, kept for compatibility).
+#' @param adaptive Logical/Vector (unused inside, kept for compatibility).
+#' @param ncore Integer; number of cores for parallel computation. Default is 1.
+#' @param TP_estim_as_extrapol Logical; if TRUE, prediction mode is enabled.
+#' @param mstop Integer; Number of boosting iterations (mboost parameter). Default is 150.
+#' @param nu Numeric; Learning rate or step size (mboost parameter). Default is 0.1.
+#' @param family An object of class `Family` from the `mboost` package (e.g., `Gaussian()`, `Binomial()`).
+#'        If NULL, defaults to `Gaussian()`.
+#'
+#' @return A list containing:
+#'   \item{Betav}{Matrix of local coefficients.}
+#'   \item{SEV}{NULL (SE not supported for boosting).}
+#'   \item{edf}{NULL.}
+#'   \item{tS}{Fixed to 1 (Trace S not computed for boosting).}
+#'
+#' @seealso \code{\link[mboost]{glmboost}}, \code{\link[mboost]{boost_control}}
+#' @keywords internal
 #' @noRd
-#' @return A list with Betav, standard error, edf and trace(hatMatrix)
-gwr_beta_glmboost<-function(Y,XV,ALL_X,TP,indexG,Wd,NN,W=NULL,isgcv=FALSE,SE=FALSE,kernels=NULL,H=NULL,adaptive=NULL,doMC=FALSE,ncore=1,TP_estim_as_extrapol=FALSE,mstop=150,nu=0.1,family=NULL)
+gwr_beta_glmboost<-function(Y,XV,ALL_X,TP,indexG,Wd,NN,W=NULL,isgcv=FALSE,SE=FALSE,kernels=NULL,H=NULL,adaptive=NULL,ncore=1,TP_estim_as_extrapol=FALSE,mstop=150,nu=0.1,family=NULL)
 {
   if(SE) stop('No variance estimation for glmboost and gamboost model')
   if(is.null(family) | family$family=="gaussian") family=Gaussian()
@@ -36,7 +52,7 @@ gwr_beta_glmboost<-function(Y,XV,ALL_X,TP,indexG,Wd,NN,W=NULL,isgcv=FALSE,SE=FAL
   }
 
   if(isgcv) loo=-1 else loo=1:NN
-  if(doMC) {
+  if(ncore>1) {
     registerDoParallel(cores=ncore)
   } else registerDoSEQ()
   if(ncore>1) myblocks<-split(1:length(TP), ceiling(seq_along(TP)/round(length(TP)/ncore))) else myblocks<-list(b1=1:length(TP))

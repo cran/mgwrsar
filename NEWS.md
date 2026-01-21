@@ -1,8 +1,54 @@
 NEWS/ChangeLog
 -----------------------------
 
+# 1.3.1 2026-01-21
+Major performance improvements
+	•	Complete rewrite of the local fitting engine using RcppArmadillo (pivotal QR + banded optimizations).
+This substantially accelerates GWR, mixed-GWR and MGWR estimations, with average speed-ups of ×4 and memory usage reduced by 30–50%.
 
-# 1.1 2023-12-24
+New bandwidth selection engine
+	•	New function search_bandwidth(), a unified wrapper for 1D (space) and 2D (space and time) bandwidth optimisation.
+It supports multi-round grid refinement, integrates golden-section search, and relies on forking for parallel evaluation.
+
+Visualisation
+	•	New interactive plot methods based on plotly, allowing dynamic exploration of local coefficients, bandwidth paths, and model diagnostics.
+
+TDS algorithms
+	•	Significant improvements to tds_mgwr and tds_mgtwr models:
+	•	smoother and more stable AICc-based decisions during bandwidth boosting,
+	•	refined sequential optimisation for spatial and spatio-temporal kernels,
+	•	improved handling of edge cases and isolated observations,
+	•	new internal diagnostics for convergence monitoring.
+
+Improved handling of isolated points
+	•	Better detection and fallback to OLS for observations receiving zero weight under non-adaptive kernels—avoiding silent numerical instabilities.
+
+Parallelisation robustness
+	•	More reliable parallel execution:
+	•	cleanup on interruptions,
+	•	fallback to sequential execution when requested.
+
+Predictive methods
+	•	More stable predict_mgwrsar() logic with safer handling of model@mycall$control, avoiding previous errors when called immediately after bandwidth optimisation.
+
+Improved numerical stability
+	•	Several fixes related to:
+	•	QR pivoting in local regressions,
+	•	normalization of kernel weights,
+	•	avoidance of underflow in Gaussian kernels for very small bandwidths.
+
+Cross-platform build stability
+	•	Fixes ensuring compatibility on macOS ARM, Linux (GCC ≥12), and Windows Rtools; better BLAS thread control (OPENBLAS, MKL, VECLIB).
+	
+Reproducibility across platforms
+	•	Adoption of the L’Ecuyer–CMRG random number generator with inversion-based normal deviates, ensuring bitwise-stable stochastic behaviour across all platforms and parallel backends.
+
+	
+# 1.2 2025-6-24 (unreleased version)
+* Introducing tds_mgtwr model allowing to estimate spatio-temporal multiscale GWR (MGTWR)
+* Introducing golden_search_2d_bandwidth for automatic bandwidth selection with spatio-temporal GWR (GTWR)
+
+# 1.1 2024-12-24
 * Introducing top-down scale/multiscale GWR (tds_mgwr), adaptive top-down scale/multiscale GWR (atds_mgwr) and regular multiscale GWR (multiscale_gwr)
 * Introducing generalized GWR for binomial (bionomial and quasibinomial families).
 * Introducing GAM/GWR with gradient descent boosting.

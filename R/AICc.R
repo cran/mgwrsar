@@ -26,6 +26,7 @@ AICc_CV<-function(H,formula, data ,coords, fixed_vars,kernels, Model,control){
   if(control$criterion %in% c('AICc','AICctp')){
   control$get_ts=TRUE
   model<-MGWRSAR(formula=formula , data = data,coords=coords, fixed_vars=fixed_vars,kernels=kernels,H=H, Model = Model,control=control)
+
    result=slot(model,control$criterion)
   } else if(control$criterion %in% c('CV','CVtp')) {
     control2=control

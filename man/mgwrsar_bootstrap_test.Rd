@@ -4,8 +4,8 @@
 \alias{mgwrsar_bootstrap_test}
 \title{A bootstrap test for Betas for mgwrsar class model.}
 \usage{
-mgwrsar_bootstrap_test(x0,x1,B=100,doMC=FALSE,ncore=1,type='standard'
-,eps='H1',df='H1',focal='median',D=NULL)
+mgwrsar_bootstrap_test(x0,x1,B=100,ncore=1,type='standard',eps='H1',
+df='H1',focal='median',D=NULL,verbose=FALSE)
 }
 \arguments{
 \item{x0}{The H0 mgwrsar model}
@@ -13,8 +13,6 @@ mgwrsar_bootstrap_test(x0,x1,B=100,doMC=FALSE,ncore=1,type='standard'
 \item{x1}{The H1 mgwrsar model}
 
 \item{B}{number of bootstrap repetitions, default 100}
-
-\item{doMC}{If TRUE, doParallel parallelization}
 
 \item{ncore}{number of cores}
 
@@ -27,6 +25,8 @@ mgwrsar_bootstrap_test(x0,x1,B=100,doMC=FALSE,ncore=1,type='standard'
 \item{focal}{see sample_stat help}
 
 \item{D}{A matrix of distance}
+
+\item{verbose}{default FAlSE}
 }
 \value{
 The value of the statictics test and a p ratio.

@@ -1,0 +1,15 @@
+CXX_STD = CXX17
+
+# ==== AddressSanitizer flags (safe on macOS) ====
+ASAN_FLAGS = -fsanitize=address -fsanitize=leak -fno-omit-frame-pointer -g -O1
+
+# ==== Compiler flags (OpenMP removed for ASan stability) ====
+PKG_CPPFLAGS = -DOPENBLAS_NUM_THREADS=1 -DMKL_NUM_THREADS=1 -DOMP_NUM_THREADS=1 @MY_CPPFLAGS@
+
+PKG_CXXFLAGS = $(ASAN_FLAGS) @MY_CXXFLAGS@
+
+# ==== Linker flags ====
+PKG_LIBS = $(LAPACK_LIBS) $(BLAS_LIBS) $(FLIBS) $(ASAN_FLAGS) @MY_LIBS@
+
+OBJECTS = mgwrsar.o gwr_core.o reord_scatter_rcpp.o knn_stable_sort.o \
+          RcppExports_arma.o RcppExports_eigen.o init.o

@@ -1,11 +1,8 @@
-#' QRcpp2_C
 #' to be documented
-#' @usage QRcpp2_C(AA, bb, cc)
-#' @param AA  to be documented
-#' @param bb  to be documented
-#' @param cc  to be documented
+#' @usage QRcpp2_C(A, B, C)
 #' @keywords internal
 #' @return to be documented
-QRcpp2_C <-
-function (AA, bb, cc)
-.Call("QRcpp2_C", AA, bb, cc, PACKAGE = "mgwrsar")
+#' @noRd
+QRcpp2_C <- function(A, B, C) {
+  .Call("_mgwrsar_QRcpp2_C", A, B, C, PACKAGE = "mgwrsar")
+}

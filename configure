@@ -1,0 +1,57 @@
+#!/bin/sh
+
+# 1. Initialize variables
+MY_CPPFLAGS=""
+MY_CXXFLAGS=""
+MY_LIBS=""
+
+# 2. System detection
+OS_NAME=$(uname)
+
+if [ "${OS_NAME}" = "Darwin" ]; then
+    echo "configure: macOS detected. Checking for OpenMP..."
+
+    # Look for libomp via Homebrew
+    if command -v brew >/dev/null 2>&1; then
+        OMP_PATH=$(brew --prefix libomp 2>/dev/null)
+    fi
+
+    # If libomp is found
+    if [ -n "${OMP_PATH}" ] && [ -f "${OMP_PATH}/include/omp.h" ]; then
+        echo "configure: Found libomp at ${OMP_PATH}. Enabling OpenMP."
+        MY_CPPFLAGS="-I${OMP_PATH}/include"
+        MY_CXXFLAGS="-Xpreprocessor -fopenmp"
+        MY_LIBS="-L${OMP_PATH}/lib -lomp"
+    else
+        echo "configure: libomp not found. OpenMP support might be limited."
+    fi
+
+else
+    echo "configure: Linux/Unix detected. Using standard R configuration."
+fi
+
+# 3. GENERATE src/Makevars DIRECTLY (The robust way)
+# We use 'cat' with a Heredoc (<<EOF) to write the file content dynamically.
+# Note: We escape the $ sign (\$) for Makefile variables so shell doesn't interpret them.
+
+echo "configure: Creating src/Makevars..."
+
+cat > src/Makevars <<EOF
+CXX_STD = CXX17
+
+# Flags from system detection
+PKG_CPPFLAGS = -DOPENBLAS_NUM_THREADS=1 -DMKL_NUM_THREADS=1 -DOMP_NUM_THREADS=1 ${MY_CPPFLAGS}
+PKG_CXXFLAGS = \$(SHLIB_OPENMP_CXXFLAGS) ${MY_CXXFLAGS}
+
+# CRITICAL FIX: Explicitly linking LAPACK, BLAS and FLIBS
+PKG_LIBS = \$(SHLIB_OPENMP_CXXFLAGS) \$(LAPACK_LIBS) \$(BLAS_LIBS) \$(FLIBS) ${MY_LIBS}
+
+# (Optional: Remove OBJECTS line if you want R to handle dependencies automatically.
+# Keeping it since you requested it, but ensure filenames are 100% correct)
+OBJECTS = mgwrsar.o gwr_core.o knn_stable_sort.o RcppExports_arma.o RcppExports_eigen.o init.o
+EOF
+
+# 4. Add a final newline just in case
+echo "" >> src/Makevars
+
+echo "configure: src/Makevars created successfully."

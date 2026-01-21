@@ -1,34 +1,54 @@
-#' gwr_beta
-#' to be documented
-#' @usage gwr_beta(Y,XV,ALL_X,TP,indexG,Wd,NN,W=NULL,isgcv=FALSE,SE=FALSE,k
-#' ernels=NULL,H=NULL,adaptive=NULL,doMC=FALSE,ncore=1,
-#' TP_estim_as_extrapol=FALSE,get_ts=FALSE,get_s=FALSE,
-#' get_Rk=FALSE,TP_cor=NULL)
-#' @param Y A vector of response
-#' @param XV A matrix with covariates with non stationnary parameters
-#' @param ALL_X A matrix with all covariates
-#' @param TP An index of target points.
-#' @param indexG Precomputed Matrix of indexes of NN neighbors.
-#' @param Wd Precomputed Matrix of weights.
-#' @param NN Number of spatial Neighbours for kernels computations
-#' @param W The spatial weight matrix for spatial dependence
-#' @param isgcv leave one out cross validation, default FALSE
-#' @param SE If standard error are computed, default FALSE
-#' @param KernelTP  Kernel type for extrapolation of Beta from Beta(TP)
-#' @param doMC  Boolean for parallel computation.
-#' @param ncore  Number of cores for parallel computation.
-#' @param TP_estim_as_extrapol  Boolean for prediction mode.
-#' @param get_ts Boolean for computing Trace(S)
-#' @param get_Rk Boolean for computing Trace(S)
+#' Internal R-based GWR Estimation
+#'
+#' @description
+#' This function estimates GWR coefficients using a parallelized loop in R.
+#' It is generally used as a fallback when C++ optimizations are not applicable,
+#' or when specific outputs like the full Resolution Matrix (Rk) are required.
+#' It handles standard GWR as well as some specific SAR specifications via the `W` argument.
+#'
+#' @usage gwr_beta(Y, XV, ALL_X, TP, indexG, Wd, NN, W = NULL, isgcv = FALSE,
+#' SE = FALSE, kernels = NULL, H = NULL, adaptive = NULL, ncore = 1,
+#' TP_estim_as_extrapol = FALSE, get_ts = FALSE, get_s = FALSE,
+#' get_Rk = FALSE, isolated_idx = NULL)
+#'
+#' @param Y A numeric vector of the response variable.
+#' @param XV A matrix of covariates with spatially varying parameters.
+#' @param ALL_X A matrix containing all covariates (used for internal computations like PhWY).
+#' @param TP A vector of indices for target points.
+#' @param indexG A precomputed matrix of indices of Nearest Neighbours.
+#' @param Wd A precomputed matrix of spatial weights.
+#' @param NN An integer indicating the number of spatial neighbours.
+#' @param W A spatial weight matrix for spatial dependence (optional).
+#' @param isgcv Logical; if TRUE, performs leave-one-out cross-validation. Default is FALSE.
+#' @param SE Logical; if TRUE, computes standard errors. Default is FALSE.
+#' @param kernels A character vector of kernel types (optional, mainly for context).
+#' @param H A vector of bandwidths (optional).
+#' @param adaptive Logical/Vector; indicates if bandwidths are adaptive.
+#' @param ncore Integer; number of cores for parallel computation. Default is 1.
+#' @param TP_estim_as_extrapol Logical; if TRUE, prediction mode is enabled (target points are not used for calibration).
+#' @param get_ts Logical; if TRUE, computes the trace of the Hat matrix (Trace S).
+#' @param get_s Logical; if TRUE, computes the full Hat matrix S.
+#' @param get_Rk Logical; if TRUE, computes the Resolution matrix Rk.
+#' @param isolated_idx Vector of indices for isolated points (islands) to be handled specifically.
+#'
+#' @return A list containing:
+#'   \item{Betav}{Matrix of local coefficients.}
+#'   \item{SEV}{Matrix of standard errors (if requested).}
+#'   \item{edf}{Effective degrees of freedom.}
+#'   \item{tS}{Trace of the Hat matrix.}
+#'   \item{Shat}{The full Hat matrix (if requested).}
+#'   \item{TS}{Vector of local trace statistics.}
+#'   \item{Rk}{List or array of resolution matrices (if requested).}
+#'
+#' @keywords internal
 #' @noRd
-#' @return A list with Betav, standard error, edf and trace(hatMatrix)
-gwr_beta<-function(Y,XV,ALL_X,TP,indexG,Wd,NN,W=NULL,isgcv=FALSE,SE=FALSE,kernels=NULL,H=NULL,adaptive=NULL,doMC=FALSE,ncore=1,TP_estim_as_extrapol=FALSE,get_ts=FALSE,get_s=FALSE,get_Rk=FALSE,TP_cor=NULL)
+gwr_beta<-function(Y,XV,ALL_X,TP,indexG,Wd,NN,W=NULL,isgcv=FALSE,SE=FALSE,kernels=NULL,H=NULL,adaptive=NULL,ncore=1,TP_estim_as_extrapol=FALSE,get_ts=FALSE,get_s=FALSE,get_Rk=FALSE,isolated_idx=NULL)
 {
   if(get_s) get_ts=TRUE
   Rk<-Rkk<-list()
   n=length(Y)
-  if(!is.null(TP_cor)) {
-    TP<-TP_cor
+  if(!is.null(isolated_idx)) {
+    TP<-isolated_idx
     some_null_beta<-TRUE
   } else some_null_beta<-FALSE
   ntp=length(TP)
@@ -52,7 +72,7 @@ gwr_beta<-function(Y,XV,ALL_X,TP,indexG,Wd,NN,W=NULL,isgcv=FALSE,SE=FALSE,kernel
     XV = cbind(XV,PhWy)
   }
   if(isgcv) loo=-1 else loo=1:NN
-  if(doMC) {
+  if(ncore>1) {
     registerDoParallel(cores=ncore)
   } else registerDoSEQ()
   if(ncore>1) myblocks<-split(1:length(TP), ceiling(seq_along(TP)/round(length(TP)/ncore))) else myblocks<-list(b1=1:length(TP)) ## myblocks and z index over 1:length(TP)
@@ -173,6 +193,6 @@ gwr_beta<-function(Y,XV,ALL_X,TP,indexG,Wd,NN,W=NULL,isgcv=FALSE,SE=FALSE,kernel
   # }
   if(is.null(W))  colnames(Betav)=namesXV else colnames(Betav)=c(namesXV,'lambda')
 
-  if(get_s | get_ts | SE) list(Betav=Betav,SEV=SEV,edf=n-tS,tS=tS,Shat=Shat,TS=TS,Rk=Rk) else list(Betav=Betav,SEV=NULL,edf=NULL,tS=NULL,Shat=NULL,TS=NULL)
+    if(get_s | get_ts | SE) list(Betav=Betav,SEV=SEV,edf=n-tS,tS=tS,Shat=Shat,TS=TS,Rk=Rk) else list(Betav=Betav,SEV=NULL,edf=NULL,tS=NULL,Shat=NULL,TS=NULL)
 }
 

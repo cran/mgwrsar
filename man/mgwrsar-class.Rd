@@ -5,125 +5,131 @@
 \alias{mgwrsar-class}
 \title{Class of mgwrsar Model.}
 \description{
-Class of mgwrsar Model.
+A S4 class to represent the results of MGWRSAR, TDS-MGWR and related spatial models.
 }
 \section{Slots}{
 
 \describe{
-\item{\code{Betav}}{matrix, the estimated varying coefficients, dim(n,kv).}
+\item{\code{Betav}}{matrix. The estimated varying coefficients, dimension (n, kv).}
 
-\item{\code{Betac}}{numeric, the estimated constant coefficients, length kc.}
+\item{\code{Betac}}{numeric. The estimated constant coefficients, length kc.}
 
-\item{\code{Model}}{character, The type of model.}
+\item{\code{Model}}{character. The type of model (e.g., "GWR", "MGWR", "SAR", "tds_mgwr").}
 
-\item{\code{fixed_vars}}{character, a vector with name of constant covarariate.}
+\item{\code{fixed_vars}}{character. A vector with names of spatially constant covariates.}
 
-\item{\code{Y}}{numeric, the dependent variable.}
+\item{\code{Y}}{numeric. The dependent variable.}
 
-\item{\code{XC}}{matrix, the explanatory variables with constant coefficients.}
+\item{\code{XC}}{matrix. The explanatory variables with constant coefficients.}
 
-\item{\code{XV}}{matrix, the explanatory variables with varying coefficients.}
+\item{\code{XV}}{matrix. The explanatory variables with varying coefficients.}
 
-\item{\code{X}}{matrix, the explanatory variables.}
+\item{\code{X}}{matrix. All explanatory variables.}
 
-\item{\code{W}}{SparseMatrix, the spatial weight matrix for spatial dependence.}
+\item{\code{W}}{Matrix. The spatial weight matrix for spatial dependence (row-standardized).}
 
-\item{\code{isgcv}}{logical, if gcv has been computed.}
+\item{\code{isgcv}}{logical. Indicates if Leave-One-Out Cross-Validation (LOOCV) has been computed.}
 
-\item{\code{edf}}{numeric, the estimated degrees of freedom.}
+\item{\code{edf}}{numeric. The estimated effective degrees of freedom.}
 
-\item{\code{formula}}{\code{formula}}
+\item{\code{formula}}{formula. The model formula.}
 
-\item{\code{data}}{dataframe, The dataframe used for computation.}
+\item{\code{data}}{data.frame. The dataframe used for computation.}
 
-\item{\code{Method}}{character, the estimation technique for computing the models with Spatial Dependence. '2SLS' or 'B2SLS', default '2SLS'.}
+\item{\code{Method}}{character. The estimation technique for spatial dependence models ('2SLS' or 'B2SLS'). Default is '2SLS'.}
 
-\item{\code{coords}}{matrix, the spatial coordinates of observations.}
+\item{\code{coords}}{matrix. The spatial coordinates of observations.}
 
-\item{\code{H}}{numeric, the bandwidth vector.}
+\item{\code{H}}{numeric. The bandwidth vector (spatial).}
 
-\item{\code{H2}}{numeric, the time bandwidth vector.}
+\item{\code{Ht}}{numeric. The bandwidth vector (temporal), if applicable.}
 
-\item{\code{kernels}}{character, the type of kernel.}
+\item{\code{kernels}}{character. The kernel type(s) used (e.g., 'gauss', 'bisq').}
 
-\item{\code{adaptive}}{logical, adaptive kernel.}
+\item{\code{adaptive}}{logical. Indicates if an adaptive kernel (nearest neighbors) was used.}
 
-\item{\code{Type}}{character, the type of General Kernel Product.}
+\item{\code{Type}}{character. The type of Generalized Kernel Product ('GD' for spatial, 'GDT' for spatio-temporal).}
 
-\item{\code{TP}}{numeric, index of target points.}
+\item{\code{TP}}{numeric. Indices of target points (if a subset was used).}
 
-\item{\code{SSRtp}}{numeric, the sum of square residuals for TP.}
+\item{\code{SSRtp}}{numeric. The residual sum of squares calculated only on target points.}
 
-\item{\code{SSR}}{numeric, the sum of square residuals.}
+\item{\code{SSR}}{numeric. The total residual sum of squares.}
 
-\item{\code{residuals}}{numeric, the vector of residuals.}
+\item{\code{residuals}}{numeric. The vector of residuals.}
 
-\item{\code{fit}}{numeric, the vector of fitted values.}
+\item{\code{fit}}{numeric. The vector of fitted values.}
 
-\item{\code{pred}}{numeric, the vector of predicted values.}
+\item{\code{pred}}{numeric. The vector of predicted values (out-of-sample).}
 
-\item{\code{sev}}{matrix, local standard error of varying coefficients.}
+\item{\code{sev}}{matrix. Local standard errors of varying coefficients.}
 
-\item{\code{se}}{numeric, standard error of constant coefficients.}
+\item{\code{se}}{numeric. Standard errors of constant coefficients.}
 
-\item{\code{tS}}{numeric, Trace(S).}
+\item{\code{tS}}{numeric. The trace of the Hat matrix (effective number of parameters).}
 
-\item{\code{Shat,}}{hat matrix}
+\item{\code{Shat}}{matrix. The Hat matrix (or approximation).}
 
-\item{\code{R_k,}}{list of hat matrix by var}
+\item{\code{R_k}}{list. List of partial Hat matrices by covariate (for MGWR inference).}
 
-\item{\code{h_w}}{numeric, the bandwidth value for computing W, default 0.}
+\item{\code{h_w}}{numeric. The bandwidth value used for computing the spatial weight matrix W. Default is 0.}
 
-\item{\code{kernel_w}}{the type of kernel for computing W, default NULL.}
+\item{\code{kernel_w}}{character. The kernel type used for computing W. Default is NULL.}
 
-\item{\code{RMSE}}{numeric, Root Mean Square Error for Target Points.}
+\item{\code{RMSE}}{numeric. Root Mean Square Error (on training data).}
 
-\item{\code{RMSEtp}}{numeric, Root Mean Square Error for all Points.}
+\item{\code{RMSEtp}}{numeric. Root Mean Square Error computed on target points.}
 
-\item{\code{CV}}{numeric, Leave One Out CV.}
+\item{\code{CV}}{numeric. Leave-One-Out Cross-Validation score.}
 
-\item{\code{AIC}}{numeric,  Akaike Criteria.}
+\item{\code{AIC}}{numeric. Akaike Information Criterion.}
 
-\item{\code{AICc}}{numeric, Corrected Akaike Criteria.}
+\item{\code{AICc}}{numeric. Corrected Akaike Information Criterion.}
 
-\item{\code{AICctp}}{numeric, Corrected Akaike Criteria for TP}
+\item{\code{AICctp}}{numeric. Corrected AIC for target points.}
 
-\item{\code{BIC}}{numeric, Bayesian Information Criteria.}
+\item{\code{BIC}}{numeric. Bayesian Information Criterion.}
 
-\item{\code{R2}}{numeric, R2.}
+\item{\code{R2}}{numeric. R-squared.}
 
-\item{\code{R2_adj}}{numeric, adjusted R2.}
+\item{\code{R2_adj}}{numeric. Adjusted R-squared.}
 
-\item{\code{get_ts}}{logical, if trace of hat matrix Tr(S) should be stored.}
+\item{\code{get_ts}}{logical. Indicates if the trace of the Hat matrix (Tr(S)) was stored.}
 
-\item{\code{NN}}{numeric, the maximum number of neighbors for weights computation}
+\item{\code{NN}}{numeric. The maximum number of neighbors used for weight computation (truncation parameter).}
 
-\item{\code{doMC}}{logical, parallel computation.}
+\item{\code{ncore}}{numeric. Number of CPU cores used.}
 
-\item{\code{ncore}}{numeric, number of cores.}
+\item{\code{mycall}}{call. The original function call.}
 
-\item{\code{mycall}}{a call, the call of the model.}
+\item{\code{ctime}}{numeric. Computation time in seconds.}
 
-\item{\code{ctime}}{numeric, the computing times in seconds.}
+\item{\code{HRMSE}}{matrix. History of RMSE values (for iterative algorithms like backfitting).}
 
-\item{\code{HRMSE}}{matrix, RMSE log.}
+\item{\code{HBETA}}{list. History of estimated Beta coefficients at each iteration.}
 
-\item{\code{HBETA}}{list, estimated BETA at each iteration.}
+\item{\code{loglik}}{numeric. Log-likelihood value.}
 
-\item{\code{loglik}}{numeric, value of loglik.}
+\item{\code{G}}{list. List containing neighboring indices and distances (knn object).}
 
-\item{\code{G}}{list, list of neighboring index and distances (knn object from nabor package).}
+\item{\code{V}}{numeric. Sequence of spatial bandwidths tested (for TDS algorithms).}
 
-\item{\code{V}}{numeric, neighbors sequence for TDS.}
+\item{\code{Vt}}{numeric. Sequence of temporal bandwidths tested (for TDS algorithms).}
 
-\item{\code{Vt}}{numeric, neighbors sequence for TDS.}
+\item{\code{Z}}{numeric. Temporal or auxiliary variable for GDT kernel type.}
 
-\item{\code{Z}}{numeric, time for GDT kernel type}
+\item{\code{TS}}{numeric. Diagonal elements of the Hat Matrix.}
 
-\item{\code{TS}}{numeric, Diagonal of Hat Matrix}
+\item{\code{alpha}}{numeric. Ratio parameter for GDT kernels (balancing space and time).}
 
-\item{\code{alpha}}{numeric, ratio for GDT kernels}
+\item{\code{HM}}{matrix. Matrix of optimal bandwidths per covariate (for TDS).}
 
-\item{\code{theta}}{numeric, ratio for GDT kernels}
+\item{\code{HKmin}}{numeric. Minimum allowed bandwidth per covariate (for TDS).}
+
+\item{\code{HKMIN}}{list. List of minimum bandwidths per covariate for spatio-temporal models (TDS).}
+
+\item{\code{isolated_idx}}{numeric. Indices of observations without sufficient neighbors.}
+
+\item{\code{my_crs}}{ANY. Coordinate Reference System (CRS) information.}
 }}
 

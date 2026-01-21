@@ -75,7 +75,9 @@ plot_effect<-function(model,sampling=TRUE,nsample=2000,nsample_max=5000,title=''
 
     res$ord<-reorder(res$variable, res$eff, FUN = function(x) abs(max(x)-min(x)))
 
-    res_v<-res %>% dplyr::filter(spv==TRUE) %>% dplyr::arrange(desc(ord),desc(signif_95))
+    res_sub <- res[res$spv == TRUE, ]
+    res_v <- res_sub[order(res_sub$ord, decreasing = TRUE), ]
+
     if(res_v$signif_95[1]) col_v=c( 'black',"red") else col_v=c("red",'black')
     if(length(model@Betac)>0) {
       res_c<-res %>% dplyr::filter(spv==FALSE) %>% dplyr::arrange(desc(ord),desc(signif_95))
@@ -97,7 +99,9 @@ plot_effect<-function(model,sampling=TRUE,nsample=2000,nsample_max=5000,title=''
     }
     if(length(col_lambda)>0) res=rbind(res,data.frame(variable=rep('Wy',n),eff=Wy))
 
-    res_v<-res %>% filter(spv==TRUE) %>% arrange(desc(ord),desc(signif_95))
+    res_sub <- res[res$spv == TRUE, ]
+    res_v <- res_sub[order(res_sub$ord, decreasing = TRUE), ]
+
     if(length(model@Betac)>0) res_c<-res %>% filter(spv==FALSE) %>% arrange(desc(ord),desc(signif_95))
 
     gAS_v<-ggplot2::ggplot(res_v,ggplot2::aes(y=reorder(variable, eff, FUN = function(x) abs(max(x)-min(x))),x=eff))+ggplot2::geom_jitter(width = 0.01,size=0.2)+ggplot2::geom_vline(xintercept=0)+aes_bx + ggplot2::ggtitle('Varying coefficients')

@@ -16,20 +16,39 @@
 #' are supposed to be spatially varying. If empty or NULL (default),
 #' all variables in formula are supposed to be spatially varying.
 #' @param control list of extra control arguments for MGWRSAR wrapper - see MGWRSAR Help
-#' @param control_tds list of extra control arguments for tds_mgwr model - see tds_gwr Help
-#' @seealso  tds_mgwr, gwr_multiscale, MGWRSAR, bandwidths_mgwrsar, summary_mgwrsar.
+#' @param control_tds list of extra control arguments for TDS_MGWR model - see TDS_MGWR Help
+#' @seealso  TDS_MGWR, gwr_multiscale, MGWRSAR, golden_search_bandwidth.
 atds_gwr<-function(formula,data,coords,kernels='triangle',fixed_vars=NULL,control_tds=list(nns=30),control=list(adaptive=TRUE,verbose=FALSE)){
   Model='atds_gwr'
   #criteria='autre'
   start<-proc.time()
-  init_param_tds() #done ?
-  if(is.null(control_tds$V)) built_Vseq() #done ?
-  if(!is.null(TRUEBETA)) init_RMSE_history()   #done ?
+
+  #init_param_tds() #done ?
+  V=control_tds$V
+  if(is.null(control$verbose)) verbose<-control$verbose<-FALSE else verbose<-control$verbose
+  H=NULL
+  tol=0.0001
+  HBETA<-list()
+  n<-nrow(data)
+  #if(is.null(control_tds$V)) built_Vseq() #done ?
+  #if(!is.null(TRUEBETA)) init_RMSE_history()   #done ?
 
   ### INIT ALGO
+
+  model_lm0=lm(formula,data)
   e0=residuals(model_lm0)
-  ds0<-TS<-model_lm0@TS
+  mf <- model.frame(formula,data)
+  X <- model.matrix(model_lm0)
+  Y<- model.extract(mf, "response")
+  BETA=matrix(coef(model_lm0),ncol=ncol(X),byrow=TRUE,nrow=nrow(X))
+  colnames(BETA)<-varying<-colnames(X)
+  XXtX <- eigenMapMatMult(solve(crossprod(X)), t(X))
+  rownames(XXtX) <- colnames(X)
+  S =  eigenMapMatMult(X, XXtX)
   ds0=diag(S)
+
+  HOPT=rep(NA,length(varying))
+  names(HOPT)=varying
 
   i=1
   ts=1
@@ -47,12 +66,9 @@ atds_gwr<-function(formula,data,coords,kernels='triangle',fixed_vars=NULL,contro
 
     ### LOOP ALGO
     while( (CONTINUE & i<length(V))){ # | (any(H<=V[i] & control$isgcv))
-      #browser()
-      #if(all(H>V[i])) break
       varyingT<-varying
-      if(i==browser) browser()
       gc()
-      if(length(varying>1) & !is.null(H)) for(k in varying){
+      if(length(varying)>1 & !is.null(H)) for(k in varying){
           if(H[k]>V[i]) {
             varyingT<-setdiff(varyingT,k)
           }
@@ -73,19 +89,15 @@ atds_gwr<-function(formula,data,coords,kernels='triangle',fixed_vars=NULL,contro
       if(control$adaptive[1]) controlv$NN<-vk+2 else controlv$NN=nrow(coords)
       controlv$get_s=TRUE
       if(verbose) cat('\n GWR Correction of varying coefficients with v=',vk, ' for varyings coefficients: ', paste(varyingT,collapse=' '))
-      modelGWR<-MGWRSAR(formula = myformula_b, data = data,coords=coords, fixed_vars=NULL,kernels=kernels,H=c(vk,control_tds$H2),Model = 'GWR',control=controlv)
+      modelGWR<-MGWRSAR(formula = myformula_b, data = data,coords=coords, fixed_vars=NULL,kernels=kernels,H=c(vk,control_tds$Ht),Model = 'GWR',control=controlv)
       ##### diagnostic
       e1=residuals(modelGWR)
-
-      #browser()
-
-
-        S1<-S+modelGWR@Shat-eigenMapMatMult(modelGWR@Shat,S)
-        ds1=diag(S1)
-        df_true=sum(diag(ds1))
-        tocorrect<-1:n
-        S[tocorrect,]=S1[tocorrect,]
-        ds0[tocorrect]=ds1[tocorrect]
+      S1<-S+modelGWR@Shat-eigenMapMatMult(modelGWR@Shat,S)
+      ds1=diag(S1)
+      df_true=sum(diag(ds1))
+      tocorrect<-1:n
+      S[tocorrect,]=S1[tocorrect,]
+      ds0[tocorrect]=ds1[tocorrect]
       BETA[tocorrect,colnames(modelGWR@Betav)]=BETA[tocorrect,colnames(modelGWR@Betav)]+modelGWR@Betav[tocorrect,]
       fit=rowSums(BETA*X)
       e0<-data$e0<-Y-fit
@@ -120,14 +132,14 @@ atds_gwr<-function(formula,data,coords,kernels='triangle',fixed_vars=NULL,contro
       }
       if(length(varying)==0) CONTINUE=FALSE
       HBETA[[i+1]]<-BETA
-      if(!is.null(TRUEBETA) ){
-        for(k in 1:K) HRMSE[i+1,k]=sqrt(mean((TRUEBETA[,k]-BETA[,k])^2))
-        HRMSE[i+1,K+1]<-mean(HRMSE[i+1,1:K])
-        HRMSE[i+1,K+2]<-vk
-        HRMSE[i+1,K+3]<-AICc
-        HRMSE[i+1,K+4]<-sum(data$e0^2)
-        HRMSE[i+1,K+5]<-global_ts
-      }
+      # if(!is.null(TRUEBETA) ){
+      #   for(k in 1:K) HRMSE[i+1,k]=sqrt(mean((TRUEBETA[,k]-BETA[,k])^2))
+      #   HRMSE[i+1,K+1]<-mean(HRMSE[i+1,1:K])
+      #   HRMSE[i+1,K+2]<-vk
+      #   HRMSE[i+1,K+3]<-AICc
+      #   HRMSE[i+1,K+4]<-sum(data$e0^2)
+      #   HRMSE[i+1,K+5]<-global_ts
+      # }
       i=i+1
     }
     ### RETURN MODEL
@@ -151,11 +163,12 @@ atds_gwr<-function(formula,data,coords,kernels='triangle',fixed_vars=NULL,contro
     modelGWR@Y=Y
     modelGWR@ctime <- (proc.time()- start)[3]
     modelGWR@HBETA<-HBETA
-    if(!is.null(TRUEBETA)) {
-      colnames(HRMSE)<-c(paste0('RMSE_',namesX),'meanRMSE','v','AICc','SSR','TS')
-      modelGWR@HRMSE <- HRMSE[!is.na(HRMSE[,1]),]
-    }
-    modelGWR@G<-list(indexG= control$indexG,dists=control$dists)
+    # if(!is.null(TRUEBETA)) {
+    #   colnames(HRMSE)<-c(paste0('RMSE_',namesX),'meanRMSE','v','AICc','SSR','TS')
+    #   modelGWR@HRMSE <- HRMSE[!is.na(HRMSE[,1]),]
+    # }
+
+    # modelGWR@G<-list(indexG= control$indexG,dists=control$dists)
     modelGWR@Shat<-S_best
     modelGWR@TS<-TS_best
     modelGWR@tS<-tS_best

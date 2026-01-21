@@ -1,11 +1,8 @@
-#' ApproxiW
 #' to be documented
-#' @usage ApproxiW(WW, la, order)
-#' @param WW  to be documented
-#' @param la  to be documented
-#' @param order  to be documented
-#' @noRd
+#' @usage ApproxiW(A, B, C)
+#' @keywords internal
 #' @return to be documented
-ApproxiW <-
-function (WW, la, order)
-.Call("ApproxiW", WW, la, order, PACKAGE = "mgwrsar")
+#' @noRd
+ApproxiW <- function(W, TP, n) {
+  .Call("_mgwrsar_ApproxiW", W, TP, n, PACKAGE = "mgwrsar")
+}

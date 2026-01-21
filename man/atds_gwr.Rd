@@ -22,7 +22,7 @@ coefficient for mixed model. All other variables present in formula
 are supposed to be spatially varying. If empty or NULL (default),
 all variables in formula are supposed to be spatially varying.}
 
-\item{control_tds}{list of extra control arguments for tds_mgwr model - see tds_gwr Help}
+\item{control_tds}{list of extra control arguments for TDS_MGWR model - see TDS_MGWR Help}
 
 \item{control}{list of extra control arguments for MGWRSAR wrapper - see MGWRSAR Help}
 }
@@ -32,5 +32,5 @@ a top-down scaling approach, adjusting GWR coefficients with a progressively
 decreasing bandwidth as long as the AICc criterion improves.
 }
 \seealso{
-tds_mgwr, gwr_multiscale, MGWRSAR, bandwidths_mgwrsar, summary_mgwrsar.
+TDS_MGWR, gwr_multiscale, MGWRSAR, golden_search_bandwidth.
 }

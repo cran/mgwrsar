@@ -83,13 +83,13 @@ with spatial autocorrelation that  allows to estimate the following models :
 When model imply spatial autocorrelation, a row normalized spatial weight matrix must be provided.
 2SLS and Best 2SLS method can be used.
 When model imply local regression, a bandwidth and a kernel type must be provided. Optimal bandwidth can be estimated
-using bandwidths_mgwrsar function.
+using goldens_search_bandwid function.
 When model imply mixed local regression, the names of stationary covariates must be provided.
 
 #' In addition to the ability of considering spatial autocorrelation in GWR/MGWR like models,
 MGWRSAR function introduces several useful technics for estimating local regression with space coordinates:
 \itemize{
-\item{it uses RCCP and RCCPeigen code that speed up computation and allows parallel computing via doMC package;}
+\item{it uses RCCP and RCCPeigen code that speed up computation and allows parallel computings;}
 \item{it allows to drop out variables with not enough local variance in local regression, which allows to consider dummies in GWR/MGWR framework without trouble.}
 \item{it allows to drop out local outliers in local regression.}
 \item{it allows to consider additional variable for kernel, including  time (asymetric kernel) and categorical variables (see Li and Racine 2010). Experimental version.}
@@ -104,7 +104,7 @@ with spatial autocorrelation (SAR models with spatially varying coefficients).
 \item{Z}{A matrix of variables for genralized kernel product, default NULL.}
 \item{W}{A row-standardized spatial weight matrix for Spatial
  Aurocorrelation, default NULL.}
-\item{type}{Verbose mode, default FALSE.}
+\item{Type}{Verbose mode, default FALSE.}
 \item{adaptive}{A vector of boolean to choose adaptive version for
  each kernel.}
 \item{kernel_w}{The type of kernel for computing W, default NULL.}
@@ -112,13 +112,8 @@ with spatial autocorrelation (SAR models with spatially varying coefficients).
 \item{Method}{Estimation method for computing the models with Spatial
 Dependence. '2SLS' or 'B2SLS', default '2SLS'.}
 \item{TP}{Avector of target points, default NULL.}
-\item{doMC}{Parallel computation, default FALSE. If TRUE and
- control_tds$doMC is also TRUE, then control$doMC is set to FALSE.}
 \item{ncore}{Number of CPU core for parallel computation, default 1}
 \item{isgcv}{If TRUE, compute a LOOCV criteria, default FALSE.}
-\item{isfgcv}{If TRUE, simplify the computation of CV criteria
-(remove or not i when using local instruments for model with lambda
-spatially varying), default TRUE.}
 \item{maxknn}{When n >NmaxDist, only the maxknn first neighbours are used
 for distance compution, default 500.}
 \item{NmaxDist}{When n >NmaxDist only the maxknn first neighbours are used
@@ -154,5 +149,5 @@ Franke, R. and Nielson, G. (1980). Smooth interpolation of large sets of scatter
 International journal for numerical methods in engineering, 15(11):1691-1704.
 }
 \seealso{
-bandwidths_mgwrsar, summary, plot, predict, kernel_matW
+golden_search_bandwidth, summary, plot, predict, kernel_matW
 }

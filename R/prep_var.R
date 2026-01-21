@@ -6,6 +6,26 @@
 #' @return to be documented
 prep_var<-function(gwrenv){
   R_k=list()
+  # gwrenv$kernels_original<-gwrenv$kernels
+  # if(gwrenv$Type=='GDT'){
+  #   cycling<-as.numeric(unlist(str_split(gwrenv$kernels[2], '_'))[3])
+  #   if(!is.na(cycling)){
+  #     temporal_distance_modulo <- function(x, cycling = 365) {
+  #       x_mod <- x %% cycling
+  #       x_mod[x_mod == 0] <- cycling
+  #       pmin(x_mod, cycling - x_mod)
+  #     }
+  #     gwrenv$Z=temporal_distance_modulo(gwrenv$Z,cycling)
+  #     gwrenv$kernels[2]<-paste0(unlist(str_split(gwrenv$kernels[2], '_'))[1:2],collapse ='_')
+  #   }
+  # }
+
+  if(!(gwrenv$Model %in% c('SAR','OLS'))) {
+    if(gwrenv$Type=='T' & length(gwrenv$kernels)!=1 &  length(gwrenv$adaptive)!=1) stop("when Type='T'  kernels and adaptive should of length 1")
+    if(gwrenv$Type=='GD' & length(gwrenv$kernels)!=1 &  length(gwrenv$adaptive)!=1) stop("when Type='GD'  kernels and adaptive should of length 1")
+    if(gwrenv$Type=='GDT' & length(gwrenv$kernels)!=2 &  length(gwrenv$adaptive)!=2) stop("when Type='GDT'  kernels and adaptive should of length 2")
+
+  }
   if(is.null(gwrenv$H)) gwrenv$H<-new('numeric')
   if (is.null(gwrenv$coords)) {
     if (class(gwrenv$data) %in% c("SpatialPointsDataFrame", "SpatialGridDataFrame","SpatialPixelsDataFrame","sf")) {
@@ -15,7 +35,7 @@ prep_var<-function(gwrenv){
   }
   if(!('data.frame' %in% class(gwrenv$coords))) gwrenv$coords <- as.matrix(gwrenv$coords)
   if (length(gwrenv$kernels) > 1) gwrenv$S = as.matrix(cbind(gwrenv$coords, gwrenv$Z)) else gwrenv$S = as.matrix(gwrenv$coords)
-  if(gwrenv$Type=='T') gwrenv$S = as.matrix(, gwrenv$Z)
+  if(gwrenv$Type=='T') gwrenv$S = as.matrix(gwrenv$Z)
   if(!(gwrenv$Model %in% c('OLS','SAR'))){
   if (!gwrenv$searchB  & (is.null(gwrenv$H[1]) | is.null(gwrenv$kernels[1]))) stop("kernels list and bandwidths H required")
   if (!gwrenv$searchB & gwrenv$adaptive[1] & gwrenv$kernels[1]!='gauss' & gwrenv$Type!='GDT') {
@@ -33,14 +53,13 @@ prep_var<-function(gwrenv){
       cat("\n-----------------------------------------------------\nfixed_vars set to NULL because model= ",
           gwrenv$Model, "\n-----------------------------------------------------\n")
   }
-
+  if(is.null(gwrenv$kernel_extra)) kernel_extra=12
   if (!is.null(gwrenv$W) & gwrenv$Model %in% c("GWR", "OLS", "MGWR")) {
     if (gwrenv$verbose)
       cat("\n-----------------------------------------------------\nW not used because model= ",
           gwrenv$Model, "\n-----------------------------------------------------\n")
   }
   if(gwrenv$Model=='GWR_gamboost_linearized') {
-    browser()
     mm<-gam(as.formula(gwrenv$formula),data=gwrenv$data)
     mydata2=data.frame(mm$y,model.matrix(mm)[,-1])
     names(mydata2)[1]<-as.character(gwrenv$formula[[2]])
@@ -49,12 +68,14 @@ prep_var<-function(gwrenv){
     gwrenv$formula=as.formula(paste0(names(mydata2)[1],'~',paste0(colnames(mydata2)[-(1)],collapse='+')))
   }
   gwrenv$mf <- model.frame(gwrenv$formula, gwrenv$data)
+  gwrenv$data <-  gwrenv$data[, names( gwrenv$mf)]
   #if(!is.null(gwrenv$new_data)) gwrenv$new_mf <- model.frame(gwrenv$formula, gwrenv$new_data)
   gwrenv$mt <- attr(x = gwrenv$mf, which = "terms")
   gwrenv$X = model.matrix(object = gwrenv$mt, data = gwrenv$mf, contrasts.arg = gwrenv$contrasts)
   #if(!is.null(gwrenv$new_data)) gwrenv$new_X = model.matrix(object = gwrenv$mt, data = gwrenv$new_mf, contrasts.arg = gwrenv$contrasts)
   gwrenv$Y <- model.extract(gwrenv$mf, "response")
   idx1 <- match("(Intercept)", colnames(gwrenv$X))
+  #gwrenv$data=data[,names(gwrenv$mf)]
   #if(!is.null(gwrenv$new_data)) new_idx1 <- match("(Intercept)", colnames(gwrenv$new_X))
   if (!is.na(idx1))
     colnames(gwrenv$X)[idx1] <- "Intercept"
@@ -110,9 +131,9 @@ prep_var<-function(gwrenv){
   if (is.null(gwrenv$TP_eval)) gwrenv$TP_eval=gwrenv$TP
 
   ## distance computation
-  if(is.null(gwrenv$dists)){
+  if(is.null(gwrenv$dists) & !(gwrenv$Model %in% c('OLS','SAR'))){
     if(is.null(gwrenv$TP)) gwrenv$TP=1:nrow(data)
-    stage1=prep_d(coords=gwrenv$S,NN=gwrenv$NN,TP=gwrenv$TP,extrapol=gwrenv$TP_estim_as_extrapol)
+    stage1=prep_d(coords=gwrenv$S,NN=gwrenv$NN,TP=gwrenv$TP,extrapol=gwrenv$TP_estim_as_extrapol,kernels=gwrenv$kernels,Type=gwrenv$Type)
     gwrenv$indexG=stage1$indexG
     gwrenv$dists=stage1$dists
   }

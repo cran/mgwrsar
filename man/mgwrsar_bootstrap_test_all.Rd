@@ -4,17 +4,14 @@
 \alias{mgwrsar_bootstrap_test_all}
 \title{A bootstrap test for testing nullity of all Betas for mgwrsar class model,}
 \usage{
-mgwrsar_bootstrap_test_all(model,B=100,doMC=FALSE,ncore=1,
-type='standard')
+mgwrsar_bootstrap_test_all(model,B=100,ncore=1,type='standard')
 }
 \arguments{
 \item{model}{A mgwrsar model}
 
 \item{B}{number of bootstrap replications, default 100}
 
-\item{doMC}{If TRUE, doMC parallelization}
-
-\item{ncore}{number of cores.}
+\item{ncore}{number of cores for parallelization.}
 
 \item{type}{type of boostrap ('spatial','wild','random')}
 }

@@ -2,63 +2,69 @@
 % Please edit documentation in R/multiscale_gwr.R
 \name{multiscale_gwr}
 \alias{multiscale_gwr}
-\title{multiscale_gwr
-This function adapts the multiscale Geographically Weighted Regression (GWR)
-methodology proposed by Fotheringam et al. in 2017, employing a backward
-fitting procedure within the MGWRSAR subroutines. The consecutive bandwidth
-optimizations are performed by minimizing the corrected Akaike criteria.}
+\title{Multiscale Geographically Weighted Regression (MGWR)}
 \usage{
-multiscale_gwr(formula,data,coords,kernels='bisq',init='GWR',
-maxiter=20,nstable=6,tolerance=0.000001,doMC=FALSE,ncore=1,HF=NULL,
-H0=NULL,H2=NULL,Model=NULL,model=NULL,get_AICg=FALSE,verbose=FALSE,
-control=list(SE=FALSE,adaptive=TRUE,NN=800,isgcv=FALSE,family=gaussian()))
+multiscale_gwr(formula, data, coords, kernels = 'bisq',
+                      control_mgwr = list(), control = list())
 }
 \arguments{
-\item{formula}{A formula.}
+\item{formula}{A formula object specifying the model (e.g., \code{y ~ x1 + x2}).}
 
-\item{data}{A dataframe.}
+\item{data}{A data frame containing the variables in the model.}
 
-\item{coords}{default NULL, a dataframe or a matrix with coordinates.}
+\item{coords}{A matrix or data frame of coordinates (2 columns for spatial, 3 for spatio-temporal).}
 
-\item{kernels}{A vector containing the kernel types. Possible types:
-rectangle ("rectangle"), bisquare ("bisq"), tricube ("tcub"), epanechnikov ("epane")}
+\item{kernels}{A character string specifying the kernel type.
+Options include \code{'bisq'} (default), \code{'gauss'}, \code{'triangle'}, \code{'tricube'}, \code{'rectangle'}.}
 
-\item{init}{starting model (lm or GWR)}
+\item{control_mgwr}{A named list of control parameters specific to the MGWR backfitting algorithm.
+See 'Details' for available components.}
 
-\item{maxiter}{maximum number of iterations in the back-fitting procedure.}
-
-\item{nstable}{required number of consecutive unchanged optimal bandwidth (by covariate) before leaving optimisation of bandwidth size, default 3.}
-
-\item{tolerance}{value to terminate the back-fitting iterations (ratio of change in RMSE)}
-
-\item{doMC}{A boolean for Parallel computation, default FALSE.}
-
-\item{ncore}{number of CPU cores for parallel computation, default 1.}
-
-\item{HF}{if available, a vector containing the optimal bandwidth parameters for each
-covariate, default NULL.}
-
-\item{H0}{A bandwidth value for the starting GWR model, default NULL.}
-
-\item{H2}{A bandwidth temporal value for the starting GWR model, default NULL.}
-
-\item{Model}{Type of Model.}
-
-\item{model}{A previous model estimated using multiscale_gwr function, default NULL}
-
-\item{get_AICg}{Boolean, should Global AICc be estimated.}
-
-\item{verbose}{Boolean, verbose mode.}
-
-\item{control}{a list of extra control arguments, see MGWRSAR help.}
+\item{control}{A named list of standard control arguments passed to the internal GWR estimation steps.
+See 'Details' for available components.}
 }
 \value{
-Return an object of class mgwrsar
+An object of class \code{mgwrsar} containing:
+\item{Betav}{Matrix of estimated spatially varying coefficients.}
+\item{H}{Vector of final optimal bandwidths for each covariate.}
+\item{RMSE}{Root Mean Square Error of the final model.}
+\item{residuals}{Vector of residuals.}
+\item{fitted.values}{Vector of fitted values.}
+\item{AICc}{Corrected AIC (if \code{get_AIC = TRUE}).}
+\item{R2}{R-squared of the model.}
 }
 \description{
-multiscale_gwr
-This function adapts the multiscale Geographically Weighted Regression (GWR)
-methodology proposed by Fotheringam et al. in 2017, employing a backward
-fitting procedure within the MGWRSAR subroutines. The consecutive bandwidth
-optimizations are performed by minimizing the corrected Akaike criteria.
+This function estimates a Multiscale Geographically Weighted Regression (MGWR) model
+based on the proposition of Fotheringham et al. (2017). Unlike standard GWR where a
+single bandwidth is used for all covariates, MGWR allows for covariate-specific
+bandwidths. It uses a backfitting algorithm to iteratively estimate the optimal
+bandwidth and coefficients for each explanatory variable.
+}
+\details{
+\strong{Components for \code{control_mgwr}:}
+\describe{
+  \item{\code{init}}{Character. The type of model used for initialization. Options are \code{'GWR'} (default) or \code{'lm'} (OLS).}
+  \item{\code{maxiter}}{Integer. Maximum number of backfitting iterations. Default is 20.}
+  \item{\code{tolerance}}{Numeric. Convergence threshold based on the change in RMSE or bandwidths. Default is \code{1e-6}.}
+  \item{\code{nstable}}{Integer. Number of consecutive iterations where bandwidths must remain stable to declare convergence. Default is 6.}
+  \item{\code{H0}}{Numeric vector. Optional initial bandwidths for each covariate. If \code{NULL}, they are initialized via GWR or global search.}
+  \item{\code{get_AIC}}{Logical. If \code{TRUE}, calculates the corrected Akaike Information Criterion (AICc) at the end. Default is \code{FALSE}.}
+  \item{\code{verbose}}{Logical. If \code{TRUE}, prints progress information during backfitting. Default is \code{FALSE}.}
+}
+
+\strong{Components for \code{control}:}
+\describe{
+  \item{\code{adaptive}}{Logical. If \code{TRUE} (default), uses an adaptive bandwidth (k-nearest neighbors). If \code{FALSE}, uses a fixed distance bandwidth.}
+  \item{\code{Type}}{Character. The type of spatial weighting. \code{'GD'} (Geographical Distance, default) or \code{'GDT'} (Geo-Temporal).}
+  \item{\code{NN}}{Integer. Maximum number of neighbors for matrix truncation (speeds up computation). Default is \code{nrow(data)}.}
+  \item{\code{ncore}}{Integer. Number of cores to use for parallel computation.}
+  \item{\code{isgcv}}{Logical. If \code{TRUE}, computes Leave-One-Out Cross-Validation scores. Default is \code{FALSE}.}
+}
+}
+\references{
+Fotheringham, A. S., Yang, W., & Kang, W. (2017). Multiscale geographically weighted regression (MGWR).
+\emph{Annals of the American Association of Geographers}, 107(6), 1247-1265.
+}
+\seealso{
+\code{\link{MGWRSAR}}, \code{\link{TDS_MGWR}}, \code{\link{golden_search_bandwidth}}
 }

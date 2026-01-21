@@ -28,7 +28,7 @@
 #' \item{Z}{A matrix of variables for genralized kernel product, default NULL.}
 #' \item{W}{A row-standardized spatial weight matrix for Spatial
 #'  Aurocorrelation, default NULL.}
-#' \item{type}{Verbose mode, default FALSE.}
+#' \item{Type}{Verbose mode, default FALSE.}
 #' \item{adaptive}{A vector of boolean to choose adaptive version for
 #'  each kernel.}
 #' \item{kernel_w}{The type of kernel for computing W, default NULL.}
@@ -36,13 +36,8 @@
 #' \item{Method}{Estimation method for computing the models with Spatial
 #' Dependence. '2SLS' or 'B2SLS', default '2SLS'.}
 #' \item{TP}{Avector of target points, default NULL.}
-#' \item{doMC}{Parallel computation, default FALSE. If TRUE and
-#'  control_tds$doMC is also TRUE, then control$doMC is set to FALSE.}
 #' \item{ncore}{Number of CPU core for parallel computation, default 1}
 #' \item{isgcv}{If TRUE, compute a LOOCV criteria, default FALSE.}
-#' \item{isfgcv}{If TRUE, simplify the computation of CV criteria
-#' (remove or not i when using local instruments for model with lambda
-#' spatially varying), default TRUE.}
 #' \item{maxknn}{When n >NmaxDist, only the maxknn first neighbours are used
 #' for distance compution, default 500.}
 #' \item{NmaxDist}{When n >NmaxDist only the maxknn first neighbours are used
@@ -98,13 +93,13 @@
 #' When model imply spatial autocorrelation, a row normalized spatial weight matrix must be provided.
 #'2SLS and Best 2SLS method can be used.
 #' When model imply local regression, a bandwidth and a kernel type must be provided. Optimal bandwidth can be estimated
-#' using bandwidths_mgwrsar function.
+#' using goldens_search_bandwid function.
 #' When model imply mixed local regression, the names of stationary covariates must be provided.
 #'
 #' #' In addition to the ability of considering spatial autocorrelation in GWR/MGWR like models,
 #' MGWRSAR function introduces several useful technics for estimating local regression with space coordinates:
 #' \itemize{
-#' \item{it uses RCCP and RCCPeigen code that speed up computation and allows parallel computing via doMC package;}
+#' \item{it uses RCCP and RCCPeigen code that speed up computation and allows parallel computings;}
 #' \item{it allows to drop out variables with not enough local variance in local regression, which allows to consider dummies in GWR/MGWR framework without trouble.}
 #' \item{it allows to drop out local outliers in local regression.}
 #' \item{it allows to consider additional variable for kernel, including  time (asymetric kernel) and categorical variables (see Li and Racine 2010). Experimental version.}
@@ -121,7 +116,7 @@
 #'
 #' Franke, R. and Nielson, G. (1980). Smooth interpolation of large sets of scattered data.
 #' International journal for numerical methods in engineering, 15(11):1691-1704.
-#' @seealso  bandwidths_mgwrsar, summary, plot, predict, kernel_matW
+#' @seealso  golden_search_bandwidth, summary, plot, predict, kernel_matW
 #' @examples
 #' \donttest{
 #'  library(mgwrsar)
@@ -138,15 +133,37 @@
 #'  summary(mgwrsar_0_kc_kv)
 #' }
 MGWRSAR <- function(formula, data, coords, fixed_vars = NULL, kernels, H,Model = "GWR", control = list()){
-  set.seed(123)
- while(sum(duplicated(coords))>0) {
-    coords<-jitter(coords,0.001)
-    #warning('coords have been jittered because there is some duplicated location.')
- }
+  set.seed(123, kind = "L'Ecuyer-CMRG", normal.kind = "Inversion")
+
+  control <- .mgwrsar_normalize_parallel_control(control, context = "MGWRSAR")
+  get_SFdata()
+
+  mf <- model.frame(formula, data)
+  data<-data[,names(mf)]
+  if(is.null(control$Type)) control$Type='GD'
+  if(Model!='OLS'){
+  if(control$Type %in% c('GD','GDT')) coords<-make_unique_by_structure(coords)
+  if(control$Type %in% c('GDT','T')) control$Z<-make_unique_by_structure(control$Z)
+  }
+
   # if(control$Type=='GDT'){
   #   if(kernels[1]!='gauss' | unlist(str_split(kernels[2], '_'))[1]!='gauss' ) stop('For Type=GDT only gauss kernel should be used')
   # }
-  colnames(coords)<-c('x','y')
+    #colnames(coords)<-c('x','y')
+  if (is.null(coords)) stop("coords must be provided")
+  if (is.null(control$Type)) control$Type='GD'
+
+    type_local <- if (!is.null(control$Type)) control$Type else "GD"
+
+    if (type_local == "T") {
+      if (is.null(colnames(coords))) colnames(coords) <- "t"
+    } else {
+      if (ncol(coords) == 2 && is.null(colnames(coords))) {
+        colnames(coords) <- c("x", "y")
+      } else if (ncol(coords) > 2) {
+        colnames(coords)[1:2] <- c("x", "y")
+      }
+    }
     ptm<-proc.time()
     formula<-formula(lm(formula,data))
     mycall <- match.call()
@@ -161,6 +178,7 @@ MGWRSAR <- function(formula, data, coords, fixed_vars = NULL, kernels, H,Model =
       model<-list()
       lml <- lm.fit(as.matrix(X), as.matrix(Y))
       model$Betac <- lml$coefficients
+      if(sum(is.na(model$Betac))>0) stop(paste0(names(model$Betac)[is.na(model$Betac)],' are fully collinear, remove these terms from formula'))
       if (SE) {
         rss <- sum(lml$residuals^2)
         rdf <- length(Y) - ncol(X)
@@ -187,6 +205,7 @@ MGWRSAR <- function(formula, data, coords, fixed_vars = NULL, kernels, H,Model =
         mymodel <- mod(as.matrix(Y), as.matrix(X[, keep]),
                        W, as.matrix(X), as.matrix(Y), rep(1, n), "L0",
                        (Method == "B2SLS"), FALSE, SE)
+
         Betac = mymodel$Betav
         if (SE)
           se = mymodel$se
@@ -207,7 +226,7 @@ MGWRSAR <- function(formula, data, coords, fixed_vars = NULL, kernels, H,Model =
     }
     else if (Model %in%  c("GWR","multiscale_gwr","GWR_glm","GWR_glmboost",'GWR_gamboost_linearized',"MGWRSAR_1_0_kv","GWR_multiscale") ){
       if(Model=="MGWRSAR_1_0_kv") Wx=W else Wx=NULL
-      model = GWR(Y=Y,XV=XV,ALL_X=X,S=S,H=H,NN=NN,W=Wx, kernels=MykernelS,adaptive=adaptive, Type = Type,SE=SE, isgcv=isgcv,TP=TP,doMC=doMC,ncore=ncore,dists=dists,indexG=indexG,Wd=Wd,Model=Model,TP_estim_as_extrapol=TP_estim_as_extrapol,get_ts=get_ts,get_s=get_s,get_Rk=get_Rk,mstop=mstop,nu=nu,family=family,alpha=alpha,theta=theta)
+      model = GWR(Y=Y,XV=XV,ALL_X=X,S=S,H=H,NN=NN,W=Wx, kernels=MykernelS,adaptive=adaptive, Type = Type,SE=SE, isgcv=isgcv,TP=TP,ncore=ncore,dists=dists,indexG=indexG,Wd=Wd,Model=Model,TP_estim_as_extrapol=TP_estim_as_extrapol,get_ts=get_ts,get_s=get_s,get_Rk=get_Rk,mstop=mstop,nu=nu,family=family,alpha=alpha)
 
       ## MODEL cases
       model$Betac = NULL
@@ -219,7 +238,7 @@ MGWRSAR <- function(formula, data, coords, fixed_vars = NULL, kernels, H,Model =
       }  #else if(!is.null(TP_estim_as_extrapol)) model$XV = XV else model$XV = XV[TP,]
     } else {
       if(Model=="MGWR") Wx=NULL else Wx=W
-      model<- MGWR(Y=Y,XC=XC,XV=XV,S=S,H=H,NN=NN, kernels=kernels,adaptive=adaptive, Type = Type,SE=SE, isgcv=isgcv,W=W,TP=TP,Model=Model,dists=dists,indexG=indexG,Wd=Wd,TP_estim_as_extrapol=TP_estim_as_extrapol,doMC=doMC,ncore=ncore,get_ts=get_ts,get_s=get_s,get_Rk=get_Rk,alpha=alpha,theta=theta)
+      model<- MGWR(Y=Y,XC=XC,XV=XV,S=S,H=H,NN=NN, kernels=kernels,adaptive=adaptive, Type = Type,SE=SE, isgcv=isgcv,W=W,TP=TP,Model=Model,dists=dists,indexG=indexG,Wd=Wd,TP_estim_as_extrapol=TP_estim_as_extrapol,ncore=ncore,get_ts=get_ts,get_s=get_s,get_Rk=get_Rk,alpha=alpha)
       model$Y = Y
       if(!is.null(XC)) model$XC=XC
       if(Model =="MGWRSAR_1_kc_kv") {
@@ -238,25 +257,21 @@ MGWRSAR <- function(formula, data, coords, fixed_vars = NULL, kernels, H,Model =
 
     if(length(TP)<length(Y) & !TP_estim_as_extrapol & !sum(is.na(model$Betav)>0)){
       ## version Wtp
-      if(is.null(control$kernel_extra)) { # A MODIFIER
-
-      #Wtp=kernel_matW(H=H,kernels=kernels,coords=S[c(TP,(1:n)[-TP]),],NN=NN,TP=(1:length(TP)),Type=Type,adaptive=adaptive,diagnull=FALSE,alpha=alpha,theta=theta,dists=NULL,indexG=NULL,extrapol=F,QP=NULL)[,-(1:length(TP))]
-      Wtp=kernel_matW(H=H,kernels=kernels,coords=S,NN=NN,TP=TP,Type=Type,adaptive=adaptive,diagnull=FALSE,alpha=alpha,theta=theta,dists=NULL,indexG=NULL,extrapol=F,QP=NULL)[,-TP]
+      if(!(kernels[1] %in% c('epane','bisq','triangle','tcub'))) {
+      #Wtp=kernel_matW(H=H,kernels=kernels,coords=S[c(TP,(1:n)[-TP]),],NN=NN,TP=(1:length(TP)),Type=Type,adaptive=adaptive,diagnull=FALSE,alpha=alpha,dists=NULL,indexG=NULL,extrapol=F,QP=NULL)[,-(1:length(TP))]
+      Wtp=kernel_matW(H=H,kernels=kernels,coords=S,NN=NN,TP=TP,Type=Type,adaptive=adaptive,diagnull=FALSE,alpha=alpha,dists=NULL,indexG=NULL,extrapol=F,QP=NULL)[,-TP]
       Wtp<- normW(Matrix::t(Wtp))
       } else {
       ## version shepard
-      Wtp=kernel_matW(H=kernel_extra,kernels='shepard',coords=S,NN=control$kernel_extra+1,TP=(1:n)[-TP],Type=Type,adaptive=FALSE,diagnull=FALSE,extrapol=T,QP=TP)
-      #cat('####SHEPARD####')
+      Wtp=kernel_matW(H=8,kernels='shepard',coords=S,NN=8+2,TP=(1:n)[-TP],Type=Type,adaptive=FALSE,diagnull=FALSE,extrapol=T,QP=TP)
       }
 
       model$Betav[-TP,]=as.matrix(Wtp%*% model$Betav[TP,])
-      #model$TS<-as.numeric(Wtp%*% model$TS[TP])
       TPTS_approx<-lm.influence(lm.fit(X,Y))$hat
       model$TS[-TP]<-TPTS_approx[-TP]
       model$tS<-sum(model$TS)
       if(SE) model$SEV[-TP,]=as.matrix(Wtp%*% model$SEV[TP,])
-      #browser()
-      if(get_s){ # if (length(TP)<n)
+      if(get_s){
         S<-matrix(0,nrow=n,ncol=n)
         S[TP,]<-model$Shat
         Z=as.matrix(Wtp%*% model$Shat)
@@ -265,7 +280,6 @@ MGWRSAR <- function(formula, data, coords, fixed_vars = NULL, kernels, H,Model =
       }
 
     }
-
 
     ### output
     mymodel<-new('mgwrsar')
@@ -280,7 +294,7 @@ MGWRSAR <- function(formula, data, coords, fixed_vars = NULL, kernels, H,Model =
     if(!is.null(W)) if(!is.null(dim(W))) mymodel@W = W
 
     mymodel@formula = as.formula(formula)
-    mymodel@data = data
+    mymodel@data = data[,names(mf)]
     mymodel@Method = Method
     mymodel@coords = coords
     if(!is.null(control$Z)) mymodel@Z=control$Z
@@ -288,15 +302,17 @@ MGWRSAR <- function(formula, data, coords, fixed_vars = NULL, kernels, H,Model =
     if(!is.null(kernels)) mymodel@kernels=kernels
     mymodel@adaptive=adaptive
     mymodel@Type=Type
-    mymodel@H=H[1]
     if(Type=='GDT') {
       mymodel@alpha=alpha
-      mymodel@theta=theta
-      mymodel@H2=H[2]
+      mymodel@Ht=H[2]
     }
+    if(Type=='T') {
+      mymodel@alpha=alpha
+      mymodel@Ht=H[1]
+    } else  mymodel@H=H[1]
+
     if(!is.null(NN)) mymodel@NN = NN
     mymodel@TP=TP
-    mymodel@doMC=doMC
     mymodel@ncore=ncore
     mymodel@mycall=mycall
     mymodel@ctime=(proc.time()-ptm)[3]

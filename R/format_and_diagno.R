@@ -24,7 +24,7 @@ pred=e$pred
 TP=e$TP
 n=e$n
 Y=e$Y
-TP_cor=e$TP_cor
+isolated_idx=e$isolated_idx
 term1 = 0
 term2 = 0
 if (!is.null(model$Betav) & is.null(new_data) )  term1 <- rowSums(XV * model$Betav)
@@ -97,7 +97,7 @@ if(!is.null(new_data)) {mymodel <- list(Betav = model$Betav, Betac = model$Betac
         mymodel@AICc  <- mymodel@AICc  <- -2*loglik+2*(model$tS^2+model$tS)/(n-model$tS-2)+ 2 * model$tS
       }
     } else {
-      if(is.null(TP_cor)){
+      if(is.null(isolated_idx)){
         mymodel@residuals=as.numeric(residuals)
         m=length(TP)
         SSTtp=sum((Y[TP]-mean(Y[TP]))^2)
@@ -111,9 +111,7 @@ if(!is.null(new_data)) {mymodel <- list(Betav = model$Betav, Betac = model$Betac
           mymodel@edf   <- n-mymodel@tS*n/m
           mymodel@AIC   <- n*log(SSR/n)+2*(model$tS*n/m)+n+n*log(2*pi)
           mymodel@AICc <- aicc_f(mymodel@residuals,model$tS*n/m,n)
-          #n*log(SSRn/n)+n*log(2*pi)+n*as.double(n+model$tS)/as.double(n-2-model$tS)  ## used for optimization with AICc
           mymodel@AICctp<- aicc_f(mymodel@residuals[TP],model$tS,m)
-            # m*log(SSR/m)+m*log(2*pi)+m*as.double(m+sum(model$TS[TP]))/as.double(m-2-sum(model$TS[TP])) # a verifier
           mymodel@R2    <- 1-SSR/SST
           mymodel@R2_adj<- 1-(1-mymodel@R2)*(n-1)/(mymodel@edf-1)
           mymodel@BIC   <- n*log(SSR/n)+n*log(2*pi)+log(n)*model$tS*n/m
@@ -121,13 +119,13 @@ if(!is.null(new_data)) {mymodel <- list(Betav = model$Betav, Betac = model$Betac
         }
       } else {
         ## if island then use OLS estimate for these obs.
-        mymodel@Betav[-TP_cor,]<-matrix(coef(lm.fit(XV,Y)),byrow=T,ncol=ncol(XV),nrow=length(TP)-length(TP_cor))
-        fit[-TP_cor]<-rowSums(mymodel@Betav[-TP_cor,]*XV[-TP_cor,])
-        residuals[-TP_cor]<-Y[-TP_cor]-fit[-TP_cor]
+        mymodel@Betav[isolated_idx,]<-matrix(coef(lm.fit(XV,Y)),byrow = T, ncol = ncol(XV),nrow = length(isolated_idx))
+        fit[isolated_idx]<-rowSums(mymodel@Betav[isolated_idx,]*XV[isolated_idx,])
+        residuals[isolated_idx]<-Y[isolated_idx]-fit[isolated_idx]
         n<-length(TP)
-        m<-length(TP)-length(TP_cor)
-        model$tS<-sum(model$TS[-TP_cor])
-        mymodel@edf   <- n-ncol(XV)-mymodel@tS
+        m<-length(TP)-length(isolated_idx)
+        model$tS<-sum(model$TS[-isolated_idx])+length(isolated_idx)/n*ncol(XV)
+        mymodel@edf   <- n-mymodel@tS
         mymodel@residuals=as.numeric(residuals)
         mymodel@SSRtp<-SSRtp<-sum(mymodel@residuals[TP]^2)
         mymodel@SSR<-SSR<-sum(mymodel@residuals^2)
@@ -137,9 +135,9 @@ if(!is.null(new_data)) {mymodel <- list(Betav = model$Betav, Betac = model$Betac
         mymodel@RMSE<-sqrt(mean((as.numeric(mymodel@residuals))^2))
         if(isgcv) mymodel@CV=mymodel@RMSE
         m<-n
-        mymodel@AIC   <- n*log(SSR/n)+n-model$tS*n/m
-        mymodel@AICctp   <- m*log(SSRtp/m)+m*log(2*pi)+m*as.double(m+model$tS)/as.double(m-2-model$tS) ## used for optimization with TP
-        mymodel@AICc <- n*log(SSR/n)+n*log(2*pi)+n*as.double(n+model$tS*n/m)/as.double(n-2-model$tS*n/m)
+        mymodel@AIC   <- n*log(SSR/n)+2*(model$tS)+n+n*log(2*pi)
+        mymodel@AICctp   <- aicc_f(mymodel@residuals[TP],sum(model$TS[TP][-isolated_idx]),n)## used for optimization with TP
+        mymodel@AICc <- aicc_f(mymodel@residuals,model$tS,n)
         mymodel@R2    <- 1-SSR/SST
         mymodel@R2_adj<- 1-(1-mymodel@R2)*(n-1)/(mymodel@edf-1)
         mymodel@BIC   <- n*log(SSR/n)+n*log(2*pi)+log(n)*model$tS*n/m
@@ -148,6 +146,8 @@ if(!is.null(new_data)) {mymodel <- list(Betav = model$Betav, Betac = model$Betac
     }
   }
   mymodel@fit=fit
+  if(!is.null(isolated_idx)) mymodel@isolated_idx=isolated_idx
+  my_crs=e$my_crs
   #if(!is.null(pred)) mymodel@pred = pred
 }
 mymodel

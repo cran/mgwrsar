@@ -1,0 +1,16 @@
+## =========================================================================
+##  Makevars.win for mgwrsar (Windows)
+## =========================================================================
+
+CXX_STD = CXX17
+
+# Preprocessor flags (Threads)
+PKG_CPPFLAGS = -DOPENBLAS_NUM_THREADS=1 -DMKL_NUM_THREADS=1 -DOMP_NUM_THREADS=1
+
+# OpenMP is native on Rtools Windows
+PKG_CXXFLAGS = $(SHLIB_OPENMP_CXXFLAGS)
+
+# Link libraries + mandatory FLIBS
+PKG_LIBS = $(SHLIB_OPENMP_CXXFLAGS) $(LAPACK_LIBS) $(BLAS_LIBS) $(FLIBS)
+
+OBJECTS = mgwrsar.o gwr_core.o knn_stable_sort.o RcppExports_arma.o RcppExports_eigen.o init.o

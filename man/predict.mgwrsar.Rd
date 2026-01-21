@@ -16,6 +16,7 @@
   beta_proj = FALSE,
   method_pred = "TP",
   k_extra = 8,
+  exposant = 8,
   ...
 )
 }
@@ -45,6 +46,8 @@ with new-data as target points, else if method_pred in ('tWtp_model','model','sh
 for projecting estimated betas is used (see details).}
 
 \item{k_extra}{number of neighboors for local parameter extrapolation if shepard kernel is used, default 8.}
+
+\item{exposant}{shapenig parameter for tds_mgtwr model, default 6.}
 
 \item{...}{predict parameters forwarded.}
 }
