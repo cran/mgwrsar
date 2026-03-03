@@ -2,20 +2,20 @@
 % Please edit documentation in R/summary_Matrix.R
 \name{summary_Matrix}
 \alias{summary_Matrix}
-\title{summary_Matrix
-to be documented}
+\title{Summary of a Sparse Matrix}
 \usage{
 summary_Matrix(object, ...)
 }
 \arguments{
-\item{object}{to be documented}
+\item{object}{A sparse matrix object (inheriting from \code{Matrix}).}
 
-\item{...}{to be documented}
+\item{...}{Additional arguments (currently unused).}
 }
 \value{
-to be documented
+A data frame with columns \code{i}, \code{j}, \code{x} representing the
+  row indices, column indices, and values of non-zero elements.
 }
 \description{
-summary_Matrix
-to be documented
+Produces a summary of a sparse matrix object showing its non-zero elements
+in triplet form (row, column, value).
 }

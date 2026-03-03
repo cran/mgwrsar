@@ -18,7 +18,8 @@ Rcpp::List gwr_beta_univar_cpp(const Rcpp::NumericVector& y,
                                const Rcpp::NumericMatrix& Wd,
                                const Rcpp::IntegerVector& TP,
                                bool get_ts,
-                               bool get_s);
+                               bool get_s,
+                               bool get_se);
 
 Rcpp::List gwr_beta_pivotal_qrp_cpp(const Rcpp::NumericMatrix& X,
                                     const Rcpp::NumericVector& y,
@@ -53,7 +54,7 @@ extern "C" {
   RcppExport SEXP _mgwrsar_gwr_beta_univar_cpp(SEXP ySEXP, SEXP xSEXP,
                                                SEXP XVSEXP, SEXP indexGSEXP,
                                                SEXP WdSEXP, SEXP TPSEXP,
-                                               SEXP get_tsSEXP, SEXP get_sSEXP) {
+                                               SEXP get_tsSEXP, SEXP get_sSEXP,SEXP get_seSEXP) {
     BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -65,8 +66,9 @@ extern "C" {
     Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type TP(TPSEXP);
     Rcpp::traits::input_parameter< bool >::type get_ts(get_tsSEXP);
     Rcpp::traits::input_parameter< bool >::type get_s(get_sSEXP);
+    Rcpp::traits::input_parameter< bool >::type get_se(get_seSEXP);
     rcpp_result_gen = Rcpp::wrap(
-      gwr_beta_univar_cpp(y, x, XV, indexG, Wd, TP, get_ts, get_s)
+      gwr_beta_univar_cpp(y, x, XV, indexG, Wd, TP, get_ts, get_s,get_se)
     );
     return rcpp_result_gen;
     END_RCPP

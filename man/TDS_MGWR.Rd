@@ -6,7 +6,7 @@
 \usage{
 TDS_MGWR(formula, data, coords, Model = 'tds_mgwr',
                     kernels = 'gauss', fixed_vars = NULL, Ht = NULL,
-                    control_tds = list(nns = 25, get_AIC = FALSE, init_model = "OLS"),
+                    control_tds = list(nns = 20, get_AIC = FALSE, init_model = "OLS"),
                     control = list(adaptive = TRUE))
 }
 \arguments{
@@ -31,11 +31,12 @@ TDS_MGWR(formula, data, coords, Model = 'tds_mgwr',
 
 \item{control_tds}{A named list of control parameters specific to the TDS algorithm:
 \describe{
-  \item{\code{nns}}{Integer. Number of bandwidth steps in the decreasing sequence (default 30).}
+  \item{\code{nns}}{Integer. Number of bandwidth steps in the decreasing sequence (default 20, should be less than n/8 and maxit/2).}
   \item{\code{get_AIC}}{Logical. If \code{TRUE}, computes AICc (slower). Default \code{FALSE} (except for \code{'atds_mgwr'}).}
   \item{\code{init_model}}{Character. Initial model type to start backfitting: \code{'OLS'} (default), \code{'GWR'}, \code{'GTWR'}, or \code{'known'}.}
   \item{\code{ncore}}{Integer. Number of cores for parallelization. Default 1.}
   \item{\code{tol}}{Numeric. Convergence tolerance. Default 0.001.}
+ \item{\code{maxit}}{Numeric. Maximum number of iteration.}
   \item{\code{nrounds}}{Integer. Number of boosting rounds for Stage 2 (only for \code{'atds_mgwr'}). Default 3.}
 }}
 

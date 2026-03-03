@@ -10,7 +10,7 @@
 // ---------------------------------------------------------------------------
 // 1. RcppExports_arma.cpp
 // ---------------------------------------------------------------------------
-extern SEXP _mgwrsar_gwr_beta_univar_cpp(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+extern SEXP _mgwrsar_gwr_beta_univar_cpp(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP,SEXP);
 extern SEXP _mgwrsar_gwr_beta_pivotal_qrp_cpp(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
 extern SEXP _mgwrsar_mgwr_beta_pivotal_qrp_mixed_cpp(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
 
@@ -29,7 +29,7 @@ extern SEXP _mgwrsar_compute_DS_DT_cpp(SEXP,SEXP,SEXP,SEXP,SEXP);
 
 static const R_CallMethodDef CallEntries[] = {
   // Armadillo
-  {"_mgwrsar_gwr_beta_univar_cpp",              (DL_FUNC) &_mgwrsar_gwr_beta_univar_cpp,               8},
+  {"_mgwrsar_gwr_beta_univar_cpp",              (DL_FUNC) &_mgwrsar_gwr_beta_univar_cpp,               9},
   {"_mgwrsar_gwr_beta_pivotal_qrp_cpp",         (DL_FUNC) &_mgwrsar_gwr_beta_pivotal_qrp_cpp,          10},
   {"_mgwrsar_mgwr_beta_pivotal_qrp_mixed_cpp",  (DL_FUNC) &_mgwrsar_mgwr_beta_pivotal_qrp_mixed_cpp,   10},
 

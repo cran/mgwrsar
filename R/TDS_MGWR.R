@@ -14,7 +14,7 @@
 #'
 #' @usage TDS_MGWR(formula, data, coords, Model = 'tds_mgwr',
 #'                     kernels = 'gauss', fixed_vars = NULL, Ht = NULL,
-#'                     control_tds = list(nns = 25, get_AIC = FALSE, init_model = "OLS"),
+#'                     control_tds = list(nns = 20, get_AIC = FALSE, init_model = "OLS"),
 #'                     control = list(adaptive = TRUE))
 #'
 #' @param formula A formula object specifying the model (e.g., \code{y ~ x1 + x2}).
@@ -31,11 +31,12 @@
 #' @param Ht Numeric. Optional bandwidth for the second dimension (time) if using spatio-temporal models (Type 'GDT').
 #' @param control_tds A named list of control parameters specific to the TDS algorithm:
 #' \describe{
-#'   \item{\code{nns}}{Integer. Number of bandwidth steps in the decreasing sequence (default 30).}
+#'   \item{\code{nns}}{Integer. Number of bandwidth steps in the decreasing sequence (default 20, should be less than n/8 and maxit/2).}
 #'   \item{\code{get_AIC}}{Logical. If \code{TRUE}, computes AICc (slower). Default \code{FALSE} (except for \code{'atds_mgwr'}).}
 #'   \item{\code{init_model}}{Character. Initial model type to start backfitting: \code{'OLS'} (default), \code{'GWR'}, \code{'GTWR'}, or \code{'known'}.}
 #'   \item{\code{ncore}}{Integer. Number of cores for parallelization. Default 1.}
 #'   \item{\code{tol}}{Numeric. Convergence tolerance. Default 0.001.}
+#'  \item{\code{maxit}}{Numeric. Maximum number of iteration.}
 #'   \item{\code{nrounds}}{Integer. Number of boosting rounds for Stage 2 (only for \code{'atds_mgwr'}). Default 3.}
 #' }
 #' @param control A named list of standard control arguments passed to the internal \code{MGWRSAR} calls:
@@ -70,15 +71,18 @@ TDS_MGWR <- function(formula, data, coords,
                          kernels = 'gauss',
                          fixed_vars = NULL,
                          Ht = NULL,
-                         control_tds = list(nns = 25, get_AIC = FALSE, init_model = "OLS"),
+                         control_tds = list(nns = 20, get_AIC = FALSE, init_model = "OLS"),
                          control = list(adaptive = TRUE)) {
+  coords_o<-coords
+  if(is.null(control_tds$verbose)) control_tds$verbose=FALSE
 
   set_bandwidth_bounds <- function(coords, X, time = NULL,
                                    adaptive = c(FALSE, FALSE),
                                    quant_spatial = c(0.05, 0.95),
                                    quant_temporal = c(0.05, 0.95),
                                    scale_time = FALSE,
-                                   scale_factor = NULL) {
+                                   scale_factor = NULL,
+                                   kernels=NA) {
     # ----------------------------------------------------------
     # Checks and formatting
     # ----------------------------------------------------------
@@ -120,6 +124,7 @@ TDS_MGWR <- function(formula, data, coords,
     # [2] Temporal range (if applicable)
     # ----------------------------------------------------------
     if (!is.null(time)) {
+      cycling <- as.numeric(unlist(stringr::str_split(tail(kernels,1), "_"))[3])
       if (isTRUE(adaptive["temporal"])) {
         ht_range <- c(K + 2, n)
       } else {
@@ -128,7 +133,7 @@ TDS_MGWR <- function(formula, data, coords,
         D_t <- dist(time)
         D_t <- as.numeric(D_t)
         ht_min <- quantile(D_t, quant_temporal[1], na.rm = TRUE)
-        ht_max <- quantile(D_t, quant_temporal[2], na.rm = TRUE)
+        if(is.na(cycling)) ht_max <- quantile(D_t, quant_temporal[2], na.rm = TRUE) else ht_max <-round(cycling/2)
         ht_range <- c(ht_min, ht_max)
 
         if (isTRUE(scale_time)) {
@@ -173,9 +178,11 @@ TDS_MGWR <- function(formula, data, coords,
   #    Clean, modular, and unified version
   # ============================================================
   if(is.null(control$Type)) control$Type='GD'
+  if(control_tds$verbose){
   message("\n-------------------------------------------")
   if(control$Type=='GD')  message("Running Top-Down Scale MGWR") else if(control$Type=='GDT')  message("Running Top-Down Scale MGTWR")
   message("-------------------------------------------")
+  }
   start <- proc.time()
 
   # ============================================================
@@ -192,7 +199,7 @@ TDS_MGWR <- function(formula, data, coords,
       # ============================================================
       # [1] MODEL CHECKS AND BASIC DIMENSIONS
       # ============================================================
-      if (!(Model %in% c('tds_mgwr', 'atds_mgwr', 'atds_gwr')))
+      if (!(Model %in% c('tds_mgwr', 'tds_mgtwr','atds_mgwr', 'atds_gwr')))
         stop('Only atds_gwr, tds_mgwr and atds_mgwr Model can be estimated using Top Down Scale approach in this release.')
 
       n_time <- m <- n <- nrow(data)
@@ -200,13 +207,16 @@ TDS_MGWR <- function(formula, data, coords,
       # ============================================================
       # [2] INITIALIZATION OF TDS PARAMETERS
       # ============================================================
-      if (is.null(control_tds$randomize_order)) control_tds$randomize_order=TRUE
+      user_nns_provided <- !is.null(control_tds$nns)
+      if (is.null(control_tds$ordering)) control_tds$ordering='Importance' #Importance
       type <- 'proportional'
       if (is.null(control$Type)) control$Type <- 'GD'
-      if (is.null(control_tds$init_model) & control$Type == 'GD') control_tds$init_model <- 'OLS'
-      if (is.null(control_tds$init_model) & control$Type == 'GDT') control_tds$init_model <- 'GTWR'
+      if (is.null(control_tds$init_model) && control$Type == 'GD') control_tds$init_model <- 'OLS'
+      if (is.null(control_tds$init_model) && control$Type == 'GDT') control_tds$init_model <- 'OLS'
 
       if (is.null(control_tds$nns)) control_tds$nns <- 30
+      control_tds$nns <- suppressWarnings(as.integer(control_tds$nns))
+      if (is.na(control_tds$nns) || control_tds$nns < 1L) control_tds$nns <- 30L
       if (is.null(control_tds$blocksize)) control_tds$blocksize <- n
       if (is.null(control_tds$get_AIC)) control_tds$get_AIC <- FALSE
       if (Model == 'atds_mgwr') control_tds$get_AIC <- TRUE
@@ -216,7 +226,23 @@ TDS_MGWR <- function(formula, data, coords,
       if (is.null(control_tds$refine)) control_tds$refine <- FALSE
       if (is.null(control_tds$check_pairs)) control_tds$check_pairs <- FALSE
       if (is.null(control_tds$maxit)) control_tds$maxit <- 100
+      control_tds$maxit <- suppressWarnings(as.integer(control_tds$maxit))
+      if (is.na(control_tds$maxit) || control_tds$maxit < 1L) control_tds$maxit <- 100L
 
+      nns_cap <- min(round(n / 8), round(control_tds$maxit / 2))
+      if (control_tds$nns >= n / 8 || control_tds$nns >= control_tds$maxit / 2) {
+        old_nns <- control_tds$nns
+        control_tds$nns <- nns_cap
+        if (user_nns_provided) {
+          warning(
+            paste0(
+              "`control_tds$nns` too large (", old_nns, "). Truncated to ", control_tds$nns,
+              " (min(round(n/8), round(maxit/2)))."
+            ),
+            call. = FALSE
+          )
+        }
+      }
 
       if (is.null(control_tds$nrounds)) control_tds$nrounds <- 3
       if (is.null(control_tds$verbose)) control_tds$verbose <- FALSE
@@ -233,6 +259,10 @@ TDS_MGWR <- function(formula, data, coords,
       # [3] PARALLELIZATION SAFETY AND CONTROL PARAMETERS
       # ============================================================
       if (is.null(control$NN)) control$NN <- n
+      control$NN <- suppressWarnings(as.integer(control$NN))
+      if (is.na(control$NN) || control$NN < 1L) control$NN <- n
+      control$NN <- min(control$NN, n)
+      if (is.null(control$SE)) control$SE <- FALSE
       if (is.null(control$isgcv)) control$isgcv <- FALSE
       if (is.null(control$Type)) control$Type <- 'GD'
       if (is.null(control$TP)) control$TP <- 1:n
@@ -250,12 +280,12 @@ TDS_MGWR <- function(formula, data, coords,
       # [5] DISTANCE MATRICES PREPARATION
       # ============================================================
       if (!is.null(control$Z)) coords_in <- as.matrix(cbind(coords, control$Z)) else coords_in <- coords
-      if (!('indexG' %in% names(control)) & is.null(control_tds$model_stage1)) {
+      if (!('indexG' %in% names(control)) && is.null(control_tds$model_stage1)) {
         G <- prep_d(coords = coords_in, NN = control$NN, TP = control$TP, kernels = kernels, Type = control$Type)
         control$indexG <- G$indexG
         control$dists <- G$dists
-      } else if (!is.null(model_init)) {
-        if (is.null(model_init@G))
+      } else if (!is.null(control_tds$model_init)) {
+        if (is.null(control_tds$model_init@G))
           G <- prep_d(coords = coords_in, NN = control$NN, TP = control$TP, kernels = kernels, Type = control$Type)
         else
           G <- model_init@G
@@ -280,8 +310,11 @@ TDS_MGWR <- function(formula, data, coords,
       }
 
 
-      if (control$adaptive[1]) max_dist <- n
-      else max_dist <- max(control$dists[[1]][, ncol(control$dists[[1]])])
+      if (control$adaptive[1]) {
+        max_dist <- n
+      } else {
+        max_dist <- max(abs(G$dists[["dist_s"]]), na.rm = TRUE)
+      }
 
       # ============================================================
       # [6] MODEL FRAME PREPARATION
@@ -358,7 +391,7 @@ TDS_MGWR <- function(formula, data, coords,
   # ============================================================
   # 2. BUILD BANDWIDTH SEQUENCES
   # ============================================================
-  built_Vseq <- function(env = parent.frame()) {
+  built_Vseq_bug <- function(env = parent.frame()) {
     with(env, {
 
       # ============================================================
@@ -441,6 +474,7 @@ TDS_MGWR <- function(formula, data, coords,
         alpha2 <- exp(log(min_dist_t / max_dist_t) / (nns + 1))
         Vt <- sapply(1:(nns + 1), function(x) round(max_dist_t * (alpha2)^x))
         Vt <- Vt[Vt >= min_dist_t]
+        if(!is.null(control_tds$min_vt)) Vt <- Vt[Vt > control_tds$min_vt]
         Vt <- unique(c(max_dist_t, Vt))
         V5t <- Vt[unique(round(quantile(seq_along(Vt), c(1, 0.75, 0.5, 0.25, 0))))]
 
@@ -467,8 +501,166 @@ TDS_MGWR <- function(formula, data, coords,
         max_dist <- max(G$dists[["dist_s"]], na.rm = TRUE)
         # Convert neighbour indices (V) into actual distances
         V <- c(max_dist, sapply(V, function(x) median(G$dists[["dist_s"]][, x], na.rm = TRUE)))
+        V5 <- V[unique(round(quantile(seq_along(V), c(1, 0.75, 0.5, 0.25, 0))))]
         min_dist <- min(V)
       }
+    })
+  }
+  
+  built_Vseq <- function(env = parent.frame()) {
+    with(env, {
+      
+      # ============================================================
+      # [0] Initialization and defaults
+      # ============================================================
+      temporal_distance_modulo <- function(x, cycling = 365) {
+        x_mod <- x %% cycling
+        x_mod[x_mod == 0] <- cycling
+        pmin(x_mod, cycling - x_mod)
+      }
+      
+      if (is.null(first_nn)) first_nn <- n
+      if (is.null(control$NN)) control$NN <- n
+      first_nn <- min(first_nn, control$NN)
+      
+      if (is.null(control$adaptive)) control$adaptive <- c(TRUE, FALSE)
+      if (length(control$adaptive) == 1) control$adaptive <- rep(control$adaptive, 2)
+      
+      # ============================================================
+      # [1] Build spatial sequence V (as NN counts first)
+      # ============================================================
+      if (is.null(V)) {
+        if (type == "proportional") {
+          alpha2 <- exp(log(minv / first_nn) / (nns + 1))
+          V <- sapply(1:(nns + 1), function(x) round(first_nn * (alpha2)^x))
+        } else {
+          v <- round(first_nn / nns)
+          V <- seq(first_nn, minv, by = -v)
+        }
+        V <- unique(V[V >= minv])
+      } else {
+        m <- V[1]
+        V <- V[V < (n - 2)]
+      }
+      
+      # ============================================================
+      # [2] Filter by minimum distance or NN thresholds
+      # ============================================================
+      if (!is.null(minv)) V <- V[V > minv]
+      
+      if (Model != "atds_gwr") V <- c(first_nn, V)
+      
+      if (is.null(control_tds$min_dist) && !control$adaptive[1]) {
+        min_dist <- min(V)
+      } else if (!is.null(control_tds$min_dist) && !control$adaptive[1]) {
+        V <- V[V > control_tds$min_dist]
+        min_dist <- control_tds$min_dist
+      }
+      
+      l <- length(V)
+      V5 <- V[unique(round(quantile(seq_along(V), c(1, 0.75, 0.5, 0.25, 0))))]
+      
+      # ============================================================
+      # [3] Temporal candidate sequence Vt (if GDT and non-adaptive)
+      # ============================================================
+      Vt <- NULL
+      min_dist_t <- NULL
+      max_dist_t <- NULL
+      V5t <- NULL
+      
+      if (isTRUE(control$Type == "GDT") && !control$adaptive[2]) {
+        
+        kernels_t <- unlist(strsplit(kernels[2], "_"))[1]
+        format_t  <- unlist(strsplit(kernels[2], "_"))[2]
+        cycling   <- suppressWarnings(as.numeric(unlist(strsplit(kernels[2], "_"))[3]))
+        
+        # Select correct temporal distance matrix
+        if (!is.na(cycling) && "dist_t_modulo" %in% names(G$dists)) {
+          dist_t <- abs(G$dists[["dist_t_modulo"]])
+        } else {
+          dist_t <- abs(G$dists[["dist_t"]])
+        }
+        
+        if (!is.na(cycling)) {
+          max_dist_t <- round(cycling / 2)
+        } else {
+          max_dist_t <- max(dist_t, na.rm = TRUE)
+        }
+        
+        min_dist_t <- as.numeric(quantile(dist_t[dist_t > 0.0000001], 0.02, na.rm = TRUE))
+        alpha2 <- exp(log(min_dist_t / max_dist_t) / (nns + 1))
+        Vt <- sapply(1:(nns + 1), function(x) round(max_dist_t * (alpha2)^x))
+        Vt <- Vt[Vt >= min_dist_t]
+        Vt <- unique(c(max_dist_t, Vt))
+        V5t <- Vt[unique(round(quantile(seq_along(Vt), c(1, 0.75, 0.5, 0.25, 0))))]
+        
+        if (is.null(control_tds$min_dist_t)) {
+          min_dist_t <- min(Vt)
+        } else {
+          Vt  <- Vt[Vt  > control_tds$min_dist_t]
+          V5t <- V5t[V5t > control_tds$min_dist_t]
+          min_dist_t <- control_tds$min_dist_t
+        }
+      }
+      
+      # ============================================================
+      # [4] Spatial distances and conversion according to adaptivity
+      # ============================================================
+      if (isTRUE(control$adaptive[1])) {
+        
+        # Adaptive spatial kernels: V is in NN counts already
+        max_dist <- min(n, control$NN)
+        min_dist <- min(V)
+        
+      } else {
+        
+        # Non-adaptive kernels use true distances (ORDER-INVARIANT conversion)
+        if (!"dist_s" %in% names(G$dists))
+          stop("Missing 'dist_s' in G$dists for spatial distances")
+        
+        dist_s <- abs(G$dists[["dist_s"]])
+        max_dist <- max(dist_s, na.rm = TRUE)
+        
+        # Build an order-invariant mapping "NN index -> spatial distance"
+        # Use global distribution of spatial distances (excluding zeros)
+        ds_vec <- as.numeric(dist_s)
+        ds_vec <- ds_vec[is.finite(ds_vec) & ds_vec > 1e-12]
+        
+        # Guard: if ds_vec empty (shouldn't), fail loudly
+        if (length(ds_vec) == 0)
+          stop("dist_s contains no positive finite distances")
+        
+        # Convert each neighbor-count x into a quantile-based distance.
+        # x neighbors ~ small distance => quantile at x/(Nref-1)
+        Nref <- min(n, control$NN)  # consistent with NN cap
+        if (Nref < 2) stop("Nref must be >= 2 to map NN index to distance")
+        
+
+        V_dist <- sapply(V, function(x) {
+          q <- min(max(x / (Nref - 1), 0), 1)
+          as.numeric(stats::quantile(ds_vec, probs = q, names = FALSE, type = 7, na.rm = TRUE))
+        })
+        
+        V  <- unique(c(max_dist, V_dist))
+        V  <- sort(V, decreasing = TRUE)
+        V5 <- V[unique(round(quantile(seq_along(V), c(1, 0.75, 0.5, 0.25, 0))))]
+        min_dist <- min(V)
+      }
+      
+      # ============================================================
+      # Return values (keep everything needed downstream)
+      # ============================================================
+      list(
+        V = V,
+        V5 = V5,
+        l = length(V),
+        min_dist = min_dist,
+        max_dist = max_dist,
+        Vt = Vt,
+        V5t = V5t,
+        min_dist_t = min_dist_t,
+        max_dist_t = max_dist_t
+      )
     })
   }
   built_Vseq()
@@ -479,7 +671,7 @@ TDS_MGWR <- function(formula, data, coords,
   # ============================================================
 
   get_HKmin <- function(env = parent.frame()) {
-    cat(
+    if(control_tds$verbose) cat(
       "\n------------------------------------------------------------\n",
       "Finding minimum bandwidths by covariate\n",
       "Criterion: quantile(local_var / global_var) > threshold\n",
@@ -712,11 +904,10 @@ TDS_MGWR <- function(formula, data, coords,
   # ============================================================
   starting_model <- function(env = parent.frame()) {
     with(env, {
-      message("Initializing starting model...")
-
+      if(control_tds$verbose) message("Initializing starting model...")
       # Case 1: Pre-computed model (provided in control_tds$model_known)
       if (!is.null(control_tds$init_model) && control_tds$init_model == "known") {
-        message("-> Using pre-computed model from control_tds$model_known")
+        if(control_tds$verbose) message("-> Using pre-computed model from control_tds$model_known")
 
         if (is.null(control_tds$model_known))
           stop("control_tds$model_known must be provided when init_model='known'")
@@ -735,10 +926,10 @@ TDS_MGWR <- function(formula, data, coords,
 
         # Case 2: Model to estimate
         init_type <- control_tds$init_model
-        message(" Estimating starting model of type: ", init_type)
+        if (control_tds$verbose) message(" Estimating starting model of type: ", init_type)
 
         if (init_type == "OLS") {
-          message("    Fitting global OLS model...")
+          if (control_tds$verbose) message("    Fitting global OLS model...")
           model0 <- MGWRSAR(formula = formula, data = data, coords = coords, fixed_vars = NULL, Model = 'OLS', H = NULL, kernels = NULL, control = list())
           BETA0 = matrix(coef(model0)$Betac, byrow = TRUE, nrow = nrow(data), ncol = K)
           colnames(BETA0) = namesX
@@ -752,7 +943,7 @@ TDS_MGWR <- function(formula, data, coords,
 
           if (control_tds$get_AIC) {
             Rkk <<- Rk <- list()
-            XXtX <- eigenMapMatMult(solve(crossprod(X)), t(X))
+            XXtX <- solve(crossprod(X), t(X))
             rownames(XXtX) <- colnames(X)
             S =  eigenMapMatMult(X, XXtX)
             for (k in namesX) {
@@ -763,7 +954,7 @@ TDS_MGWR <- function(formula, data, coords,
           }
         }
         if (init_type %in% c("GWR")) {
-          message("    Fitting spatial GWR/MGWR model...")
+          if (control_tds$verbose) message("    Fitting spatial GWR/MGWR model...")
           controlv <- control
           controlv$adaptive <- controlv$adaptive[1]
           controlv$Type = 'GD'
@@ -775,7 +966,7 @@ TDS_MGWR <- function(formula, data, coords,
             controlv$get_Rk = TRUE
           }
           res <- golden_search_bandwidth(formula = formula, Ht = NULL, data = data, coords = coords, fixed_vars = fixed_vars, kernels = kernels[1], Model = 'GWR', control = controlv, lower.bound = lower.bound, upper.bound = upper.bound)
-          cat(" optimal bandwidth = ", res$minimum)
+          if(control_tds$verbose) cat(" optimal bandwidth = ", res$minimum)
           model0 = res$model
           BETA0 = model0@Betav
           H <- rep(model0@H, length(namesX))
@@ -789,9 +980,10 @@ TDS_MGWR <- function(formula, data, coords,
         }
 
         if (init_type %in% c("GTWR")) {
-          message("    Fitting spatio-temporal GTWR/MGTWR model...")
+          if (control_tds$verbose) message("    Fitting spatio-temporal GTWR/MGTWR model...")
 
-          myrange <- set_bandwidth_bounds(coords, X, time = control$Z, quant_spatial = c(0.005, 0.999), adaptive = control$adaptive)
+          myrange <- set_bandwidth_bounds(coords, X, time = control$Z, quant_spatial = c(0.005, 0.999),
+                                          quant_temporal = c(0.005, 0.999),adaptive = control$adaptive,kernels=kernels)
           control_tds_temp = control_tds
           if (control_tds$get_AIC) control_tds_temp$get_AIC = TRUE
 
@@ -806,7 +998,7 @@ TDS_MGWR <- function(formula, data, coords,
             ht_range = myrange$ht_range,
             n_seq = 10,
             ncore = control_tds$ncore,
-            n_rounds = 1
+            n_rounds = 3,refine=F
           )
           model0 = res_st$best_model
           BETA0 = model0@Betav
@@ -820,19 +1012,23 @@ TDS_MGWR <- function(formula, data, coords,
           Rk <- model0@R_k
         }
 
-        if (init_type %in% c("MGWR")) {
-          message("    Fitting spatio-temporal GTWR/MGTWR model...")
+        if (init_type %in% c("tds_mgwr")) {
+          if (control_tds$verbose) message("    Fitting tds_mgwr model...")
           control_tds_temp <- control_tds
           control_tds_temp$init_model = 'OLS'
+          controlv <- control
+          controlv$adaptive <- controlv$adaptive[1]
+          controlv$Type = 'GD'
+          
           if (control_tds$get_AIC) control_tds_temp$get_AIC = TRUE
-          model0 <- TDS_MGWR(formula, data, coords, control_tds_temp, control)
+          model0 <- TDS_MGWR(formula=formula, data=data, coords=coords,Model='tds_mgwr',control_tds =  control_tds_temp, control=controlv)
           S <- model0@Shat
           Rk <- model0@R_k
           BETA0 = model0@Betav
           myAICc = model0@AIC
           H = model0@H
           if (control$Type == 'GDT') {
-            Ht <- model0@Ht <- max_dist_t
+            Ht <- model0@Ht <- rep(max_dist_t,length(H))
           }
         }
 
@@ -845,6 +1041,7 @@ TDS_MGWR <- function(formula, data, coords,
   }
 
   starting_model()
+  
 
   # ============================================================
   # 4. STAGE 1 - MAIN BACKFITTING
@@ -950,608 +1147,25 @@ TDS_MGWR <- function(formula, data, coords,
     })
   }
 
-  stage1_tds_mgwr_old <- function(env = parent.frame()) {
-    with(env, {
-
-      # ============================================================
-      #  INITIALIZATION & PRE-PROCESSING
-      # ============================================================
-      OPT = TRUE
-
-      # Blocksize default for large datasets
-      if (is.null(control_tds$blocksize) & n >= 4000)
-        control_tds$blocksize = 500
-
-      # Create target points partition
-      TP <- quadTP(coords, control_tds$blocksize)
-      foldsl <- split(seq_len(nrow(TP)), TP$id)
-
-      # ------------------------------------------------------------
-      # 1.1 Initialize algorithm iteration index and starting bandwidths
-      # ------------------------------------------------------------
-      i = 1
-      if (init_model == 'GWR') {
-        ts <- model_lm0@tS
-      } else {
-        new_ts <- ts <- model_lm0@tS
-        new_TS <- model_lm0@TS
-      }
-
-
-      # ------------------------------------------------------------
-      # 1.2 Verbose startup message
-      # ------------------------------------------------------------
-      if (verbose) {
-        if (!is.null(model_stage1)) {
-          cat('Starting from a previous model : \n')
-          summary(model_stage1)
-        } else {
-          cat('\n i =', i, ' Starting model \n')
-        }
-      }
-
-      # ------------------------------------------------------------
-      # 1.3 Initialize basic metrics and control variables
-      # ------------------------------------------------------------
-      lvarying = length(varying)
-      rmse <- sqrt(mean(data$e0^2))
-      stable <- rep(0, length(varying))
-      spacestable = TRUE
-      switched = FALSE
-
-
-
-      if (verbose)
-        cat(paste0(
-          '\n\n########################################################################\n',
-          ' STAGE 1 : find unique bandwidth for each covariate  \n',
-          ' using Top Down Scale Approach with backfitting for Type = ', control$Type,
-          '  ...\n########################################################################\n'
-        ))
-
-      # ============================================================
-      # 2 INITIAL BANDWIDTH CONFIGURATION
-      # ============================================================
-      init_bandwidth_bounds_from_model()
-
-      if(any(!is.na(control_tds$H))) {
-        for(i in 1:lvarying) {
-          opt[varying[i]] <- control_tds$H[i]
-        }
-        stable = stable + 8
-      }
-      if(any(!is.na(control_tds$Ht))) {
-        for(i in 1:lvarying) {
-          opt_t[varying[i]] <- control_tds$Ht[i]
-        }
-        stable = stable + 8
-      }
-
-      # ------------------------------------------------------------
-      # 2.1 Initialize AIC-related tracking structures (if needed)
-      # ------------------------------------------------------------
-      if (control_tds$get_AIC) {
-        BestCrit <- lastCrit <- lastCrit2 <- 10^6
-        AIC_deep <- NA
-        Last_best_AICg <- last_AICc <- myAICc + 10^6
-      }
-
-      # ------------------------------------------------------------
-      # 2.2 Parallelization setup
-      # ------------------------------------------------------------
-      if (Sys.info()[['sysname']] == "Linux") {
-        try(RhpcBLASctl::blas_set_num_threads(1), silent = TRUE)
-        try(RhpcBLASctl::omp_set_num_threads(1), silent = TRUE)
-      }
-
-      if (ncore)
-         registerDoParallel(cores = ncore)
-      else
-         registerDoSEQ()
-
-      op <- if (control_tds$ncore>1) "%dopar%" else "%do%"
-      fop <- get(op, envir = asNamespace("foreach"))
-
-      # Initialize best parameters and convergence deltas
-      bestBETA = BETA
-      delta_rmse = 1
-      delta_AICc = 1
-
-      # ============================================================
-      # [3] BACKFITTING MAIN LOOP
-      # ============================================================
-      if (control_tds$test) nnrep = 2 else nnrep = 5
-      extra_iter <- control_tds$extra_iter
-      post_conv_count <- 0
-      bestRMSE = rmse
-      converged = FALSE
-      while ((post_conv_count < extra_iter || i < control_tds$test ) & i<control_tds$maxit) {
-
-        # ------------------------------------------------------------
-        # 3.1 Iteration bookkeeping
-        # ------------------------------------------------------------
-        last_rmseG = rmse
-        BETA = bestBETA
-        if (verbose) cat('\n\n##############\n ', i)
-
-
-        if (control_tds$get_AIC) {
-          last_AICc = myAICc
-          BestCrit = lastCrit
-          St = S
-        }
-
-        varyingT <- varying
-        if (i == browser) browser()
-        gc()
-
-        myformula_b = as.formula(paste0('e0~-1+', paste0(varyingT, collapse = '+')))
-        controlv <- control
-        last_opt = opt
-        if (control$Type == 'GDT') last_opt_t = opt_t
-
-        # ------------------------------------------------------------
-        # 3.2 MAIN LOOP OVER VARYING VARIABLES
-        # ------------------------------------------------------------
-        for (k in varying) {
-
-          if (verbose) cat(' ', k)
-          last_rmse = rmse
-
-          # --- Bandwidth update depending on model type ---
-          if(!converged){
-            if (any(stable < ifelse(control_tds$refine, 2, 4))) {
-              if (control$Type == 'GD') update_opt()
-              if (control$Type == 'GDT' & !control_tds$test) update_opt_st()
-              if (control$Type == 'GDT' & control_tds$test) update_opt_st_test()
-            } else if(control_tds$refine) {
-              if (control$Type == 'GD'  ) {
-                cat(
-                  '\n one step Golden search ratio \n')
-                if(k == tail(varying, 1)) converged = TRUE
-                data$e0k <- data$e0 + BETA[, k] * X[, k]
-                myformula_bk = as.formula(paste0('e0k~-1+', k))
-
-                refined <- golden_search_bandwidth( formula = myformula_bk, Ht = NULL, data = data, coords = coords,
-                                                    fixed_vars = NULL, kernels = kernels, Model = "GWR", control = control,
-                                                    lower.bound = HKmin[k], upper.bound = V[max(1, which(V == opt[k]) - 3)])
-                model_k <- refined$model
-                opt[k] <- model_k@H
-                betav <- model_k@Betav
-                e0 <- residuals(model_k)
-                isol <- is.na(betav)
-                e0[isol] <- data$e0[isol]
-                if (get_AIC) {
-                  TSik[!isol, k] <- model_k@TS[!isol]
-                  Sk <- model_k@Shat
-                }
-              }
-              # else if (control$Type == 'GDT') {
-              #   if(k==tail(varying,1)) converged=TRUE
-              #   data$e0k<-data$e0+BETA[,k]*X[,k]
-              #   myformula_bk=as.formula(paste0('e0k~-1+',k))
-              #
-              #   refined <- golden_search_2d_bandwidth(formula = myformula_bk,
-              #                                         data = data, coords = coords, fixed_vars = NULL,
-              #                                         kernels = kernels, Model =  'GWR', control = control,
-              #                                         lower.bound.space = min(V), upper.bound.space = V[max(1,which(V==opt[k])-3)],
-              #                                         lower.bound.time = min(Vt), upper.bound.time = Vt[max(1,which(Vt==opt_t[k])-3)], tolerance_s =1, tolerance_t=1)
-              #
-              #   model_k<-refined$model
-              #   opt[k]<-model_k@H
-              #   opt_t[k]<-model_k@Ht
-              #   betav<-model_k@Betav
-              #   e0 <- residuals(model_k)
-              #   isol <- is.na(betav)
-              #   e0[isol] <- data$e0[isol]
-              #   if (get_AIC) {
-              #     TSik[!isol, k] <- model_k@TS[!isol]
-              #     Sk <- model_k@Shat
-              #   }
-              # }
-            } else  update_opt_known()
-          } else            {
-            update_opt_known()
-          }
-
-          # --- Update AIC trace and matrices ---            # --- Update local coefficients ---
-
-          if (control_tds$get_AIC) {
-            Rkk[[k]] <- compute_Rk(Rk[[k]], Sk, St, foldsl)
-            St = St + Rkk[[k]] - Rk[[k]]
-            new_TS = diag(St)
-            new_ts = sum(new_TS)
-
-            if (verbose & control_tds$get_AIC)
-              cat(' AICc : ', aicc_f(e0[idx_init], new_ts, n_time))
-
-            # if(  aicc_f(e0[idx_init], new_ts, n_time)<Last_best_AICg) {
-            #   BETA[!isol, k] = betav[!isol]
-            #   Last_best_AICg<-aicc_f(e0[idx_init], new_ts, n_time)
-            # }
-
-          }
-          BETA[!isol, k] = betav[!isol]
-
-          # --- Update residuals and RMSE ---
-          fit = rowSums(BETA * X)
-          data$e0 = Y - fit
-          rmse = sqrt(mean(data$e0^2))
-        }
-        # ------------------------------------------------------------
-        # 3.3 FIXED VARIABLES UPDATE
-        # ------------------------------------------------------------
-        for (k in fixed_vars) {
-          last_rmse = rmse
-          data$e0k <- data$e0 + BETA[, k] * X[, k]
-          myformula_bk = as.formula(paste0('e0k~-1+', k))
-
-          model_tds <- MGWRSAR(formula = myformula_bk, data = data,
-                               coords = coords, fixed_vars = k, kernels = kernels,
-                               H = NULL, Model = 'OLS', control = controlv)
-
-          BETA[, k] = model_tds@Betac
-
-          if (control_tds$get_AIC) {
-            TSik[, k] <- unlist(res[mybest, 'TS'])
-            Sk <- unlist(res[mybest, 'S'][[1]])
-            Rkk[[k]] <- compute_Rk(Rk[[k]], Sk, St, foldsl)
-            St = St + Rkk[[k]] - Rk[[k]]
-            new_TS = diag(St)
-            new_ts = sum(new_TS)
-          }
-
-          fit = rowSums(BETA * X)
-          data$e0 = Y - fit
-          rmse = sqrt(mean(data$e0^2))
-        }
-
-        # ------------------------------------------------------------
-        # 3.4 UPDATE CRITERIA AND CONVERGENCE CHECKS
-        # ------------------------------------------------------------
-        if (control_tds$get_AIC)
-          myAICc <- aicc_f(data$e0[idx_init], new_ts, n_time)
-
-        # Update stability tracker
-        if (control$Type == 'GDT') {
-          stable[opt != last_opt | opt_t != last_opt_t] <- 0
-          stable[opt == last_opt & opt_t == last_opt_t] <- stable[opt == last_opt & opt_t == last_opt_t] + 1
-        } else {
-          stable[opt != last_opt] <- 0
-          stable[opt == last_opt] <- stable[opt == last_opt] + 1
-        }
-
-        # Compute deltas
-        delta_rmse = (last_rmseG - sqrt(mean((Y - rowSums(BETA * X))^2))) / last_rmseG
-        if (control_tds$get_AIC)
-          delta_AICc = (last_AICc - myAICc) / last_AICc
-
-        # ------------------------------------------------------------
-        # 3.5 IF IMPROVEMENT: SAVE BEST STATE
-        # ------------------------------------------------------------
-        if (control_tds$get_AIC) {
-          S = St
-          for (k in varying)
-            Rk[[k]] <- Rkk[[k]]
-        }
-
-        if (sqrt(mean((Y - rowSums(BETA * X))^2)) <= bestRMSE) {
-          bestBETA = BETA
-          bestRMSE = sqrt(mean((Y - rowSums(BETA * X))^2))
-          H = opt
-          if (control$Type == 'GDT') Ht = opt_t
-          mybestG = i + 1
-          if (control_tds$get_AIC) {
-            mybestS = S
-            mybestRk = Rk
-          }
-        }
-
-        # ------------------------------------------------------------
-        # 3.6 END-OF-ITERATION HOUSEKEEPING
-        # ------------------------------------------------------------
-        fit = rowSums(BETA * X)
-        data$e0 = Y - fit
-        rmse = sqrt(mean(data$e0^2))
-        delta_rmse = (last_rmseG - rmse) / last_rmseG
-
-        if (control_tds$get_AIC) {
-          HTS[[i + 1]] <- new_TS
-          HAICc <- c(HAICc, myAICc)
-        }
-
-        HBETA[[i + 1]] <- BETA
-
-        if (!is.null(TRUEBETA)) {
-          for (k in 1:K)
-            HRMSE[i + 1, k] = sqrt(mean((TRUEBETA[, k] - BETA[, k])^2))
-          HRMSE[i + 1, K + 1] <- mean(HRMSE[i + 1, 1:K])
-          HRMSE[i + 1, K + 2] <- opt[k]
-          if (control_tds$get_AIC) HRMSE[i + 1, K + 3] <- myAICc
-          HRMSE[i + 1, K + 4] <- sqrt(mean(data$e0^2))
-        }
-
-        if (verbose & control_tds$get_AIC)
-          cat('\n delta_AICc: ', delta_AICc, ' AICc : ', myAICc, ' stable ', stable, '\n delta_rmse ', delta_rmse, ' rmse ', rmse)
-        if (verbose & !control_tds$get_AIC)
-          cat('\n stable ', stable, ' delta_rmse ', delta_rmse, ' rmse ', rmse)
-        if (verbose) cat('\n\n H =', opt)
-        if (verbose & control$Type == 'GDT') cat('\n Ht =', opt_t)
-
-
-        # --- sign_history to detect oscillations ---
-        if (!exists("sign_history")) sign_history <- integer(0)
-        if (!exists("delta_history")) delta_history <- numeric(0)
-        if (!exists("bandwidth_history")) bandwidth_history <- list()
-        if (!exists("pp_streak")) pp_streak <- 0L  # compteur ping-pong parfait
-
-        current_sign <- sign(delta_rmse)
-        if (!is.na(current_sign) && current_sign != 0) {
-          sign_history <- c(sign_history, current_sign)
-          delta_history <- c(delta_history, delta_rmse)
-        }
-
-        if (control$Type == "GDT")
-          bandwidth_history[[length(bandwidth_history) + 1]] <- list(h = opt, ht = opt_t)
-        else
-          bandwidth_history[[length(bandwidth_history) + 1]] <- list(h = opt)
-
-        # Limit sign_history size
-        if (length(sign_history) > 10) {
-          sign_history <- tail(sign_history, 10)
-          delta_history <- tail(delta_history, 10)
-        }
-        if (length(bandwidth_history) > 10)
-          bandwidth_history <- tail(bandwidth_history, 10)
-
-        # ============================================================
-        # [1] Detect strict Yoyo  (RMSE + - + - +)
-        # ============================================================
-        if (length(sign_history) >= 4) {
-          diffs <- diff(sign_history)
-          # (+ - + -)
-          alt_seq <- all(abs(diffs) == 2) && all(diff(diffs) != 0)
-          alt_count <- if (alt_seq) length(diffs[diffs != 0]) else 0
-        } else {
-          alt_count <- 0
-        }
-
-        # Mean of tow last RMSE
-        mean_last2 <- if (length(delta_history) >= 2)
-          mean(abs(tail(delta_history, 2))) else abs(delta_rmse)
-
-        # ============================================================
-        # [2]  Detect ping-pong between bandwidths
-        # ============================================================
-        bw_pingpong <- 0
-        if (length(bandwidth_history) >= 4) {
-          for (j in seq_len(length(bandwidth_history) - 2)) {
-            bw_prev <- bandwidth_history[[j + 1]]$h
-            bw1 <- bandwidth_history[[j]]$h
-            bw2 <- bandwidth_history[[j + 2]]$h
-
-            has_change <- !isTRUE(all.equal(bw_prev, bw1, tolerance = 0))
-
-            ## Checks that it returns to the original value two iterations later
-            same_h <- isTRUE(all.equal(bw1, bw2, tolerance = 0))
-
-            same_ht <- TRUE
-            if (control$Type == "GDT") {
-              bw_prev_t <- bandwidth_history[[j + 1]]$ht
-              bw1_t <- bandwidth_history[[j]]$ht
-              bw2_t <- bandwidth_history[[j + 2]]$ht
-
-              has_change <- has_change || !isTRUE(all.equal(bw_prev_t, bw1_t, tolerance = 0))
-              same_ht <- isTRUE(all.equal(bw1_t, bw2_t, tolerance = 0))
-            }
-
-            # ping-pong count
-            if (has_change && same_h && same_ht)
-              bw_pingpong <- bw_pingpong + 1
-          }
-        }
-
-        # ============================================================
-        # [3] 3 times of perfect ping-pong
-        # ============================================================
-        detect_perfect_pingpong <- function(h1, h2, h3) {
-          isTRUE(all.equal(h3, h1, tolerance = 0)) && !isTRUE(all.equal(h3, h2, tolerance = 0))
-        }
-
-        if (length(bandwidth_history) >= 3) {
-          bw_tm2 <- bandwidth_history[[length(bandwidth_history) - 2L]]
-          bw_tm1 <- bandwidth_history[[length(bandwidth_history) - 1L]]
-          bw_t   <- bandwidth_history[[length(bandwidth_history)]]
-
-          pp_spatial <- detect_perfect_pingpong(bw_tm2$h, bw_tm1$h, bw_t$h)
-          pp_temporal <- TRUE
-          if (control$Type == "GDT")
-            pp_temporal <- detect_perfect_pingpong(bw_tm2$ht, bw_tm1$ht, bw_t$ht)
-
-          if (pp_spatial && pp_temporal)
-            pp_streak <- pp_streak + 1L
-          else
-            pp_streak <- 0L
-
-          if (pp_streak >= 3L) {
-            cat("\n[WARNING] Perfect ping-pong detected 3 times in a row -- inserting intermediate bandwidths.\n")
-
-            # ----- SPATIAL -----
-            h_now  <- as.numeric(bw_t$h)
-            h_prev <- as.numeric(bw_tm1$h)
-
-            if (isTRUE(control$adaptive[1])) {
-              need_mid_h <- abs(h_now - h_prev) > 2
-              h_mid <- round((h_now + h_prev) / 2)
-            } else {
-              rel_diff_h <- abs(h_now - h_prev) / pmax(1e-12, (abs(h_now) + abs(h_prev)) / 2)
-              need_mid_h <- rel_diff_h > 0.001
-              h_mid <- (h_now + h_prev) / 2
-            }
-
-            for (kk in seq_along(h_now)) {
-              if (isTRUE(need_mid_h[kk])) {
-                V <- sort(unique(c(V, h_mid[kk])))
-                opt[kk] <- h_mid[kk]
-              }
-            }
-
-            # ----- TEMPORAL -----
-            if (control$Type == "GDT") {
-              ht_now  <- as.numeric(bw_t$ht)
-              ht_prev <- as.numeric(bw_tm1$ht)
-
-              if (isTRUE(control$adaptive[2])) {
-                need_mid_ht <- abs(ht_now - ht_prev) > 2
-                ht_mid <- round((ht_now + ht_prev) / 2)
-              } else {
-                rel_diff_ht <- abs(ht_now - ht_prev) / pmax(1e-12, (abs(ht_now) + abs(ht_prev)) / 2)
-                need_mid_ht <- rel_diff_ht > 0.001
-                ht_mid <- (ht_now + ht_prev) / 2
-              }
-
-              for (kk in seq_along(ht_now)) {
-                if (isTRUE(need_mid_ht[kk])) {
-                  Vt <- sort(unique(c(Vt, ht_mid[kk])))
-                  opt_t[kk] <- ht_mid[kk]
-                }
-              }
-            }
-
-            cat("# Intermediate bandwidths inserted. Resuming iterations.\n")
-            pp_streak <- 0L
-            sign_history <- integer(0)
-            delta_history <- numeric(0)
-            bandwidth_history <- list(list(h = opt, ht = if (control$Type == "GDT") opt_t else NULL))
-          }
-        }
-
-        # ============================================================
-        # [4] stopping conditions
-        # ============================================================
-        stop_flag <- FALSE
-        reason <- NULL
-
-        # (a) weak yoyo oscillation
-        if (alt_count >= 3 && mean_last2 < tol) {
-          stop_flag <- TRUE
-          reason <- sprintf("weak yoyo oscillation (alt=%d, mean|RMSE|=%.6f < tol=%.6f)",
-                            alt_count, mean_last2, tol)
-        }
-
-        # (b) repetition stricte des memes bandwidths
-        if (bw_pingpong >= 3) {
-          stop_flag <- TRUE
-          reason <- sprintf("repeated bandwidth ping-pong (%d identical alternations)", bw_pingpong)
-        }
-
-        if (stop_flag) {
-          cat("\n Stopping criterion reached:", reason, "\n")
-
-          opt <- round((opt + last_opt) / 2)
-          if (control$Type == "GDT")
-            opt_t <- round((opt_t + last_opt_t) / 2)
-          i = i + 1
-          break
-        }
-
-        if (abs(delta_rmse) < tol) post_conv_count <- post_conv_count + 1 else post_conv_count <- 0
-
-        i = i + 1
-
-      }
-
-      # ============================================================
-      # [4] FINALIZATION & MODEL ASSEMBLY
-      # ============================================================
-      names(H) <- varying
-
-      if (control_tds$get_AIC) {
-        myAICc <- HAICc[mybestG - 1]
-        TS = as.numeric(unlist(HTS[mybestG]))
-        tS = sum(TS)
-      }
-
-      BETA <- bestBETA
-      if (!is.null(TRUEBETA))
-        HRMSE <- HRMSE[1:mybestG, ]
-      HBETA <- HBETA[1:mybestG]
-
-      fit = rowSums(BETA * X)
-      data$e0 = Y - fit
-
-      # ------------------------------------------------------------
-      # 4.1 BUILD FINAL MODEL OBJECT
-      # ------------------------------------------------------------
-      modelGWR <- new('mgwrsar')
-      modelGWR@mycall <- mycall
-      modelGWR@data <- data
-      modelGWR@coords <- as.matrix(coords)
-      modelGWR@X <- modelGWR@XV <- X
-      if (verbose) cat('\n Time = ', (proc.time() - start)[3], '\n')
-
-      modelGWR@formula = formula
-      modelGWR@Model = Model
-      modelGWR@H = H
-      modelGWR@fixed_vars <- unique(c(as.character(fixed_vars),
-                                      names(modelGWR@H)[which(modelGWR@H == max_dist)]))
-      modelGWR@Betav = BETA
-      modelGWR@fit = rowSums(BETA * X)
-      modelGWR@residuals = Y - modelGWR@fit
-      modelGWR@RMSE = sqrt(mean(modelGWR@residuals^2))
-      modelGWR@Type = control$Type
-      modelGWR@kernels = kernels
-      modelGWR@adaptive = control$adaptive
-      modelGWR@TP = 1:n
-      modelGWR@ncore = control_tds$ncore
-      modelGWR@NN = control$NN
-
-      if(control_tds$check_pairs) {
-        if(!is.null(HKmin))  modelGWR@HKmin <- HKmin
-        if(!is.null(HKMIN)) modelGWR@HKMIN <- HKMIN
-      }
-      if (!is.null(control$Z))
-        modelGWR@Z = control$Z
-      modelGWR@V = V
-
-      if (control$Type == 'GDT') {
-        modelGWR@Vt = Vt
-        modelGWR@Ht = Ht
-        modelGWR@alpha = control$alpha
-      }
-
-      modelGWR@Y = Y
-      modelGWR@ctime <- (proc.time() - start)[3]
-      modelGWR@HBETA <- HBETA
-
-      if (control_tds$get_AIC) {
-        if (!is.null(S)) modelGWR@Shat = mybestS
-        modelGWR@TS = diag(mybestS)
-        modelGWR@tS = sum(modelGWR@TS)
-        modelGWR@edf <- n - tS
-        modelGWR@AICc <- myAICc
-        for (k in varying)
-          modelGWR@R_k[[k]] <- mybestRk[[k]]
-      }
-
-      if (!is.null(TRUEBETA))
-        modelGWR@HRMSE <- HRMSE[!is.na(HRMSE[, 1]), ]
-
-      if(Model == 'atds_mgwr') modelGWR@G = G
-      control_tds$model_stage1 <- model_stage1 <- returned_model <- modelGWR
-    })
-  }
 
   stage1_tds_mgwr <- function(env = parent.frame()) {
     with(env, {
-
+      if (control_tds$verbose) message("Fitting tds_mgwr model...")
+      
       # ============================================================
       #  INITIALIZATION & PRE-PROCESSING
       # ============================================================
       OPT = TRUE
+      if(control$SE) {
+        SEV=matrix(NA,nrow=n,ncol=length(varying))
+        colnames(SEV)= varying
+        EDF<-as.numeric(rep(NA,length(varying)))
+        names(EDF)<-varying
+      }
+
 
       # Blocksize default for large datasets
-      if (is.null(control_tds$blocksize) & n >= 4000)
+      if (is.null(control_tds$blocksize) && n >= 4000)
         control_tds$blocksize = 500
 
       # Create target points partition
@@ -1599,7 +1213,7 @@ TDS_MGWR <- function(formula, data, coords,
         cat(paste0(
           '\n\n########################################################################\n',
           ' STAGE 1 : find unique bandwidth for each covariate  \n',
-          ' using Top Down Scale Approach with backfitting for Type = ', control$Type,
+          ' using Top Down Scale Approach with backfitting for Type = ', control$Type,ifelse(control_tds$get_AIC,'\n get_AIC=TRUE',''),
           '  ...\n########################################################################\n'
         ))
 
@@ -1628,6 +1242,7 @@ TDS_MGWR <- function(formula, data, coords,
         BestCrit <- lastCrit <- lastCrit2 <- 10^6
         AIC_deep <- NA
         Last_best_AICg <- last_AICc <- myAICc + 10^6
+        Vk=list()
       }
 
       # ------------------------------------------------------------
@@ -1657,6 +1272,9 @@ TDS_MGWR <- function(formula, data, coords,
       if (!exists("bandwidth_history")) bandwidth_history <- list()
       if (!exists("pp_streak")) pp_streak <- 0L
 
+      # --- Ensure mybestG exists even if the while-loop never runs
+      mybestG <- 1L
+
       # ============================================================
       # [3] BACKFITTING MAIN LOOP
       # ============================================================
@@ -1666,6 +1284,13 @@ TDS_MGWR <- function(formula, data, coords,
       bestRMSE = rmse
       converged = FALSE
       patience=0
+
+      sx <- apply(X, 2, sd, na.rm=TRUE)
+      sx[sx == 0 | is.na(sx)] <- 1
+     
+      ### work in progress
+
+
       while ((post_conv_count < extra_iter || i < control_tds$test ) & i < control_tds$maxit) {
 
         # ------------------------------------------------------------
@@ -1683,7 +1308,6 @@ TDS_MGWR <- function(formula, data, coords,
 
         varyingT <- varying
         if (i == browser) browser()
-        gc()
 
         myformula_b = as.formula(paste0('e0~-1+', paste0(varyingT, collapse = '+')))
         controlv <- control
@@ -1693,11 +1317,25 @@ TDS_MGWR <- function(formula, data, coords,
         # ------------------------------------------------------------
         # 3.2 MAIN LOOP OVER VARYING VARIABLES
         # ------------------------------------------------------------
-        if(control_tds$randomize_order) {
-          set.seed(as.integer(Sys.time()))
-          samp_varying=varying[c(1,sample(2:length(varying),length(varying)-1))]
-        } else samp_varying
-
+        
+        if (length(varying) > 1 & control_tds$ordering=='Importance') {
+          
+          k_rest <- setdiff(varying, varying[1])  # assumes varying[1] is "Intercept"
+          # Contribution magnitude per covariate
+          contrib_score <- vapply(k_rest, function(k) {
+            ck <- BETA[, k] * X[, k]
+            mean(abs(ck), na.rm = TRUE)/sx[k]
+          }, numeric(1))
+          
+          # Order decreasing contribution
+          ord <- order(contrib_score, decreasing = TRUE, na.last = TRUE)
+          
+          samp_varying <- c(varying[1], k_rest[ord])
+          
+        } else {
+          samp_varying <- varying
+        }
+        
         for (k in samp_varying) {
 
           if (verbose) cat(' ', k)
@@ -1707,13 +1345,13 @@ TDS_MGWR <- function(formula, data, coords,
           if(!converged){
             if (any(stable < ifelse(control_tds$refine, 2, 4))) {
               if (control$Type == 'GD') update_opt()
-              if (control$Type == 'GDT' & !control_tds$test) update_opt_st()
-              if (control$Type == 'GDT' & control_tds$test) update_opt_st_test()
+              if (control$Type == 'GDT' && !control_tds$test) update_opt_st()
+              if (control$Type == 'GDT' && control_tds$test) update_opt_st_test()
             } else if(control_tds$refine) {
 
               # --- Golden Search Refinement ---
               if (control$Type == 'GD'  ) {
-                cat('\n one step Golden search ratio \n')
+                if(control_tds$verbose) cat('\n one step Golden search ratio \n')
                 if(k == tail(varying, 1)) converged = TRUE
                 data$e0k <- data$e0 + BETA[, k] * X[, k]
                 myformula_bk = as.formula(paste0('e0k~-1+', k))
@@ -1742,13 +1380,18 @@ TDS_MGWR <- function(formula, data, coords,
 
           # --- Update AIC trace and matrices ---
           if (control_tds$get_AIC) {
-            Rkk[[k]] <- compute_Rk(Rk[[k]], Sk, St, foldsl)
+            res_rk <- compute_Rk_with_Var(Rk[[k]], Sk, St, foldsl)
+            Rkk[[k]] <- res_rk$Rkk #compute_Rk(Rk[[k]], Sk, St, foldsl)
+            Vk[[k]]  <- res_rk$vk
             St = St + Rkk[[k]] - Rk[[k]]
             new_TS = diag(St)
             new_ts = sum(new_TS)
 
-            if (verbose & control_tds$get_AIC)
-              cat(' AICc : ', aicc_f(e0[idx_init], new_ts, n_time))
+            ### work in progress
+            #current_focal_enp <- diag(Rkk[[k]])
+            #ENP_focal_history[[k]] <- rbind(ENP_focal_history[[k]], current_focal_enp)
+            ### work in progress
+
           }
           BETA[!isol, k] = betav[!isol]
 
@@ -1801,23 +1444,25 @@ TDS_MGWR <- function(formula, data, coords,
           stable[opt == last_opt] <- stable[opt == last_opt] + 1
         }
 
-        # Compute deltas
-        delta_rmse = (last_rmseG - sqrt(mean((Y - rowSums(BETA * X))^2))) / last_rmseG
+        # ------------------------------------------------------------
+        # 3.5 COMPUTE FIT ONCE, CHECK IMPROVEMENT, SAVE BEST STATE
+        # ------------------------------------------------------------
+        fit = rowSums(BETA * X)
+        data$e0 = Y - fit
+        rmse = sqrt(mean(data$e0^2))
+        delta_rmse = (last_rmseG - rmse) / last_rmseG
         if (control_tds$get_AIC)
           delta_AICc = (last_AICc - myAICc) / last_AICc
 
-        # ------------------------------------------------------------
-        # 3.5 IF IMPROVEMENT: SAVE BEST STATE
-        # ------------------------------------------------------------
-        if(bestRMSE < sqrt(mean((Y - rowSums(BETA * X))^2))) patience=patience+1 else patience=0
+        if(bestRMSE < rmse) patience=patience+1 else patience=0
         if (control_tds$get_AIC) {
           S = St
           for (k in varying) Rk[[k]] <- Rkk[[k]]
         }
 
-        if (sqrt(mean((Y - rowSums(BETA * X))^2)) <= bestRMSE) {
+        if (rmse <= bestRMSE) {
           bestBETA = BETA
-          bestRMSE = sqrt(mean((Y - rowSums(BETA * X))^2))
+          bestRMSE = rmse
           H = opt
           if (control$Type == 'GDT') Ht = opt_t
           mybestG = i + 1
@@ -1826,14 +1471,6 @@ TDS_MGWR <- function(formula, data, coords,
             mybestRk = Rk
           }
         }
-
-        # ------------------------------------------------------------
-        # 3.6 END-OF-ITERATION HOUSEKEEPING
-        # ------------------------------------------------------------
-        fit = rowSums(BETA * X)
-        data$e0 = Y - fit
-        rmse = sqrt(mean(data$e0^2))
-        delta_rmse = (last_rmseG - rmse) / last_rmseG
 
         if (control_tds$get_AIC) {
           HTS[[i + 1]] <- new_TS
@@ -1851,12 +1488,47 @@ TDS_MGWR <- function(formula, data, coords,
           HRMSE[i + 1, K + 4] <- sqrt(mean(data$e0^2))
         }
 
-        if (verbose & control_tds$get_AIC)
-          cat('\n delta_AICc: ', delta_AICc, ' AICc : ', myAICc, ' stable ', stable, ' delta_rmse ', delta_rmse, ' rmse ', rmse)
-        if (verbose & !control_tds$get_AIC)
-          cat('\n stable ', stable, ' delta_rmse ', delta_rmse, ' rmse ', rmse)
-        if (verbose) cat('\n\n H =', opt)
-        if (verbose & control$Type == 'GDT') cat('\n Ht =', opt_t)
+        if (verbose) {
+          cat('\n\n')
+          nm <- names(opt)
+          
+          for (j in seq_along(nm)) {
+            
+            if (control$Type == 'GDT') {
+              
+              cat(sprintf("%-15s  H=%8.3f  Ht=%8.3f  stable=%3d\n",
+                          nm[j],
+                          as.numeric(opt[j]),
+                          as.numeric(opt_t[j]),
+                          as.integer(stable[j])))
+              
+            } else {
+              
+              cat(sprintf("%-15s  H=%8.3f  stable=%3d\n",
+                          nm[j],
+                          as.numeric(opt[j]),
+                          as.integer(stable[j])))
+            }
+          }
+          
+          # --- Summary line ---
+          cat('\n')
+          star <- if (identical(rmse, bestRMSE)) "*" else ""
+          if (control_tds$get_AIC) {
+            
+            cat(sprintf(
+              "delta_AICc = %.6f  AICc = %.6f  delta_rmse = %.3e  rmse = %.6f%s\n",
+              delta_AICc, myAICc, delta_rmse, rmse, star
+            ))
+            
+          } else {
+            
+            cat(sprintf(
+              "delta_rmse = %.3e  rmse = %.6f%s\n",
+              delta_rmse, rmse, star
+            ))
+          }
+        }
 
         # --- sign_history to detect oscillations ---
         current_sign <- sign(delta_rmse)
@@ -1937,7 +1609,7 @@ TDS_MGWR <- function(formula, data, coords,
             pp_streak <- 0L
 
           if (pp_streak >= 3L) {
-            cat("\n[WARNING] Perfect ping-pong detected 3 times in a row -- inserting intermediate bandwidths.\n")
+            if(control_tds$verbose) cat("\n[WARNING] Perfect ping-pong detected 3 times in a row -- inserting intermediate bandwidths.\n")
 
             # ----- SPATIAL CORRECTION -----
             h_now  <- as.numeric(bw_t$h)
@@ -1954,7 +1626,7 @@ TDS_MGWR <- function(formula, data, coords,
 
             for (kk in seq_along(h_now)) {
               if (isTRUE(need_mid_h[kk])) {
-                V <- sort(unique(c(V, h_mid[kk])))
+                V <- sort(unique(c(V, h_mid[kk])),decreasing = T)
                 opt[kk] <- h_mid[kk]
               }
             }
@@ -1981,7 +1653,7 @@ TDS_MGWR <- function(formula, data, coords,
               }
             }
 
-            cat("# Intermediate bandwidths inserted. Resuming iterations.\n")
+            if(control_tds$verbose) cat("# Intermediate bandwidths inserted. Resuming iterations.\n")
             pp_streak <- 0L
             sign_history <- integer(0)
             delta_history <- numeric(0)
@@ -2010,14 +1682,14 @@ TDS_MGWR <- function(formula, data, coords,
                             alt_count, mean_last2, tol)
         }
 
-        # (b) repetition stricte des memes bandwidths (si la correction n'a pas suffi)
+        # (b) strict repetition of the same bandwidths (if the correction was insufficient)
         if (bw_pingpong >= 3) {
           stop_flag <- TRUE
           reason <- sprintf("repeated bandwidth ping-pong (%d identical alternations)", bw_pingpong)
         }
 
         if (stop_flag) {
-          cat("\n Stopping criterion reached:", reason, "\n")
+          if(control_tds$verbose) cat("\n Stopping criterion reached:", reason, "\n")
 
           # Last resort average
           opt <- round((opt + last_opt) / 2)
@@ -2032,7 +1704,7 @@ TDS_MGWR <- function(formula, data, coords,
       }
 
       # ============================================================
-      # [5] FINALIZATION & MODEL ASSEMBLY
+      # [4] FINALIZATION & MODEL ASSEMBLY
       # ============================================================
       names(H) <- varying
 
@@ -2050,29 +1722,37 @@ TDS_MGWR <- function(formula, data, coords,
       fit = rowSums(BETA * X)
       data$e0 = Y - fit
 
+      ## work in progress
+      #ENP_focal_history<<-ENP_focal_history
+      ## work in progress
+
       # 4.1 BUILD FINAL MODEL OBJECT
+
       modelGWR <- new('mgwrsar')
       modelGWR@mycall <- mycall
       modelGWR@data <- data
-      modelGWR@coords <- as.matrix(coords)
+      modelGWR@coords <- as.matrix(coords_o)
       modelGWR@X <- modelGWR@XV <- X
       if (verbose) cat('\n Time = ', (proc.time() - start)[3], '\n')
 
       modelGWR@formula = formula
-      modelGWR@Model = Model
+      modelGWR@Model = if(control$Type=='GDT') 'tds_mgtwr' else if(control$Type=='GD') 'tds_mgwr'
+      modelGWR@max_dist=max_dist
+      if(control$Type=='GDT') modelGWR@max_dist_t=max_dist_t
       modelGWR@H = H
       modelGWR@fixed_vars <- unique(c(as.character(fixed_vars),
                                       names(modelGWR@H)[which(modelGWR@H == max_dist)]))
       modelGWR@Betav = BETA
       modelGWR@fit = rowSums(BETA * X)
       modelGWR@residuals = Y - modelGWR@fit
-      modelGWR@RMSE = sqrt(mean(modelGWR@residuals^2))
+      modelGWR@RMSE = rmse(modelGWR@residuals)
       modelGWR@Type = control$Type
       modelGWR@kernels = kernels
       modelGWR@adaptive = control$adaptive
       modelGWR@TP = 1:n
       modelGWR@ncore = control_tds$ncore
       modelGWR@NN = control$NN
+      modelGWR@SSR=sum(modelGWR@residuals^2)
 
       if(control_tds$check_pairs) {
         if(!is.null(HKmin))  modelGWR@HKmin <- HKmin
@@ -2102,6 +1782,34 @@ TDS_MGWR <- function(formula, data, coords,
           modelGWR@R_k[[k]] <- mybestRk[[k]]
       }
 
+      if (isTRUE(control$SE)) {
+        if (control_tds$get_AIC) {
+          # --- METHOD A: Yu & Fotheringham (2020) ---
+          sigma2_global <- sum(data$e0^2) / (n - tS - length(fixed_vars))
+          sev_final <- matrix(0, nrow = n, ncol = length(varying))
+          colnames(sev_final) <- varying
+          for (k in varying) {
+            structure_val <- Vk[[k]] / (X[, k]^2)
+            structure_val[!is.finite(structure_val)] <- 0
+
+            sev_final[, k] <- sqrt(sigma2_global * structure_val)
+          }
+          modelGWR@sev <- sev_final
+        } else {
+          # --- METHOD B: LOCAL INFERENCE (Fallback) ---
+          modelGWR@sev <- SEV
+          # --- METHOD C: ADJUSTED LOCAL INFERENCE ---
+         if(FALSE) { tS_approx <- sum(n - EDF)
+            sigma2_global_approx <- sum(data$e0^2) / max(1, (n - tS_approx ))
+            ratio_correction <- sqrt(sigma2_global_approx / (sum(data$e0^2) / n))
+            modelGWR@sev <- SEV * ratio_correction
+         }
+        }
+        modelGWR@edf_k <- EDF
+      }
+
+
+
       if (!is.null(TRUEBETA))
         modelGWR@HRMSE <- HRMSE[!is.na(HRMSE[, 1]), ]
 
@@ -2123,7 +1831,7 @@ TDS_MGWR <- function(formula, data, coords,
   stage2_atds_mgwr <- function(env = parent.frame()){
     with(env, {
       if(browser == -2) browser()
-      if(verbose) cat('Start stage 2 : \n')
+      message("Fitting atds_mgwr model...")
       nrounds = control_tds$nrounds
       if(!is.null(control_tds$model_stage1)) model_stage1 <- control_tds$model_stage1
       if(length(model_stage1@R_k) == 0) stop('Starting model_stage1 must be runned with get_AIC=TRUE')
@@ -2139,7 +1847,7 @@ TDS_MGWR <- function(formula, data, coords,
         HRMSE <- rbind(HRMSE, matrix(NA, ncol = ncol(HRMSE), nrow = nrounds + 1))
         BETA <- model_stage1@Betav
         AICc <- model_stage1@AICc
-        varying <- varying[order(model_stage1@H, decreasing = T)]
+        varying <- varying[order(model_stage1@H, decreasing = TRUE)]
         fixed_vars <- model_stage1@fixed_vars
         varyingT <- setdiff(varying, fixed_vars)
         data$e0 <- residuals(model_stage1)
@@ -2169,7 +1877,7 @@ TDS_MGWR <- function(formula, data, coords,
       n_updated = 1
 
 
-      while(nround <= nrounds & n_updated > 0) {
+      while(nround <= nrounds && n_updated > 0) {
         last_AICck <- last_AICc <- AICc
         mybestbeta <- BETA
         mybestAICc <- AICc
@@ -2217,7 +1925,6 @@ TDS_MGWR <- function(formula, data, coords,
             last_AICck <- AICc <- model_tds@AICc
             if(!(k %in% fixed_vars)) HH[[k]] <- model_tds@V[model_tds@V >= model_tds@H]
 
-
             fit = rowSums(BETA * X)
             data$e0 <- Y - fit
             if(control_tds$get_AIC) {
@@ -2242,7 +1949,7 @@ TDS_MGWR <- function(formula, data, coords,
             }
           }
         }
-        if(!(last_AICc - AICc) / abs(AICc) > tol & nrounds >= 10) {
+        if(!(last_AICc - AICc) / abs(AICc) > tol && nrounds >= 10) {
           BETA <- mybestbeta
           AICc <- mybestAICc
           tS <- mybesttS
@@ -2253,15 +1960,15 @@ TDS_MGWR <- function(formula, data, coords,
         if(!is.null(TRUEBETA) ) {
           for(k in 1:K) HRMSE[i + 1, k] = sqrt(mean((TRUEBETA[, k] - BETA[, k])^2))
           HRMSE[i + 1, K + 1] <- mean(HRMSE[i + 1, 1:K])
-          cat('\n BETA RMSE = ', mean(HRMSE[i + 1, 1:K]), '\n')
+          if(control_tds$verbose) cat('\n BETA RMSE = ', mean(HRMSE[i + 1, 1:K]), '\n')
           HRMSE[i + 1, K + 2] <- min(unlist(HH))
           HRMSE[i + 1, K + 3] <- AICc
           HRMSE[i + 1, K + 4] <- sqrt(mean(data$e0^2))
         }
         nround = nround + 1
         i = i + 1
-        if( !is.null(TRUEBETA) & verbose) cat('\n nround ', nround - 1, ' mean beta rmse ', HRMSE[i + 1, K + 1], '  rmse ', sqrt(mean(data$e0^2)), '\n')
-        if( is.null(TRUEBETA)  & verbose ) cat('\n nround ', nround - 1,  ' rmse ', sqrt(mean(data$e0^2)), ' AICc ', AICc, '\n')
+        if( !is.null(TRUEBETA) && verbose) cat('\n nround ', nround - 1, ' mean beta rmse ', HRMSE[i + 1, K + 1], '  rmse ', sqrt(mean(data$e0^2)), '\n')
+        if( is.null(TRUEBETA)  && verbose ) cat('\n nround ', nround - 1,  ' rmse ', sqrt(mean(data$e0^2)), ' AICc ', AICc, '\n')
       }
       if(verbose) for(k in varying) {
         cat('\n', k, ' : ', unlist(HH[[k]] ), '\n')
@@ -2270,7 +1977,7 @@ TDS_MGWR <- function(formula, data, coords,
       modelGWR <- model_stage1
       modelGWR@mycall <- mycall
       modelGWR@data <- data
-      modelGWR@coords <- as.matrix(coords)
+      modelGWR@coords <- as.matrix(coords_o)
       modelGWR@X <- modelGWR@XV <- X
       modelGWR@formula = formula
       if(verbose)  cat('\n Time = ', (proc.time() - start)[3], '\n')
@@ -2279,7 +1986,8 @@ TDS_MGWR <- function(formula, data, coords,
       modelGWR@Betav = BETA
       modelGWR@fit = rowSums(BETA * X)
       modelGWR@residuals = Y - modelGWR@fit
-      modelGWR@RMSE = sqrt(mean(modelGWR@residuals^2))
+      modelGWR@RMSE = rmse(modelGWR@residuals)
+      modelGWR@SSR = sum(modelGWR@residuals^2)
 
 
       modelGWR@HM = HM
@@ -2322,11 +2030,11 @@ TDS_MGWR <- function(formula, data, coords,
   if (Model == 'atds_mgwr') {
     message("Running Stage 2 (ATDS-MGWR boosting)...")
 
-    # 1. On passe le modèle du stage 1 dans les paramètres de contrôle pour le stage 2
-    # (car stage2_atds_mgwr cherche 'model_stage1' dans control_tds)
+    # 1. Pass the stage 1 model into the control parameters for stage 2
+    # (because stage2_atds_mgwr looks for 'model_stage1' in control_tds)
     control_tds$model_stage1 <- returned_model
 
-    # 2. On appelle la bonne fonction (mgwr pas gwr) sans arguments (utilise parent.frame)
+    # 2. Call the correct function (mgwr not gwr) without arguments (uses parent.frame)
     stage2_atds_mgwr()
   }
 

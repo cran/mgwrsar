@@ -68,7 +68,7 @@ gwr_beta_glmboost<-function(Y,XV,ALL_X,TP,indexG,Wd,NN,W=NULL,isgcv=FALSE,SE=FAL
       #mstop0=max(10,mstop(cvm))
       #res=glmboost(x=as.matrix(XV[index,]), y=as.numeric(Y[index]),weights=Wd[z,loo],center=TRUE,control = boost_control(mstop = mstop0,nu=nu),family = family)
       #cat('i=',z,' mstop=',mstop0,' ')
-      mycoef<-coef(res,off2int = T)
+      mycoef<-coef(res,off2int = TRUE)
       names(mycoef)[names(mycoef)=='(Intercept)']<-'Intercept'
       betav[names(mycoef)]<-mycoef
       if(!TP_estim_as_extrapol){ Betav[TP[z],]<-betav} else {Betav[z,]<-betav}

@@ -797,7 +797,7 @@ golden_search_2d_bandwidth_old <- function(formula, data, coords, fixed_vars, ke
 
     eval_cv <- function(h1, h2,upper.bound.space,upper.bound.time) {
       tryCatch(
-        ### a faire introduire les cas T et GD
+        ### TODO: introduce T and GD cases
         if (v < upper.bound.space & vt < upper.bound.time) {
           AICc_CV(
             if (is_space) c(h1, fixed_h) else c(fixed_h, h1),

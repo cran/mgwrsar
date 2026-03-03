@@ -2,19 +2,19 @@
 % Please edit documentation in R/int_prems.R
 \name{int_prems}
 \alias{int_prems}
-\title{int_prems
-to be documented}
+\title{Reorder Intercept Column First}
 \usage{
 int_prems(X)
 }
 \arguments{
-\item{X}{to be documented}
+\item{X}{A numeric matrix, typically the design matrix.}
 }
 \value{
-to be documented
+The matrix \code{X} with the intercept column moved to the first position.
+  If no intercept is found, returns \code{X} unchanged.
 }
 \description{
-int_prems
-to be documented
+Identifies the intercept column (constant column) in a matrix and moves it
+to the first position.
 }
 \keyword{internal}

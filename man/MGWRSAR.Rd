@@ -114,10 +114,6 @@ Dependence. '2SLS' or 'B2SLS', default '2SLS'.}
 \item{TP}{Avector of target points, default NULL.}
 \item{ncore}{Number of CPU core for parallel computation, default 1}
 \item{isgcv}{If TRUE, compute a LOOCV criteria, default FALSE.}
-\item{maxknn}{When n >NmaxDist, only the maxknn first neighbours are used
-for distance compution, default 500.}
-\item{NmaxDist}{When n >NmaxDist only the maxknn first neighbours are used
-for distance compution, default 5000}
 \item{verbose}{Verbose mode, default FALSE.}
 }
 }

@@ -24,13 +24,13 @@ reord_M_R <- function(M, idxG) {
   k <- ncol(idxG)
   ncol_out <- max(idxG)
 
-  # output initialisé avec fill
+  # output initialized with fill
   out <- matrix(NA_real_, n, ncol_out)
 
-  # Indices linéaires destinataires dans 'out'
+  # Linear destination indices in 'out'
   lin <- matrix(rep(1:n, each = k), nrow = n, byrow = TRUE)
 
-  # Transformation en vecteur pour affectation rapide
+  # Vectorized transformation for fast assignment
   sel <- !is.na(idxG)
   out[cbind(lin[sel], idxG[sel])] <- M[sel]
 

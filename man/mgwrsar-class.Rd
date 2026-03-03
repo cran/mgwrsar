@@ -32,6 +32,8 @@ A S4 class to represent the results of MGWRSAR, TDS-MGWR and related spatial mod
 
 \item{\code{edf}}{numeric. The estimated effective degrees of freedom.}
 
+\item{\code{edf_k}}{numeric. The estimated effective degrees of freedom of univariate models.}
+
 \item{\code{formula}}{formula. The model formula.}
 
 \item{\code{data}}{data.frame. The dataframe used for computation.}
@@ -115,6 +117,10 @@ A S4 class to represent the results of MGWRSAR, TDS-MGWR and related spatial mod
 \item{\code{V}}{numeric. Sequence of spatial bandwidths tested (for TDS algorithms).}
 
 \item{\code{Vt}}{numeric. Sequence of temporal bandwidths tested (for TDS algorithms).}
+
+\item{\code{max_dist}}{numeric. maximum distance possible with this kernel.}
+
+\item{\code{max_dist_t}}{numeric. maximum temporal distance with this kernel.}
 
 \item{\code{Z}}{numeric. Temporal or auxiliary variable for GDT kernel type.}
 

@@ -16,13 +16,14 @@
 #' 'GDT' spatial + a time index, and other combinations 'GDXXC','GDTX',...)
 #' @param adaptive  A vector of boolean to choose adaptive version for each kernel
 #' @param diagnull  Zero on diagonal, default FALSE
-#' @param  alpha TO BE DOCUMENTED
-#' @param dists TO BE DOCUMENTED
-#' @param indexG TO BE DOCUMENTED
-#' @param extrapol TO BE DOCUMENTED
-#' @param QP  A matrix with  variables used in kernel (neighbors), default NULL (if NULL coord_j=coord_i)
-#' @param K TO BE DOCUMENTED
+#' @param alpha Numeric exponent for the generalized kernel product, default 1.
+#' @param dists A precomputed list of distance matrices (output of \code{prep_d}), default NULL.
+#' @param indexG A precomputed matrix of neighbor indices (output of \code{prep_d}), default NULL.
+#' @param extrapol Logical. If TRUE, compute weights for extrapolation (out-of-sample), default FALSE.
+#' @param QP A matrix with variables used in kernel (neighbors), default NULL (if NULL coord_j=coord_i).
+#' @param K Integer, number of folds for block computation, default 0 (no blocking).
 #' @return A sparse Matrix of weights (dgCMatrix).
+#' @export
 #' @examples
 #' \donttest{
 #'  library(mgwrsar)
@@ -55,14 +56,14 @@ kernel_matW <- function(H, kernels, coords, NN = NULL, TP = NULL, Type = 'GD',
   coords<-make_unique_by_structure(coords)
 
   if (adaptive[1] & Type != 'GD' & diagnull == TRUE)
-    NN = min(max(H[1] + 2, NN), ntp)
+    NN = min(max(H[1] + 2, NN), ifelse(extrapol,m,ntp))
 
   if (kernels[1] == 'shepard')
-    NN = max(H[1] + 2, min(NN + 1, ntp))
+    NN = max(H[1] + 2, min(NN + 1, ifelse(extrapol,m,ntp)))
 
   for (j in 1:length(adaptive)) {
     if (adaptive[j] & !(grepl("^gauss", kernels[j])))
-      NN = min(H[1] + 2, NN, ntp)
+      NN = min(H[1] + 2, NN, ifelse(extrapol,m,ntp))
   }
 
   if ((ncol(coords) > 2 | Type != 'GD') & (length(kernels) < ncol(coords) - 2 | length(H) < ncol(coords) - 2))
@@ -79,10 +80,10 @@ kernel_matW <- function(H, kernels, coords, NN = NULL, TP = NULL, Type = 'GD',
 
   stage1 = prep_w(H = H, kernels = kernels, Type = Type, adaptive = adaptive, dists = dists, indexG = indexG, alpha = alpha)
 
-  # --- CORRECTION ICI : Ajout de symmetric = FALSE ---
+  # --- FIX HERE: Added symmetric = FALSE ---
   W <- sparseMatrix(
     i = rep(1:nrow(stage1$indexG), each = ncol(stage1$indexG)),
-    j = as.numeric(t(stage1$indexG)), # as.numeric ou as.integer est plus sûr ici
+    j = as.numeric(t(stage1$indexG)), # as.numeric or as.integer is safer here
     dims = c(nrow(stage1$indexG), m),
     x = as.numeric(t(stage1$Wd)),
     symmetric = FALSE

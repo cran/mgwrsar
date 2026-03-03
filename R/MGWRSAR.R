@@ -23,6 +23,7 @@
 #' ("gauss")) .
 #' @param H vector containing the bandwidth parameters for the kernel functions.
 #' @param control list of extra control arguments for MGWRSAR wrapper - see Details below
+#' @export
 #' @details
 #' \describe{
 #' \item{Z}{A matrix of variables for genralized kernel product, default NULL.}
@@ -38,10 +39,6 @@
 #' \item{TP}{Avector of target points, default NULL.}
 #' \item{ncore}{Number of CPU core for parallel computation, default 1}
 #' \item{isgcv}{If TRUE, compute a LOOCV criteria, default FALSE.}
-#' \item{maxknn}{When n >NmaxDist, only the maxknn first neighbours are used
-#' for distance compution, default 500.}
-#' \item{NmaxDist}{When n >NmaxDist only the maxknn first neighbours are used
-#' for distance compution, default 5000}
 #' \item{verbose}{Verbose mode, default FALSE.}
 #'}
 #' @return MGWRSAR returns an object of class mgwrsar with at least the following components:
@@ -134,6 +131,7 @@
 #' }
 MGWRSAR <- function(formula, data, coords, fixed_vars = NULL, kernels, H,Model = "GWR", control = list()){
   set.seed(123, kind = "L'Ecuyer-CMRG", normal.kind = "Inversion")
+  coords_o<-coords
 
   control <- .mgwrsar_normalize_parallel_control(control, context = "MGWRSAR")
   get_SFdata()
@@ -169,6 +167,11 @@ MGWRSAR <- function(formula, data, coords, fixed_vars = NULL, kernels, H,Model =
     mycall <- match.call()
     n <-nrow(data)
     assign_control(control,n)
+    if (!is.null(NN)) {
+      NN <- suppressWarnings(as.integer(NN))
+      if (is.na(NN) || NN < 1L) NN <- n
+      NN <- min(NN, n)
+    }
     if(is.null(control$family)){
       control$family<-family<-gaussian(link = "identity")
     }
@@ -193,7 +196,7 @@ MGWRSAR <- function(formula, data, coords, fixed_vars = NULL, kernels, H,Model =
       model$tS=ncol(X)
       model$TS=lm.influence(lml)$hat
       if(get_s) {
-        XXtX<-solve(crossprod(X)) %*% t(X)
+        XXtX<-solve(crossprod(X), t(X))
         model$Shat=X%*% XXtX
         }
       model$XV = NULL
@@ -258,12 +261,12 @@ MGWRSAR <- function(formula, data, coords, fixed_vars = NULL, kernels, H,Model =
     if(length(TP)<length(Y) & !TP_estim_as_extrapol & !sum(is.na(model$Betav)>0)){
       ## version Wtp
       if(!(kernels[1] %in% c('epane','bisq','triangle','tcub'))) {
-      #Wtp=kernel_matW(H=H,kernels=kernels,coords=S[c(TP,(1:n)[-TP]),],NN=NN,TP=(1:length(TP)),Type=Type,adaptive=adaptive,diagnull=FALSE,alpha=alpha,dists=NULL,indexG=NULL,extrapol=F,QP=NULL)[,-(1:length(TP))]
-      Wtp=kernel_matW(H=H,kernels=kernels,coords=S,NN=NN,TP=TP,Type=Type,adaptive=adaptive,diagnull=FALSE,alpha=alpha,dists=NULL,indexG=NULL,extrapol=F,QP=NULL)[,-TP]
+      #Wtp=kernel_matW(H=H,kernels=kernels,coords=S[c(TP,(1:n)[-TP]),],NN=NN,TP=(1:length(TP)),Type=Type,adaptive=adaptive,diagnull=FALSE,alpha=alpha,dists=NULL,indexG=NULL,extrapol=FALSE,QP=NULL)[,-(1:length(TP))]
+      Wtp=kernel_matW(H=H,kernels=kernels,coords=S,NN=NN,TP=TP,Type=Type,adaptive=adaptive,diagnull=FALSE,alpha=alpha,dists=NULL,indexG=NULL,extrapol=FALSE,QP=NULL)[,-TP]
       Wtp<- normW(Matrix::t(Wtp))
       } else {
       ## version shepard
-      Wtp=kernel_matW(H=8,kernels='shepard',coords=S,NN=8+2,TP=(1:n)[-TP],Type=Type,adaptive=FALSE,diagnull=FALSE,extrapol=T,QP=TP)
+      Wtp=kernel_matW(H=8,kernels='shepard',coords=S,NN=8+2,TP=(1:n)[-TP],Type=Type,adaptive=FALSE,diagnull=FALSE,extrapol=TRUE,QP=TP)
       }
 
       model$Betav[-TP,]=as.matrix(Wtp%*% model$Betav[TP,])
@@ -296,7 +299,7 @@ MGWRSAR <- function(formula, data, coords, fixed_vars = NULL, kernels, H,Model =
     mymodel@formula = as.formula(formula)
     mymodel@data = data[,names(mf)]
     mymodel@Method = Method
-    mymodel@coords = coords
+    mymodel@coords = coords_o
     if(!is.null(control$Z)) mymodel@Z=control$Z
     if(!is.null(fixed_vars)) mymodel@fixed_vars=fixed_vars
     if(!is.null(kernels)) mymodel@kernels=kernels
@@ -305,11 +308,17 @@ MGWRSAR <- function(formula, data, coords, fixed_vars = NULL, kernels, H,Model =
     if(Type=='GDT') {
       mymodel@alpha=alpha
       mymodel@Ht=H[2]
+      if(adaptive[1]) mymodel@max_dist=min(NN,n) else mymodel@max_dist=max(as.numeric(dists[['dist_s']]),na.rm=TRUE)
+      if(adaptive[2]) mymodel@max_dist_t=min(NN,n) else mymodel@max_dist_t=max(as.numeric(dists[['dist_t']]),na.rm=TRUE)
     }
     if(Type=='T') {
       mymodel@alpha=alpha
       mymodel@Ht=H[1]
-    } else  mymodel@H=H[1]
+      if(adaptive[1]) mymodel@max_dist=min(NN,n) else mymodel@max_dist_t=max(as.numeric(dists[['dist_t']]),na.rm=TRUE)
+    } else  {
+      mymodel@H=H[1]
+      if(adaptive[1] | Model=='OLS') mymodel@max_dist=min(NN,n) else mymodel@max_dist=max(as.numeric(dists[['dist_s']]),na.rm=TRUE)
+    }
 
     if(!is.null(NN)) mymodel@NN = NN
     mymodel@TP=TP

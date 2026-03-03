@@ -164,9 +164,9 @@ multiscale_gwr <- function(formula, data, coords, kernels = 'bisq', control_mgwr
                                 ncore = ncore,
                                 n_rounds = 0,
                                 tol=0.001,
-                                refine=T,
-                                show_progress =F,
-                                verbose = F
+                                refine=TRUE,
+                                show_progress =FALSE,
+                                verbose = FALSE
       )
       res$minimum=res$best_model@H
       res$model=res$best_model
@@ -197,10 +197,6 @@ multiscale_gwr <- function(formula, data, coords, kernels = 'bisq', control_mgwr
   HBETA = list()
   rmse_list <- c()
 
-  # A SUPPRIMER
-  # bsl<<-list()
-  # A SUPPRIMER
-
   while ((abs(delta_rmse) > tolerance | any(stable < nstable)) & iter <= maxiter & length(unique(tail(rmse_list))) < 2) {
     iter = iter + 1
     if (verbose) cat('\n')
@@ -208,7 +204,7 @@ multiscale_gwr <- function(formula, data, coords, kernels = 'bisq', control_mgwr
     for (k in 1:K) {
       var = namesX[k]
       if (verbose)  cat(' ', var, ' ')
-      # Utilisation de as.matrix standard au lieu de pipe %>% pour limiter les dépendances si nécessaire
+      # Using standard as.matrix instead of pipe %>% to limit dependencies if needed
       data$epst <- data$eps + as.matrix(BETA[, k] * data[, var], ncol = 1)
       myformula = as.formula(paste0('epst~', var, '-1'))
 
@@ -226,9 +222,9 @@ multiscale_gwr <- function(formula, data, coords, kernels = 'bisq', control_mgwr
                                     tol=0.001,
                                     ncore = ncore,
                                     n_rounds =0,
-                                    refine=T,
-                                    show_progress =F,
-                                    verbose = F
+                                    refine=TRUE,
+                                    show_progress =FALSE,
+                                    verbose = FALSE
           )
           res$minimum=res$best_model@H
           res$model=res$best_model
@@ -284,8 +280,8 @@ multiscale_gwr <- function(formula, data, coords, kernels = 'bisq', control_mgwr
   if (get_AIC) modelGWR@AICc = AICg
   modelGWR@residuals = data$eps
   modelGWR@fit = Y - data$eps
-  modelGWR@RMSE = sqrt(mean(modelGWR@residuals^2))
-  modelGWR@RMSEtp = sqrt(mean(modelGWR@residuals^2))
+  modelGWR@RMSE = rmse(modelGWR@residuals)
+  modelGWR@RMSEtp = rmse(modelGWR@residuals[TP])
   modelGWR@H = c(H, Ht)
   modelGWR@X = X
   modelGWR@ctime = (proc.time() - start)[3]

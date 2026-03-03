@@ -22,9 +22,10 @@ PhWY_C(A, B, C, D)
 Proj_C(A, B)
 QRcpp2_C(A, B, C)
 Sl_C(A, B, C, D)
-gwr_beta_pivotal_qrp_cpp(X, y, XV, indexG, Wd, TP, get_ts = FALSE, get_s = FALSE,
-                         get_Rk = FALSE, get_se = FALSE)
-gwr_beta_univar_cpp(y, x, XV, indexG, Wd, TP, get_ts = FALSE, get_s = FALSE)
+gwr_beta_pivotal_qrp_cpp(X, y, XV, indexG, Wd, TP, get_ts = FALSE,
+                          get_s = FALSE,get_Rk = FALSE, get_se = FALSE)
+gwr_beta_univar_cpp(y, x, XV, indexG, Wd, TP, get_ts = FALSE, get_s = FALSE,
+                    get_se = FALSE)
 mgwr_beta_pivotal_qrp_mixed_cpp(XV, y, XC, indexG, Wd, TP, get_ts = FALSE,
                                 get_s = FALSE, get_Rk = FALSE, get_se = FALSE)
 

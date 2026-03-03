@@ -84,7 +84,7 @@ Rcpp::List compute_DS_DT_cpp(
       // ---- temporal distance ----
       double dt = std::fabs(Time[jj] - ti);
 
-      if (cyclic) {
+      if (cyclic && cycling > 0) {
         dt = std::fmod(dt, cycling);
         dt = std::min(dt, cycling - dt);
       }

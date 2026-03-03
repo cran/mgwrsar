@@ -29,7 +29,7 @@ df='H1',focal='median',D=NULL,verbose=FALSE)
 \item{verbose}{default FAlSE}
 }
 \value{
-The value of the statictics test and a p ratio.
+The value of the statistics test and a p ratio.
 }
 \description{
 A bootstrap test for Betas for mgwrsar class model.

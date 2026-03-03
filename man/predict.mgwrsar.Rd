@@ -53,8 +53,6 @@ for projecting estimated betas is used (see details).}
 }
 \value{
 A vector of predictions if beta_proj is FALSE or a list with a vector named Y_predicted and a matrix named Beta_proj_out.
-
-A vector of predictions.
 }
 \description{
 predict method for mgwrsar model

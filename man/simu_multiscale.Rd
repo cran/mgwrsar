@@ -80,5 +80,5 @@ Fotheringham, A. S., Yang, W., & Kang, W. (2017). Multiscale geographically weig
 
 Gao, S., Mei, C. L., Xu, Q. X., & Wang, N. (2021). Non-iterative multiscale estimation for spatial autoregressive geographically weighted regression models. \emph{Entropy}, 25(2), 320.
 
-Geniaux, G. (2025). Top-Down Scale Approaches for Multiscale GWR with Locally Adaptive Bandwidths. \emph{Springer Nature}, 2021 LATEX template.
+Geniaux, G. (2026). Top-down scale approaches for multiscale gwr with locally adaptive bandwidths. \emph{Journal of Geographical Systems}: 1–50.
 }

@@ -2,18 +2,17 @@
 % Please edit documentation in R/normW.R
 \name{normW}
 \alias{normW}
-\title{normW
-row normalization of dgCMatrix}
+\title{Row Normalization of Sparse Matrix}
 \usage{
 normW(x)
 }
 \arguments{
-\item{x}{A dgCMatrix class matrix}
+\item{x}{A matrix or dgCMatrix class sparse matrix.}
 }
 \value{
-A row normalized dgCMatrix
+A row-normalized matrix of the same class as the input.
 }
 \description{
-normW
-row normalization of dgCMatrix
+Row-normalizes a sparse matrix (dgCMatrix) or dense matrix so that each
+row sums to 1. Rows with zero sums are left unchanged.
 }

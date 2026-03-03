@@ -1,8 +1,12 @@
-#' normW
-#' row normalization of dgCMatrix
+#' Row Normalization of Sparse Matrix
+#'
+#' Row-normalizes a sparse matrix (dgCMatrix) or dense matrix so that each
+#' row sums to 1. Rows with zero sums are left unchanged.
+#'
 #' @usage normW(x)
-#' @param x  A dgCMatrix class matrix
-#' @return A row normalized dgCMatrix
+#' @param x A matrix or dgCMatrix class sparse matrix.
+#' @return A row-normalized matrix of the same class as the input.
+#' @export
 normW <- function(x) {
   if (is.null(dim(x))) {
     x <- matrix(x, nrow = 1)

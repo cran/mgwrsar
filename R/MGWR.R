@@ -152,8 +152,9 @@ MGWR <- function(Y, XC, XV, ALL_X = NULL, S, H, NN, kernels, adaptive = FALSE, T
       Betav = res$Betav,                    # Local varying coef
       SEV   = res$SEV,                      # SE of varying part
       se    = as.numeric(res$se),                     # SE of fixed part
-      edf   = n - res$tS - length(res$Betac),
-      tS    = res$tS + length(res$Betac),
+      edf   = n - res$tS,
+      tS    = res$tS ,
+      TS   = res$TS,
       Shat  = res$Shat                      # Hat matrix if requested
     )
 
@@ -163,8 +164,9 @@ MGWR <- function(Y, XC, XV, ALL_X = NULL, S, H, NN, kernels, adaptive = FALSE, T
       Betac = res$Betac,
       Betav = res$Betav,
       SEV   = NULL,
-      edf   = NULL,
-      tS    = res$tS + length(res$Betac),
+      edf   = n - res$tS,
+      tS    = res$tS ,
+      TS   = res$TS,
       Shat  = res$Shat
     )
 

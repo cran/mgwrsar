@@ -47,7 +47,8 @@ gwr_beta_pivotal_qrp_full <- function(
       Wd = Wd,
       TP = TP,
       get_ts = get_ts,
-      get_s = get_s
+      get_s = get_s,
+      get_se=SE
     )
   } else {
     res_cpp <- gwr_beta_pivotal_qrp_cpp(

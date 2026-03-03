@@ -21,6 +21,7 @@
 #' @param nTP numbeer of target points for random choice of target points,
 #'  default NULL.
 #' @return  find_TP returns an index vector of Target Points set.
+#' @export
 #' @details find_TP is a wrapper function that identifies a set of target
 #' points, based on spatial smoothed residuals by default.
 #' If no vector of residuals are provided, OLS residuals are computed.
@@ -50,7 +51,7 @@ find_TP <-function(formula, data,coords,kt,ks=16,Wtp=NULL,type='residuals',model
   n<-nrow(data)
   if(is.null(nTP)) nTP=round(n/kt)
   if(type=='residuals'){
-    if(ks<=1) stop ("A non-zero positive integer is required for kt")
+    if(ks<=1) stop ("A non-zero positive integer is required for ks")
     if(verbose>0) cat('\n-------------------------------------------------\n Search of Target Points \n-------------------------------------------------\n')
 
     if(ks==1) TP=1:n else {

@@ -6,19 +6,6 @@
 #' @return to be documented
 prep_var<-function(gwrenv){
   R_k=list()
-  # gwrenv$kernels_original<-gwrenv$kernels
-  # if(gwrenv$Type=='GDT'){
-  #   cycling<-as.numeric(unlist(str_split(gwrenv$kernels[2], '_'))[3])
-  #   if(!is.na(cycling)){
-  #     temporal_distance_modulo <- function(x, cycling = 365) {
-  #       x_mod <- x %% cycling
-  #       x_mod[x_mod == 0] <- cycling
-  #       pmin(x_mod, cycling - x_mod)
-  #     }
-  #     gwrenv$Z=temporal_distance_modulo(gwrenv$Z,cycling)
-  #     gwrenv$kernels[2]<-paste0(unlist(str_split(gwrenv$kernels[2], '_'))[1:2],collapse ='_')
-  #   }
-  # }
 
   if(!(gwrenv$Model %in% c('SAR','OLS'))) {
     if(gwrenv$Type=='T' & length(gwrenv$kernels)!=1 &  length(gwrenv$adaptive)!=1) stop("when Type='T'  kernels and adaptive should of length 1")

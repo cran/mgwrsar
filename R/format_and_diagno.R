@@ -14,7 +14,6 @@ if(e$TP_estim_as_extrapol) {
   if (!is.null(model$Betac)) XC=e$mymodel@XC
 }
 names_betav=e$names_betav
-names_betav=e$names_betav
 new_data=e$new_data
 mymodel=e$mymodel
 Model=e$Model
@@ -34,8 +33,8 @@ fit = as.numeric(term1 + term2)
 } else {residuals <- Y - term1 - term2
 fit = as.numeric(term1 + term2)
 }
-##### DISTINGUER GLM et LM
-## CAS GLM
+##### Distinguish GLM and LM
+## GLM case
 if(Model=='SAR') model$tS=ncol(XC)
 if (Model %in% c('GWR_glm','multiscale_gwr') ){
   p<-fit<-family$linkinv(fit)
@@ -73,7 +72,7 @@ if(!is.null(new_data)) {mymodel <- list(Betav = model$Betav, Betac = model$Betac
   if(!is.null(model$se))    mymodel@se = model$se
 
 
-  ## calcul des residus
+  ## Compute residuals
   mymodel@isgcv = isgcv
   if(is.null(model$tS)) {
     mymodel@AIC=as.numeric(NA)
@@ -104,8 +103,8 @@ if(!is.null(new_data)) {mymodel <- list(Betav = model$Betav, Betac = model$Betac
         SST=sum((Y-mean(Y))^2)
         mymodel@SSRtp<-SSRtp<-sum(mymodel@residuals[TP]^2)
         mymodel@SSR<-SSR<-sum(mymodel@residuals^2)
-        mymodel@RMSEtp=sqrt(mean((mymodel@residuals[TP])^2))
-        mymodel@RMSE=sqrt(mean((mymodel@residuals)^2)) ## used for optimization with CV
+        mymodel@RMSEtp=rmse(mymodel@residuals[TP])
+        mymodel@RMSE=rmse(mymodel@residuals) ## used for optimization with CV
         if(Model!='SAR'){
           if(isgcv) mymodel@CV=mymodel@RMSE
           mymodel@edf   <- n-mymodel@tS*n/m
@@ -119,7 +118,7 @@ if(!is.null(new_data)) {mymodel <- list(Betav = model$Betav, Betac = model$Betac
         }
       } else {
         ## if island then use OLS estimate for these obs.
-        mymodel@Betav[isolated_idx,]<-matrix(coef(lm.fit(XV,Y)),byrow = T, ncol = ncol(XV),nrow = length(isolated_idx))
+        mymodel@Betav[isolated_idx,]<-matrix(coef(lm.fit(XV,Y)),byrow = TRUE, ncol = ncol(XV),nrow = length(isolated_idx))
         fit[isolated_idx]<-rowSums(mymodel@Betav[isolated_idx,]*XV[isolated_idx,])
         residuals[isolated_idx]<-Y[isolated_idx]-fit[isolated_idx]
         n<-length(TP)
@@ -131,8 +130,8 @@ if(!is.null(new_data)) {mymodel <- list(Betav = model$Betav, Betac = model$Betac
         mymodel@SSR<-SSR<-sum(mymodel@residuals^2)
         SSTtp=sum((Y[TP]-mean(Y[TP]))^2)
         SST=sum((Y-mean(Y))^2)
-        mymodel@RMSEtp<-sqrt(mean((as.numeric(mymodel@residuals)[TP])^2))
-        mymodel@RMSE<-sqrt(mean((as.numeric(mymodel@residuals))^2))
+        mymodel@RMSEtp<-rmse(as.numeric(mymodel@residuals)[TP])
+        mymodel@RMSE<-rmse(as.numeric(mymodel@residuals))
         if(isgcv) mymodel@CV=mymodel@RMSE
         m<-n
         mymodel@AIC   <- n*log(SSR/n)+2*(model$tS)+n+n*log(2*pi)

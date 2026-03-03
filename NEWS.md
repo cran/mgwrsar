@@ -1,6 +1,24 @@
 NEWS/ChangeLog
 -----------------------------
+# 1.3.2 2026-03-02
 
+TDS algorithms
+	•	Introducing `tds_mgtwr` model for Multiscale GTWR with additive or multiplicative (cyclic or acyclic) spatio-temporal kernels.
+	•	Importance-driven update schedule that prioritizes covariates according to their current scale-normalized contribution to the fitted signal.
+	•	Fixed several edge cases in `TDS_MGWR()`.
+
+Control-parameter safety
+	•	Added stronger guards on neighborhood and search controls.
+	•	`NN` is now capped to `n` in both `MGWRSAR()` and `TDS_MGWR()` to avoid invalid k-NN requests.
+	•	In `TDS_MGWR()`, `control_tds$nns` is now capped to `min(round(n/8), round(maxit/2))`; if a user-provided value is too large, it is truncated with a warning.
+
+Parallel search reliability
+	•	Improved stability of parallel bandwidth-search workflows (foreach-based execution), with safer fallback behavior.
+
+Testing and maintenance
+	•	Added/extended tests for MGTWR/TDS-related scenarios.
+	
+	
 # 1.3.1 2026-01-21
 Major performance improvements
 	•	Complete rewrite of the local fitting engine using RcppArmadillo (pivotal QR + banded optimizations).

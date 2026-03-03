@@ -15,5 +15,5 @@ lambda=surf/n
 dmin=apply(D,1,function(x) sort(x)[2])
 ed=sqrt(lambda)
 dbar=mean(abs(dmin-ed))
-(dbar/ed-0.5)*2  ### verifier si 0.5 est independant de S et n
+(dbar/ed-0.5)*2  ### check if 0.5 is independent of S and n
 }

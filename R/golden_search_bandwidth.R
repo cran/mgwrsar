@@ -29,7 +29,7 @@ golden_search_bandwidth <- function(
   # --- Deprecation message (no hard dependency) ---
   if (requireNamespace("lifecycle", quietly = TRUE)) {
     lifecycle::deprecate_warn(
-      "1.3.#", # <- mets ta version de dépréciation
+      "1.3.#", # <- set your deprecation version
       "golden_search_bandwidth()",
       "search_bandwidths()"
     )
@@ -136,46 +136,41 @@ golden_search_bandwidth <- function(
   if (use_parallel) {
     sysname <- Sys.info()[['sysname']]
 
-    # Cas 1 : Linux (Forking) - Très rapide, mémoire partagée
+    # Case 1: Linux (Forking) - Very fast, shared memory
     if (sysname == "Linux") {
       doParallel::registerDoParallel(cores = ncore)
-      # Pas besoin d'exporter les données, le fork hérite de l'environnement !
+      # No need to export data, the fork inherits the environment!
 
     } else {
-      # Cas 2 : Windows/Mac (Sockets) - Plus lent, nécessite copie
+      # Case 2: Windows/Mac (Sockets) - Slower, requires data copy
       cl <- parallel::makeCluster(ncore)
       doParallel::registerDoParallel(cl)
 
-      # Export explicite uniquement pour les Sockets
+      # Explicit export only needed for Sockets
       parallel::clusterEvalQ(cl, {
         suppressPackageStartupMessages(library(mgwrsar))
         NULL
       })
-      # On exporte tout ce dont safe_eval a besoin
-      # Note: 'control' est lourd mais exporté une seule fois ici
+      # Export everything that safe_eval needs
+      # Note: 'control' is heavy but only exported once here
       parallel::clusterExport(cl, varlist = c("formula", "data", "coords", "fixed_vars",
                                               "kernels", "Model", "control", "safe_eval"),
                               envir = environment())
     }
 
-    # Nettoyage automatique en fin de fonction
+    # Automatic cleanup at end of function
     on.exit({
       if (!is.null(cl)) parallel::stopCluster(cl)
       doParallel::stopImplicitCluster()
     }, add = TRUE)
   }
 
-  # Fonction d'évaluation qui utilise le backend enregistré (Fork ou Socket)
+  # Evaluation function using the registered backend (Fork or Socket)
   eval_pair_parallel <- function(h1, h2) {
     H_list <- list(c(h1, Ht), c(h2, Ht))
 
     if (use_parallel) {
-      # Utilisation de foreach qui profite du backend enregistré
-      # .export est NULL car géré soit par Fork (Linux), soit par clusterExport (Mac/Win)
-      res_list <- foreach::foreach(h = H_list, .combine = c,
-                                   .packages = c('mgwrsar')) %dopar% {
-                                     safe_eval(h)
-                                   }
+      res_list <- unlist(parallel::mclapply(H_list, safe_eval, mc.cores = ncore))
     } else {
       res_list <- sapply(H_list, safe_eval)
     }
@@ -229,7 +224,7 @@ golden_search_bandwidth <- function(
   res <- (lower.bound + upper.bound) / 2
   if (adaptive) {
     candidates <- unique(c(x1, x2, lower.bound, upper.bound))
-    # Pour 4 candidats max, pas besoin de paralélisme (trop d'overhead)
+    # For at most 4 candidates, no need for parallelism (too much overhead)
     scores <- vapply(candidates, function(h) safe_eval(c(h, Ht)), numeric(1))
     res <- candidates[which.min(scores)]
     objective <- min(scores)

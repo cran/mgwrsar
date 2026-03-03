@@ -1,7 +1,9 @@
-#' rmse
-#' to be documented
+#' Root Mean Square Error
+#'
+#' Computes the RMSE of a vector: \code{sqrt(mean(err^2))}.
+#'
 #' @usage rmse(err)
-#' @param err to be documented
+#' @param err Numeric vector of errors or residuals.
 #' @noRd
-#' @return to be documented
+#' @return A scalar RMSE value.
 rmse<-function(err) sqrt(mean(err^2))

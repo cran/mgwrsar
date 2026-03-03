@@ -13,6 +13,7 @@
 #' @slot W Matrix. The spatial weight matrix for spatial dependence (row-standardized).
 #' @slot isgcv logical. Indicates if Leave-One-Out Cross-Validation (LOOCV) has been computed.
 #' @slot edf numeric. The estimated effective degrees of freedom.
+#' @slot edf_k numeric. The estimated effective degrees of freedom of univariate models.
 #' @slot formula formula. The model formula.
 #' @slot data data.frame. The dataframe used for computation.
 #' @slot Method character. The estimation technique for spatial dependence models ('2SLS' or 'B2SLS'). Default is '2SLS'.
@@ -55,6 +56,8 @@
 #' @slot G list. List containing neighboring indices and distances (knn object).
 #' @slot V numeric. Sequence of spatial bandwidths tested (for TDS algorithms).
 #' @slot Vt numeric. Sequence of temporal bandwidths tested (for TDS algorithms).
+#' @slot max_dist numeric. maximum distance possible with this kernel.
+#' @slot max_dist_t numeric. maximum temporal distance with this kernel.
 #' @slot Z numeric. Temporal or auxiliary variable for GDT kernel type.
 #' @slot TS numeric. Diagonal elements of the Hat Matrix.
 #' @slot alpha numeric. Ratio parameter for GDT kernels (balancing space and time).
@@ -78,6 +81,7 @@ setClass("mgwrsar",
            W = "Matrix",
            isgcv=  "logical",
            edf = "numeric",
+           edf_k = "numeric",
            formula = "formula",
            data=  "data.frame",
            Method=  "character",
@@ -121,6 +125,8 @@ setClass("mgwrsar",
            loglik="numeric",
            V="numeric",
            Vt="numeric",
+           max_dist="numeric",
+           max_dist_t="numeric",
            Z="numeric",
            alpha="numeric",
            HM= "matrix",
@@ -166,13 +172,190 @@ setMethod("fitted",'mgwrsar', function(object,...)
 #' @return A vector of residuals.
 #' @export
 #' @rdname residuals.mgwrsar
+#'
+#'
+#'
+#'
 setMethod("residuals",'mgwrsar', function(object,...)
 {
   object@residuals
 }
 )
+# by_significance_summary_mgwrsar <- function(object,
+#                                             alpha_levels = c(0.10, 0.05, 0.01),
+#                                             include_fixed = TRUE) {
+#
+#   get_slot_safe <- function(obj, name) {
+#     tryCatch(methods::slot(obj, name), error = function(e) NULL)
+#   }
+#
+#   Betav <- get_slot_safe(object, "Betav")
+#   sev   <- get_slot_safe(object, "sev")
+#   Betac <- if (include_fixed) get_slot_safe(object, "Betac") else NULL
+#   se    <- if (include_fixed) get_slot_safe(object, "se")    else NULL
+#   df    <- get_slot_safe(object, "edf")
+#   Y     <- get_slot_safe(object, "Y")
+#   n     <- length(Y)
+#
+#   # --- GESTION DU DF MANQUANT (Cas get_AIC = F) ---
+#   is_approx_df <- FALSE
+#   if (is.null(df) || is.na(df) || length(df) == 0 || df <= 0) {
+#     # Approximate with n - 1 if edf is missing, to allow display
+#     df <- n - 1
+#     is_approx_df <- TRUE
+#   }
+#
+#   has_varying <- !is.null(Betav) && !is.null(sev) && length(Betav) > 0
+#   has_fixed   <- !is.null(Betac) && !is.null(se) && length(Betac) > 0
+#
+#   if (!has_varying && !has_fixed) return(NULL)
+#   if (df <= 0) return(NULL)
+#
+#   row_names <- c("Not significant", "Significant (10% level)",
+#                  "Significant ( 5% level)", "Significant ( 1% level)")
+#
+#   counts_from_pvec <- function(pv) {
+#     ok <- is.finite(pv)
+#     c(`Not significant` = sum(ok & pv > 0.10),
+#       `Significant (10% level)` = sum(ok & pv <= 0.10 & pv > 0.05),
+#       `Significant ( 5% level)` = sum(ok & pv <= 0.05 & pv > 0.01),
+#       `Significant ( 1% level)` = sum(ok & pv <= 0.01))
+#   }
+#
+#   process_sig <- function(p_matrix) {
+#     sum_mat <- matrix(0L, nrow = 4, ncol = ncol(p_matrix),
+#                       dimnames = list(row_names, colnames(p_matrix)))
+#     for (j in seq_len(ncol(p_matrix))) {
+#       sum_mat[, j] <- unname(counts_from_pvec(p_matrix[, j])[row_names])
+#     }
+#     return(sum_mat)
+#   }
+#
+#   P_RAW <- NULL
+#   P_BY  <- NULL
+#   nTP <- if(has_varying) nrow(Betav) else 1L
+#
+#   if (has_varying) {
+#     p_raw_v <- 2 * stats::pt(-abs(Betav / sev), df = df)
+#     p_by_v <- p_raw_v
+#     for (j in seq_len(ncol(p_raw_v))) {
+#       p_by_v[, j] <- stats::p.adjust(p_raw_v[, j], method = "BY")
+#     }
+#     P_RAW <- p_raw_v
+#     P_BY  <- p_by_v
+#   }
+#
+#   fixed_counts_raw <- NULL
+#   fixed_counts_by  <- NULL
+#   if (has_fixed) {
+#     p_raw_f <- 2 * stats::pt(-abs(as.numeric(Betac) / as.numeric(se)), df = df)
+#     p_by_f <- stats::p.adjust(p_raw_f, method = "BY")
+#
+#     fixed_counts_raw <- matrix(0L, nrow = 4, ncol = length(Betac), dimnames = list(row_names, names(Betac)))
+#     fixed_counts_by  <- matrix(0L, nrow = 4, ncol = length(Betac), dimnames = list(row_names, names(Betac)))
+#
+#     for(j in seq_along(Betac)) {
+#       idx_r <- if(p_raw_f[j] <= 0.01) 4 else if(p_raw_f[j] <= 0.05) 3 else if(p_raw_f[j] <= 0.10) 2 else 1
+#       idx_b <- if(p_by_f[j] <= 0.01) 4 else if(p_by_f[j] <= 0.05) 3 else if(p_by_f[j] <= 0.10) 2 else 1
+#       fixed_counts_raw[idx_r, j] <- nTP
+#       fixed_counts_by[idx_b, j]  <- nTP
+#     }
+#   }
+#
+#   res_raw <- if(has_varying) process_sig(P_RAW) else NULL
+#   res_by  <- if(has_varying) process_sig(P_BY) else NULL
+#
+#   if (has_fixed) {
+#     res_raw <- if(is.null(res_raw)) fixed_counts_raw else cbind(fixed_counts_raw, res_raw)
+#     res_by  <- if(is.null(res_by)) fixed_counts_by else cbind(fixed_counts_by, res_by)
+#   }
+#
+#   return(list(raw = res_raw, adjusted = res_by, is_approx_df = is_approx_df))
+# }
+by_significance_summary_mgwrsar <- function(object,
+                                            alpha_levels = c(0.10, 0.05, 0.01),
+                                            include_fixed = TRUE) {
 
+  get_slot_safe <- function(obj, name) {
+    tryCatch(methods::slot(obj, name), error = function(e) NULL)
+  }
 
+  Betav   <- get_slot_safe(object, "Betav")
+  sev     <- get_slot_safe(object, "sev")
+  Betac   <- if (include_fixed) get_slot_safe(object, "Betac") else NULL
+  se      <- if (include_fixed) get_slot_safe(object, "se")    else NULL
+
+  edf_k_vec <- get_slot_safe(object, "edf_k")
+  df_global <- get_slot_safe(object, "edf")
+  n         <- length(get_slot_safe(object, "Y"))
+
+  # --- DEFINITION OF IS_APPROX_DF ---
+  # Considered as an approximation if the global edf is not available
+  is_approx_df <- is.null(df_global) || is.na(df_global) || length(df_global)==0
+
+  has_varying <- !is.null(Betav) && !is.null(sev) && length(Betav) > 0
+  has_fixed   <- !is.null(Betac) && !is.null(se) && length(Betac) > 0
+
+  row_names <- c("Not significant", "Significant (10% level)",
+                 "Significant ( 5% level)", "Significant ( 1% level)")
+
+  counts_from_pvec <- function(pv) {
+    ok <- is.finite(pv)
+    c(`Not significant` = sum(ok & pv > 0.10),
+      `Significant (10% level)` = sum(ok & pv <= 0.10 & pv > 0.05),
+      `Significant ( 5% level)` = sum(ok & pv <= 0.05 & pv > 0.01),
+      `Significant ( 1% level)` = sum(ok & pv <= 0.01))
+  }
+
+  out <- list(is_approx_df = is_approx_df) # Added here
+  nTP <- if(has_varying) nrow(Betav) else 1L
+
+  if (has_varying) {
+    p_raw_v <- Betav * 0
+    p_by_v  <- Betav * 0
+
+    for (k in colnames(Betav)) {
+      df_val <- if(!is.null(edf_k_vec) && !is.na(edf_k_vec[k])) edf_k_vec[k] else
+        if(!is.null(df_global) && !is.na(df_global)) df_global else n - 1
+
+      df_val <- max(2, df_val)
+      p_raw_v[, k] <- 2 * stats::pt(-abs(Betav[, k] / sev[, k]), df = df_val)
+      p_by_v[, k]  <- stats::p.adjust(p_raw_v[, k], method = "BY")
+    }
+
+    sum_raw <- matrix(0L, nrow = 4, ncol = ncol(Betav), dimnames = list(row_names, colnames(Betav)))
+    sum_by  <- matrix(0L, nrow = 4, ncol = ncol(Betav), dimnames = list(row_names, colnames(Betav)))
+
+    for (k in colnames(Betav)) {
+      sum_raw[, k] <- unname(counts_from_pvec(p_raw_v[, k])[row_names])
+      sum_by[, k]  <- unname(counts_from_pvec(p_by_v[, k])[row_names])
+    }
+    out$raw <- sum_raw
+    out$adjusted <- sum_by
+  }
+
+  if (has_fixed) {
+    df_fix <- if(!is.null(df_global) && !is.na(df_global)) df_global else n - 1
+    p_raw_f <- 2 * stats::pt(-abs(as.numeric(Betac) / as.numeric(se)), df = max(2, df_fix))
+    p_by_f <- stats::p.adjust(p_raw_f, method = "BY")
+
+    fixed_counts_raw <- matrix(0L, nrow = 4, ncol = length(Betac), dimnames = list(row_names, names(Betac)))
+    fixed_counts_by  <- matrix(0L, nrow = 4, ncol = length(Betac), dimnames = list(row_names, names(Betac)))
+
+    for(j in seq_along(Betac)) {
+      pv_r <- p_raw_f[j]; pv_b <- p_by_f[j]
+      idx_r <- if(pv_r <= 0.01) 4 else if(pv_r <= 0.05) 3 else if(pv_r <= 0.10) 2 else 1
+      idx_b <- if(pv_b <= 0.01) 4 else if(pv_b <= 0.05) 3 else if(pv_b <= 0.10) 2 else 1
+      fixed_counts_raw[idx_r, j] <- nTP
+      fixed_counts_by[idx_b, j]  <- nTP
+    }
+    out$raw <- if(is.null(out$raw)) fixed_counts_raw else cbind(fixed_counts_raw, out$raw)
+    out$adjusted <- if(is.null(out$adjusted)) fixed_counts_by else cbind(fixed_counts_by, out$adjusted)
+    out$is_approx_df<-is_approx_df
+  }
+
+  return(out)
+}
 #' summary for mgwrsar model
 #'
 #' @param object A model of class \code{\link{mgwrsar-class}}.
@@ -182,178 +365,99 @@ setMethod("residuals",'mgwrsar', function(object,...)
 #' @rdname summary.mgwrsar
 setMethod("summary", "mgwrsar", function(object, ...) {
   model <- object
-
-  # 1. Verification de la classe
   if (!is(model, 'mgwrsar')) stop("not a mgwrsar object")
 
-  # 2. Extraction des infos
   n <- length(model@Y)
   Model <- model@Model
   Type <- model@Type
   kernels <- model@kernels
   adaptive <- model@adaptive
 
-  # --- EN-TETE ---
   cat("------------------------------------------------------\n")
   cat("Call:\n")
   print(model@mycall)
   cat("\nModel:", Model, "\n")
 
-  # --- KERNELS CONFIGURATION (NOUVEAU BLOC) ---
   cat("------------------------------------------------------\n")
   cat("Kernels Configuration:\n")
+  get_adapt_label <- function(is_adapt) ifelse(is_adapt, "(Adaptive / Neighbors)", "(Fixed / Distance)")
 
-  # Fonction pour formater le label (Adaptive vs Fixed)
-  get_adapt_label <- function(is_adapt) {
-    ifelse(is_adapt, "(Adaptive / Neighbors)", "(Fixed / Distance)")
-  }
-
-  # Logique d'affichage selon le Type (Spatial, Temporel ou GDT)
   if (Type == 'GDT') {
-    # Spatial
-    k_s <- kernels[1]
-    a_s <- adaptive[1]
-    cat("   Spatial Kernel  :", k_s, get_adapt_label(a_s), "\n")
-
-    # Temporel (Gestion securisee des vecteurs de longueur 1)
+    cat("    Spatial Kernel  :", kernels[1], get_adapt_label(adaptive[1]), "\n")
     k_t <- if(length(kernels) > 1) kernels[2] else kernels[1]
-    a_t <- if(length(adaptive) > 1) adaptive[2] else FALSE # Par defaut Fixed si non specifie
-    cat("   Temporal Kernel :", k_t, get_adapt_label(a_t), "\n")
-
+    a_t <- if(length(adaptive) > 1) adaptive[2] else FALSE
+    cat("    Temporal Kernel :", k_t, get_adapt_label(a_t), "\n")
   } else if (Type == 'T') {
-    # Temporel pur
-    cat("   Temporal Kernel :", kernels[1], get_adapt_label(adaptive[1]), "\n")
-
+    cat("    Temporal Kernel :", kernels[1], get_adapt_label(adaptive[1]), "\n")
   } else {
-    # Spatial pur (GD ou defaut)
-    cat("   Spatial Kernel  :", kernels[1], get_adapt_label(adaptive[1]), "\n")
+    cat("    Spatial Kernel  :", kernels[1], get_adapt_label(adaptive[1]), "\n")
   }
 
-  # --- BANDWIDTH CONFIGURATION ---
   cat("------------------------------------------------------\n")
   cat("Bandwidth Configuration:\n")
-
-  simple_models <- c('OLS','GWR','MGWR','MGWRSAR_0_0_kv','MGWRSAR_0_kc_kv',
-                     'MGWRSAR_1_0_kv','MGWRSAR_1_kc_kv','MGWRSAR_1_kc_0')
+  simple_models <- c('OLS','GWR','MGWR','MGWRSAR_0_0_kv','MGWRSAR_0_kc_kv','MGWRSAR_1_0_kv','MGWRSAR_1_kc_kv','MGWRSAR_1_kc_0')
   multiscale_models <- c('tds_mgwr', 'atds_mgwr', 'atds_gwr')
 
-  # Case A: Standard Models (Scalar Bandwidths)
   if (Model %in% simple_models || Model == "OLS") {
-
     if (Type == 'GD') {
-      val <- if(length(model@H) == 1) round(model@H, 2) else "Computed/Optimized"
-      cat("   Spatial Bandwidth (H):", val, "\n")
-
+      cat("    Spatial Bandwidth (H):", if(length(model@H) == 1) round(model@H, 2) else "Optimized", "\n")
     } else if (Type == 'T') {
-      val <- if(length(model@Ht) == 1) round(model@Ht, 2) else "Computed/Optimized"
-      cat("   Temporal Bandwidth (H):", val, "\n")
-
+      cat("    Temporal Bandwidth (H):", if(length(model@Ht) == 1) round(model@Ht, 2) else "Optimized", "\n")
     } else if (Type == 'GDT') {
-      h_s <- if(length(model@H) >= 1) round(model@H[1], 2) else "N/A"
-      # Handle Ht or second element of H
-      h_t_val <-  model@Ht #if(length(model@Ht) == 1) model@Ht else if(length(model@H) > 1) model@H[2] else NA
-      h_t <- if(!is.na(h_t_val)) round(h_t_val, 2) else "N/A"
-
-      cat("   Spatial Bandwidth (H) :", h_s, "\n")
-      cat("   Temporal Bandwidth (Ht):", h_t, "\n")
+      cat("    Spatial Bandwidth (H) :", if(length(model@H) >= 1) round(model@H[1], 2) else "N/A", "\n")
+      cat("    Temporal Bandwidth (Ht):", if(!is.null(model@Ht)) round(model@Ht, 2) else "N/A", "\n")
     }
-
-    # Case B: Multiscale Models (TDS / ATDS)
   } else if (Model %in% multiscale_models) {
-
-    var_names <- colnames(model@Betav)
-    if (is.null(var_names)) var_names <- names(model@H)
-    if (is.null(var_names)) var_names <- paste0("Var", 1:length(model@H))
-
-    is_atds <- Model %in% c('atds_mgwr', 'atds_gwr')
-    df_bw <- data.frame(Variable = var_names, stringsAsFactors = FALSE)
-
-    # Spatial Bandwidth Column
-    df_bw$Spatial_H <- sapply(seq_along(var_names), function(i) {
-      if (is_atds && length(model@HM) > 0 && ncol(model@HM) >= i) {
-        vals <- na.omit(model@HM[, i])
-        if (length(vals) > 1) {
-          return(paste0("Adaptive [", round(min(vals), 1), "-", round(max(vals), 1), "]"))
-        }
-      }
-      val <- if(!is.null(names(model@H))) model@H[var_names[i]] else model@H[i]
-      if (is.na(val)) "-" else as.character(round(val, 2))
-    })
-
-    # Temporal Bandwidth Column
-    if (Type == 'GDT') {
-      df_bw$Temporal_Ht <- sapply(seq_along(var_names), function(i) {
-        val <- NA
-        if (length(model@Ht) > 0) {
-          val <- if(!is.null(names(model@Ht))) model@Ht[var_names[i]] else model@Ht[i]
-        }
-        if (length(val) > 1) {
-          return(paste0("Adaptive [", round(min(val), 1), "-", round(max(val), 1), "]"))
-        } else if (is.na(val)) {
-          return("-")
-        } else {
-          return(as.character(round(val, 2)))
-        }
-      })
-    }
-
-    if (is_atds) cat("   [ATDS] Bandwidth correction during stage 2:\n")
-    else cat("   [TDS] Covariate-Specific Bandwidths:\n")
-    print(df_bw, row.names = FALSE, right = FALSE)
+    var_names <- if(!is.null(colnames(model@Betav))) colnames(model@Betav) else names(model@H)
+    df_bw <- data.frame(Variable = var_names, Spatial_H = sapply(var_names, function(vn) round(model@H[vn], 2)))
+    if (Type == 'GDT') df_bw$Temporal_Ht <- sapply(var_names, function(vn) round(model@Ht[vn], 2))
+    cat(paste0("    [", toupper(Model), "] Covariate-Specific Bandwidths:\n"))
+    print(df_bw, row.names = FALSE)
   }
 
-  # --- MODEL SETTINGS (Suite) ---
   cat("------------------------------------------------------\n")
   cat("Model Settings:\n")
-  if (!(Model %in% c('OLS', 'GWR', 'MGWR', 'tds_mgwr', 'atds_mgwr')))
-    cat("   Method for spatial autocorrelation:", model@Method, "\n")
+  cat("    Computation time:", round(model@ctime, 3), "sec\n")
+  cat("    Number of data points:", n, "\n")
 
-  cat("   Computation time:", round(model@ctime, 3), "sec\n")
-
-  tp_check <- if (is.null(model@TP) || length(model@TP) == n) 'NO' else 'YES'
-  cat("   Use of Target Points:", tp_check, "\n")
-  if (tp_check == 'YES') {
-    nb_tp <- if (is.list(model@TP)) length(unlist(model@TP)) else length(model@TP)
-    cat("   Number of Target Points:", nb_tp, "\n")
-  }
-
-  use_rough <- ifelse(model@NN < n & (!adaptive[1] | (adaptive[1] & model@kernels[1] == 'gauss')),
-                      paste0('YES (', model@NN, ' neighbors)'), 'NO')
-  cat("   Use of rough kernel approximation:", use_rough, "\n")
-  cat("   Parallel computing:", paste0("(ncore = ", model@ncore, ")"), "\n")
-  cat("   Number of data points:", n, "\n")
-
-  # --- PARAMETERS ---
   cat("------------------------------------------------------\n")
   cat("Coefficients Summary:\n")
-
-  if (length(model@XC) > 0 || length(model@Betac) > 0) {
-    cat("   [Constant Parameters]\n")
-    c_names <- names(model@Betac)
-    if(is.null(c_names) && length(model@XC) > 0) c_names <- colnames(model@XC)
-    vals <- as.numeric(model@Betac)
-    names(vals) <- c_names
-    print(vals)
+  if (length(model@Betac) > 0) {
+    cat("    [Constant Parameters]\n")
+    print(model@Betac)
     cat("\n")
   }
-
-  if (length(model@XV) > 0) {
-    cat("   [Varying Parameters]\n")
+  if (length(model@Betav) > 0) {
+    cat("    [Varying Parameters]\n")
     print(summary(model@Betav))
   }
 
-  # --- DIAGNOSTICS ---
+  # --- DUAL SIGNIFICANCE ANALYSIS (raw and BY-adjusted) ---
+  if (length(model@sev) > 0) {
+    sig_res <- by_significance_summary_mgwrsar(model)
+    if (!is.null(sig_res)) {
+      if (isTRUE(sig_res$is_approx_df)) {
+        cat("\n    [Significance Analysis - WARNING: Local Approximation]\n")
+        cat("    Note: edf not computed (get_AIC=F). Using df = n-1 for local p-values.\n")
+      } else {
+        cat("\n    [Significance Analysis - Raw (Unadjusted)]\n")
+      }
+      print(sig_res$raw)
+      cat("\n    [Significance Analysis - BY Adjusted (FDR Control)]\n")
+      print(sig_res$adjusted)
+      cat("\n    Note: Counts reflect number of points with significant local coefficients.\n")
+    }
+  }
+
   cat("------------------------------------------------------\n")
   cat("Diagnostics:\n")
-  if (length(model@edf) > 0) cat("   Effective degrees of freedom:", round(model@edf, 2), "\n")
-  if (length(model@tS) > 0 || length(model@AICc) > 0) cat("   AICc:", round(model@AICc, 2), "\n")
-  if (length(model@CV) > 0) cat("   LOOCV:", round(model@CV, 4), "\n")
-
-  val_SSR <- if (is.function(model@SSR)) "Not computed" else round(model@SSR, 2)
-  val_RMSE <- if (is.function(model@RMSE)) "Not computed" else round(model@RMSE, 4)
-
-  cat("   Residual sum of squares:", val_SSR, "\n")
-  cat("   RMSE:", val_RMSE, "\n")
+  if (length(model@edf) > 0 && !is.na(model@edf)) {
+    cat("    Effective degrees of freedom:", round(model@edf, 2), "\n")
+  } else {
+    cat("    Effective degrees of freedom: Not computed (get_AIC=F)\n")
+  }
+  if (length(model@AICc) > 0 && !is.na(model@AICc)) cat("    AICc:", round(model@AICc, 2), "\n")
+  cat("    RMSE:", if (is.function(model@RMSE)) "Not computed" else round(model@RMSE, 4), "\n")
   cat("------------------------------------------------------\n")
 
   invisible(model)
@@ -383,7 +487,6 @@ setMethod("summary", "mgwrsar", function(object, ...) {
 #' insample data to estimate the corresponding MGWRSAR (see Geniaux 2022 for
 #' further detail), if method_pred ='shepard'a shepard kernel with k_extra neighbours (default 8) is used and if method_pred='kernel_model' the same kernel
 #' and number of neighbors as for computing the MGWRSAR model is used.
-#' @return A vector of predictions.
 #' @export
 #' @rdname predict.mgwrsar
 setMethod("predict",'mgwrsar', function(object,newdata, newdata_coords, W = NULL, type = "BPN", h_w = 100,kernel_w = "rectangle",maxobs=4000,beta_proj=FALSE,method_pred='TP', k_extra = 8,exposant=8,...)

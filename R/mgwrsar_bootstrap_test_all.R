@@ -6,6 +6,7 @@
 #' @param type type of boostrap ('spatial','wild','random')
 #' @seealso  mgwrsar_bootstrap_test
 #' @return a matrix with statistical test values and p ratios
+#' @export
 mgwrsar_bootstrap_test_all <-
 function(model,B=100,ncore=1,type='standard'){
 x1=model
@@ -20,6 +21,6 @@ x0<-MGWRSAR(formula=update(x1@formula,paste('~.-',name_x,sep='')),data=x1@data,c
 cat(name_x,' ')
 res[i,]<-unlist(mgwrsar_bootstrap_test(x0,x1,B=B,ncore=ncore,type=type,eps='H0',df='H0',focal='median',D=NULL))
 }
-colnames(res)<-c('Pratio','T')
+colnames(res)<-c('Pratio','Tstat')
 as.data.frame(res)
 }

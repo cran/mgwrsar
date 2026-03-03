@@ -6,6 +6,8 @@
 #' @param nsample integer,  size of the sample if sampling is TRUE, default 2000.
 #' @param nsample_max integer, size max to engage sampling if sampling is TRUE, default 5000.
 #' @param title a title for the plot.
+#' @return A side-effect function that displays a ggplot2 plot. Returns the plot object invisibly.
+#' @export
 #' @examples
 #' \donttest{
 #'  library(mgwrsar)

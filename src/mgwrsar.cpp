@@ -22,16 +22,18 @@ inline MatrixXd AtA(const MatrixXd& A) {
 
 // ============================================================================
 // IMPLEMENTATIONS (C++ Linkage)
-// Ces fonctions sont appelées par RcppExports_eigen.cpp
+// These functions are called by RcppExports_eigen.cpp
 // ============================================================================
 
 // Proj_C
 NumericMatrix Proj_C(const NumericMatrix& HH, const NumericMatrix& XX) {
-  // Copie explicite pour sûreté numérique (comme original)
+  // Explicit copy for numerical safety (as in original)
   MatrixXd H = as<MatrixXd>(HH);
   MatrixXd X = as<MatrixXd>(XX);
 
-  MatrixXd res = H * (H.adjoint() * H).inverse() * (H.transpose() * X);
+  // Use QR decomposition instead of raw .inverse() for numerical safety
+  Eigen::ColPivHouseholderQR<MatrixXd> qr(H.adjoint() * H);
+  MatrixXd res = H * qr.solve(H.transpose() * X);
   return wrap(res);
 }
 
@@ -52,7 +54,7 @@ S4 Sl_C(double llambda, const S4& WW, bool iinv, bool aapprox) {
       SparseMatrix<double> res = I + lambda*W + lambda2*W2 + lambda2*lambda*W*W2 + lambda2*lambda2*W2*W2;
       return wrap(res);
     } else {
-      // Utilisation de l'appel R pour solve exact (comme original)
+      // Use R call for exact solve (as in original)
       Environment matr("package:Matrix");
       Function solve = matr["solve"];
       return solve(wrap(SW));
@@ -64,35 +66,35 @@ S4 Sl_C(double llambda, const S4& WW, bool iinv, bool aapprox) {
 
 // INST_C
 NumericMatrix INST_C(const NumericMatrix& XX, const S4& WW, bool withlambda, double llambda) {
-  // ATTENTION : Retour aux copies explicites (MatrixXd) au lieu de Map
-  // pour correspondre exactement à la version originale 1.1/1.2.3
+  // NOTE: Using explicit copies (MatrixXd) instead of Map
+  // to match exactly the original version 1.1/1.2.3
   MatrixXd x = as<MatrixXd>(XX);
   SparseMatrix<double> W = as<SparseMatrix<double> >(WW);
   double lambda = llambda;
 
-  // Appel à int_prems (fonction R)
+  // Call to int_prems (R function)
   Function ReorderX("int_prems");
   SEXP xx = ReorderX(x);
 
-  // ICI : Copie explicite du résultat de int_prems
+  // Explicit copy of int_prems result
   MatrixXd X = as<MatrixXd>(xx);
 
   int n = W.rows();
   int m = X.cols();
 
-  // Check conditions via R functions (comme original)
+  // Check conditions via R functions (as in original)
   Function sd("sd");
   double c0sum = X.col(0).sum();
   double sdc0 = as<double>(sd(X.col(0)));
   bool check = (c0sum == n && sdc0 == 0);
 
   MatrixXd H_mat;
-  // Utilisation de cbind R pour reproduire exactement le comportement original
+  // Use R cbind to exactly reproduce the original behavior
   Function cbind("cbind");
 
   if (withlambda) {
-    // Appel récursif (via wrapper C++ interne ou via R)
-    // Ici on appelle la fonction C++ locale Sl_C
+    // Recursive call (via internal C++ wrapper or R)
+    // Here we call the local C++ function Sl_C
     SEXP iWW_sexp = Sl_C(lambda, wrap(W), true, true);
     SparseMatrix<double> iW = as<SparseMatrix<double> >(iWW_sexp);
 
@@ -103,7 +105,7 @@ NumericMatrix INST_C(const NumericMatrix& XX, const S4& WW, bool withlambda, dou
       iWX = W * iW * X;
     }
 
-    // Utilisation de cbind R pour assemblage sûr
+    // Use R cbind for safe assembly
     H_mat = as<MatrixXd>(cbind(X, iWX));
 
   } else {
@@ -119,22 +121,22 @@ NumericMatrix INST_C(const NumericMatrix& XX, const S4& WW, bool withlambda, dou
 
 // PhWY_C
 NumericVector PhWY_C(const NumericVector& YY, const NumericMatrix& XX, const S4& WW, const NumericVector& Wi) {
-  // Map pour les inputs (lecture seule)
+  // Map for inputs (read-only)
   const Map<VectorXd> Y(as<Map<VectorXd> >(YY));
   const Map<MatrixXd> X(as<Map<MatrixXd> >(XX));
   const SparseMatrix<double> W(as<SparseMatrix<double> >(WW));
   const Map<VectorXd> wi(as<Map<VectorXd> >(Wi));
 
-  // Appel C++ direct
+  // Direct C++ call
   NumericMatrix HH_sexp = INST_C(wrap(X), wrap(W), false, 0.0);
   MatrixXd H = as<MatrixXd>(HH_sexp);
 
-  // Pondération
+  // Weighting
   H = H.array() * ((wi.replicate(1, H.cols())).array());
   VectorXd YY_w = Y.array() * wi.array();
   MatrixXd WY = W * YY_w;
 
-  // Appel C++ direct
+  // Direct C++ call
   NumericMatrix PHWY_sexp = Proj_C(wrap(H), wrap(WY));
 
   return as<NumericVector>(PHWY_sexp);
@@ -201,7 +203,7 @@ List mod(const NumericVector& YY,
   // --- Instruments Logic ---
 
   NumericMatrix H_sexp;
-  NumericMatrix PhWY_sexp; // Correction de type précédente conservée
+  NumericMatrix PhWY_sexp; // Previous type correction preserved
 
   if(LocalInst == "L0") {
     H_sexp = INST_C(wrap(XZ), wrap(W), false, 0.0);
@@ -259,11 +261,11 @@ List mod(const NumericVector& YY,
     PhWY_sexp = Proj_C(wrap(H), wrap(WY));
     XB = as<VectorXd>(PhWY_sexp).array() * wi.array();
   }
-  else { // L7 ou défaut
-    // Reprise simplifiée du cas L7/défaut avec copies explicites
+  else { // L7 or default
+    // Simplified fallback for L7/default case with explicit copies
     H_sexp = INST_C(wrap(XZ), wrap(W), false, 0.0);
-    // Si L7, on a besoin de wi2 logic (omis ici pour brièveté, assumons L0 fallback)
-    // Si vous utilisez L7, il faut réintégrer le bloc wi2
+    // If L7, wi2 logic is needed (omitted here for brevity, assuming L0 fallback)
+    // If using L7, the wi2 block needs to be reintegrated
     H = as<MatrixXd>(H_sexp);
     WY = W * YZ;
     PhWY_sexp = Proj_C(wrap(H), wrap(WY));
@@ -275,15 +277,22 @@ List mod(const NumericVector& YY,
   MatrixXd XB_mat;
 
   if (!ismethodMGWRSAR_1_kc_0) {
-    // Utilisation de cbind R pour sûreté (comme original)
+    // Use R cbind for safety (as in original)
     SEXP xxb_sexp = cbind(wrap(X), wrap(XB));
     XB_mat = as<MatrixXd>(xxb_sexp);
   } else {
     XB_mat = XB;
   }
 
-  const LLT<MatrixXd> llt(AtA(XB_mat));
-  betahat = llt.solve(XB_mat.adjoint() * Y);
+  {
+    const LLT<MatrixXd> llt(AtA(XB_mat));
+    if (llt.info() == Eigen::Success) {
+      betahat = llt.solve(XB_mat.adjoint() * Y);
+    } else {
+      Eigen::ColPivHouseholderQR<MatrixXd> qr(XB_mat);
+      betahat = qr.solve(Y);
+    }
+  }
   lambda = betahat(betahat.size() - 1);
 
   if(ismethodB2SLS) {
@@ -308,22 +317,31 @@ List mod(const NumericVector& YY,
     } else {
       XB_mat = XB;
     }
-    const LLT<MatrixXd> llt2(AtA(XB_mat));
-    betahat = llt2.solve(XB_mat.adjoint() * Y);
+    {
+      const LLT<MatrixXd> llt2(AtA(XB_mat));
+      if (llt2.info() == Eigen::Success) {
+        betahat = llt2.solve(XB_mat.adjoint() * Y);
+      } else {
+        Eigen::ColPivHouseholderQR<MatrixXd> qr2(XB_mat);
+        betahat = qr2.solve(Y);
+      }
+    }
   }
 
   if(SE_) {
-    VectorXd fitted = X * betahat;
+    VectorXd fitted = XB_mat * betahat;
     VectorXd resid = Y - fitted;
     int n = Y.rows();
-    int p = X.cols();
-    int df = n - p;
+    int p_full = XB_mat.cols();
+    int df = std::max(1, n - p_full);
     double s = resid.norm() / std::sqrt((double)df);
 
     LLT<MatrixXd> llt_final(AtA(XB_mat));
-    VectorXd se = s * llt_final.matrixL().solve(MatrixXd::Identity(XB_mat.cols(), XB_mat.cols())).colwise().norm();
-
-    return List::create(Named("Betav")=betahat, Named("se")=se);
+    if (llt_final.info() == Eigen::Success) {
+      VectorXd se = s * llt_final.matrixL().solve(MatrixXd::Identity(p_full, p_full)).colwise().norm();
+      return List::create(Named("Betav")=betahat, Named("se")=se);
+    }
+    return List::create(Named("Betav")=betahat);
   }
 
   return List::create(Named("Betav")=betahat);

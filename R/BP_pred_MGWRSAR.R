@@ -39,7 +39,7 @@ WJ[sup0,]<-WJ[sup0,]/rs[sup0]
 m=length(JO)
 
 if(length(lambda_hat)>1) lambda_hat<-as.numeric(lambda_hat[JO])
-### creation des index sur J et O
+### create indices for J and O
 J2=1:length(J)
 O2=(length(J)+1):m
 ## Compute Q

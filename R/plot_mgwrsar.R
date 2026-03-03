@@ -74,18 +74,18 @@ plot.mgwrsar <- function(x,
   # 1. DATA PREPARATION
   # ============================================================
 
-  # --- CAS A : ANIMATION FLUIDE (Prédiction sur grille N x T) ---
+  # --- CASE A: SMOOTH ANIMATION (Prediction on N x T grid) ---
   if (is_gdt && !is.null(n_time_steps) && type == 'B_coef') {
     # ============================================================
     # INSERTION : GESTION DU CYCLE TEMPOREL (MODULO)
     # ============================================================
-      # 1. Récupération du kernel temporel (le 2ème si vecteur de 2, sinon le 1er)
+      # 1. Retrieve the temporal kernel (2nd if length-2 vector, otherwise 1st)
       k_t <- if(length(model@kernels) > 1) model@kernels[2] else model@kernels[1]
 
-      # 2. Parsing du nom (format attendu : "nom_type_periode", ex: "gauss_modulo_365")
+      # 2. Parse the name (expected format: "name_type_period", e.g. "gauss_modulo_365")
       parts <- unlist(strsplit(k_t, "_"))
 
-      # 3. Application de la transformation si "modulo" est détecté
+      # 3. Apply the transformation if "modulo" is detected
       if (length(parts) >= 3) {
         period <- as.numeric(parts[3])
 
@@ -93,17 +93,17 @@ plot.mgwrsar <- function(x,
           # Transformation Modulo standard
           z_transformed <- model@Z %% period
 
-          # Gestion des indices : Si le modulo donne 0, on le remplace souvent par la période
-          # (ex: jour 365 %% 365 = 0 -> on remet 365 si les données sont en base 1)
-          # On suppose ici que si le min > 0, c'est du 1-based index.
+          # Index handling: If modulo gives 0, replace it with the period
+          # (e.g. day 365 %% 365 = 0 -> set back to 365 if data is 1-based)
+          # We assume here that if min > 0, we have 1-based indexing.
           if (min(model@Z, na.rm = TRUE) > 0) {
             z_transformed[z_transformed == 0] <- period
           }
 
-          # Mise à jour locale de Z pour la suite du plot
+          # Local update of Z for the rest of the plot
           model@Z <- z_transformed
 
-          # message(sprintf("Cycle temporel appliqué pour l'affichage : Modulo %s", period))
+          # message(sprintf("Temporal cycle applied for display: Modulo %s", period))
         }
       }
 
@@ -120,28 +120,28 @@ plot.mgwrsar <- function(x,
     u_coords <- unique(coords_mat)
     n_loc <- nrow(u_coords)
 
-    # 2. Séquence temporelle
+    # 2. Temporal sequence
     t_min <- min(model@Z)
     t_max <- max(model@Z)
     t_seq <- seq(t_min, t_max, length.out = n_time_steps)
 
-    # 3. Construction de la Grille (Expand Grid manuel)
-    # Ordre strict : T1(Loc1..N), T2(Loc1..N)...
+    # 3. Grid construction (manual expand grid)
+    # Strict order: T1(Loc1..N), T2(Loc1..N)...
 
-    # Temps répété (Blocs)
+    # Time repeated (Blocks)
     new_coords_t <- rep(t_seq, each = n_loc)
 
-    # Lieux répétés (Cycles)
+    # Locations repeated (Cycles)
     new_coords_s <- u_coords[rep(1:n_loc, times = n_time_steps), , drop = FALSE]
 
-    # Matrice coords pour predict
+    # Coords matrix for predict
     newdata_coords_st <- cbind(new_coords_s, new_coords_t)
 
     # 4. Dummy data
     newdata_dummy <- model@data[rep(1, nrow(newdata_coords_st)), , drop = FALSE]
 
-    # 5. Prédiction
-    #browser()
+    # 5. Prediction
+
     B_pred <- predict(model,
                       newdata = newdata_dummy,
                       newdata_coords = newdata_coords_st,
@@ -149,7 +149,7 @@ plot.mgwrsar <- function(x,
 
     val_to_plot <- B_pred$Beta_proj_out[, var]
 
-    # 6. DataFrame pour Plotly
+    # 6. DataFrame for Plotly
     df_plot <- data.frame(
       Value = val_to_plot,
       raw_x = newdata_coords_st[,1],
@@ -157,16 +157,16 @@ plot.mgwrsar <- function(x,
       Time = newdata_coords_st[,3]
     )
 
-    # ID constant pour info-bulle (facultatif pour le mapping maintenant)
-    #browser()
+    # Constant ID for tooltip (optional for mapping now)
+
     df_plot$LocationID <- rep(1:n_loc, times = n_time_steps)
     df_plot$ID <- 1:nrow(df_plot)
 
     var_name <- paste("Pred:", var)
     if (is.null(title)) title <- paste("Spatio-Temporal Evolution of", var)
 
-    # IMPORTANT : On ne supprime PAS les NA ici pour garder la symétrie des frames
-    # df_plot <- df_plot[!is.na(df_plot$Value), ]  <-- SUPPRIMÉ
+    # IMPORTANT: Do NOT remove NAs here to preserve frame symmetry
+    # df_plot <- df_plot[!is.na(df_plot$Value), ]  <-- REMOVED
 
   } else {
     # --- CAS B : AFFICHAGE CLASSIQUE (Observed Data) ---
@@ -202,10 +202,10 @@ plot.mgwrsar <- function(x,
 
     if (is_gdt) {
       df_plot$Time <- model@Z
-      # Ici, comme les données observées ne sont pas sur une grille régulière,
-      # on filtre les NA car on ne peut pas garantir la symétrie de toute façon.
+      # Here, since observed data is not on a regular grid,
+      # we filter NAs because we cannot guarantee frame symmetry anyway.
       df_plot <- df_plot[!is.na(df_plot$Value), ]
-      # Tri indispensable
+      # Sorting is essential
       df_plot <- df_plot[order(df_plot$Time), ]
     } else {
       df_plot <- df_plot[!is.na(df_plot$Value), ]
@@ -256,8 +256,8 @@ plot.mgwrsar <- function(x,
   frame_col <- if ("Time" %in% names(df_plot)) ~Time else NULL
 
   # --- AJOUT DE LA TRACE ---
-  # CORRECTION CRITIQUE : Suppression de 'ids' pour le mode grille régulière
-  # Le tri implicite (Ligne i Frame 1 -> Ligne i Frame 2) fonctionne mieux.
+  # CRITICAL FIX: Removed 'ids' for regular grid mode
+  # Implicit sorting (Row i Frame 1 -> Row i Frame 2) works better.
 
   p <- plotly::add_trace(
     p,
@@ -267,7 +267,7 @@ plot.mgwrsar <- function(x,
     x = x_col, y = y_col, lon = lon_col, lat = lat_col,
 
     frame = frame_col,
-    # ids = ~LocationID,  <-- SUPPRIME POUR EVITER LE BUG "1 POINT"
+    # ids = ~LocationID,  <-- REMOVED TO AVOID THE "1 POINT" BUG
 
     text = make_hover(df_plot$Value, var_name, if(!is.null(frame_col)) df_plot$Time else NULL),
     hoverinfo = "text",
@@ -395,7 +395,7 @@ plot.mgwrsar <- function(x,
       p,
       frame = 1000,
       transition = 0, # Pas de transition floue
-      redraw = TRUE   # Force le redessin complet (crucial pour éviter les fantômes)
+      redraw = TRUE   # Force complete redraw (crucial to avoid ghost points)
     )
 
     p <- plotly::animation_slider(

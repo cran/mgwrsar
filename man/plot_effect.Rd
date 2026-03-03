@@ -18,6 +18,9 @@ plot_effect(model,sampling=TRUE,nsample=2000,nsample_max=5000,title='')
 
 \item{title}{a title for the plot.}
 }
+\value{
+A side-effect function that displays a ggplot2 plot. Returns the plot object invisibly.
+}
 \description{
 plot_effect
 plot_effect is a function that plots the effect of a variable X_k with spatially varying coefficient, i.e X_k * Beta_k(u_i,v_i) for comparing the magnitude of effects of between variables.

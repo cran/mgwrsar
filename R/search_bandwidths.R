@@ -138,7 +138,7 @@ search_bandwidths<- function(
 
     # -- control setup
     control_o <- control
-    control$SE     <- FALSE
+    #control$SE     <- FALSE
     control$get_s  <- FALSE
     control$get_Rk <- FALSE
     if (is.null(control$Type)) control$Type <- "GD"
@@ -240,7 +240,7 @@ search_bandwidths<- function(
     eval_pair_parallel <- function(h1, h2) {
       H_list <- list(c(h1, Ht), c(h2, Ht))
       if (use_parallel) {
-        foreach::foreach(h = H_list, .combine = c, .packages = c("mgwrsar")) %dopar% safe_eval(h)
+        unlist(parallel::mclapply(H_list, safe_eval, mc.cores = ncore))
       } else {
         sapply(H_list, safe_eval)
       }
@@ -294,7 +294,8 @@ search_bandwidths<- function(
     } else {
       objective <- safe_eval(c(res, Ht))
     }
-
+    control_o$isgcv <- FALSE
+    
     final_model <- MGWRSAR(
       formula, data, coords, fixed_vars, kernels,
       H = c(res, Ht), Model = Model, control = control_o
@@ -510,6 +511,35 @@ search_bandwidths<- function(
     c(h_s = h_s, h_t = h_t, score = score, isolated = iso)
   }
 
+
+
+  # --- [MODIFICATION 1]: Helper for robust selection ---
+  .select_robust_best <- function(res_df) {
+    # 1. Keep only finite scores
+    valid <- res_df[is.finite(res_df$score), ]
+    if (nrow(valid) == 0) return(res_df[1, , drop = FALSE])
+
+    # 2. Compute robust statistics
+    med_score <- median(valid$score)
+    mad_score <- mad(valid$score)
+
+    # 3. Define the threshold (anything far below is suspect)
+    # k=10 is permissive but eliminates -1e6 vs 5000
+    threshold <- med_score - 10 * mad_score
+
+    # Safety check if MAD is near zero (perfect plateau)
+    if (mad_score < 1e-5) threshold <- med_score - 1000
+
+    # 4. Filter and select the minimum
+    cleaned <- valid[valid$score > threshold, ]
+
+    # Fallback: if filtering is too aggressive (everything rejected), keep all
+    if (nrow(cleaned) == 0) cleaned <- valid
+
+    # Return the row with the minimum among the "healthy" values
+    return(cleaned[which.min(cleaned$score), , drop = FALSE])
+  }
+
   # -------------------------------------------------------------------------
   # 9) Grid rounds: always minimize "score"
   # -------------------------------------------------------------------------
@@ -548,16 +578,7 @@ search_bandwidths<- function(
 
       res_round <- round_timer({
 
-        op <- if (use_parallel) foreach::`%dopar%` else foreach::`%do%`
-
-        iter_obj <- foreach::foreach(
-          i = 1:nrow(H_grid),
-          .combine = rbind,
-          .inorder = FALSE,
-          .packages = c("mgwrsar")
-        )
-
-        out_mat <- op(iter_obj, {
+        .eval_grid_i <- function(i) {
           compute_single_H(
             i, H_grid, has_time = !is_spatial_only,
             max_dist = max_dist, max_dist_t = max_dist_t,
@@ -565,7 +586,13 @@ search_bandwidths<- function(
             control = control, VTcontrol = VTcontrol, VDcontrol = VDcontrol,
             HEAVY = HEAVY
           )
-        })
+        }
+
+        if (use_parallel) {
+          out_mat <- do.call(rbind, parallel::mclapply(1:nrow(H_grid), .eval_grid_i, mc.cores = ncore))
+        } else {
+          out_mat <- do.call(rbind, lapply(1:nrow(H_grid), .eval_grid_i))
+        }
 
         if (is.vector(out_mat) && !is.matrix(out_mat)) {
           out_mat <- matrix(out_mat, nrow = 1)
@@ -578,12 +605,13 @@ search_bandwidths<- function(
       res_round$score <- as.numeric(res_round$score)
       if ("isolated" %in% names(res_round)) acc$isolated_hits <- acc$isolated_hits + sum(res_round$isolated, na.rm = TRUE)
 
-      valid_idx <- which(is.finite(res_round$score))
-      if (length(valid_idx) > 0) {
-        best <- res_round[valid_idx[which.min(res_round$score[valid_idx])], , drop = FALSE]
-      } else {
-        best <- res_round[1, , drop = FALSE]
-      }
+      # valid_idx <- which(is.finite(res_round$score))
+      # if (length(valid_idx) > 0) {
+      #   best <- res_round[valid_idx[which.min(res_round$score[valid_idx])], , drop = FALSE]
+      # } else {
+      #   best <- res_round[1, , drop = FALSE]
+      # }
+      best <- .select_robust_best(res_round)
 
       results[[round_id]] <- res_round
 

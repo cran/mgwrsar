@@ -11,11 +11,11 @@
 #' @return to be documented
 prep_w<-function(H,kernels,Type='GD',adaptive=FALSE,dists=NULL,indexG=NULL,alpha=1){
 
-  temporal_distance_modulo <- function(x, cycling = 365) {
-    x_mod <- x %% cycling
-    x_mod[x_mod == 0] <- cycling
-    pmin(x_mod, cycling - x_mod)
-  }
+  # temporal_distance_modulo <- function(x, cycling = 365) {
+  #   x_mod <- x %% cycling
+  #   x_mod[x_mod == 0] <- cycling
+  #   pmin(x_mod, cycling - x_mod)
+  # }
   if(adaptive[1]) {
     H[1]=round(H[1])
     kernels[1]= paste0(kernels[1],'_adapt_sorted')
@@ -26,7 +26,7 @@ prep_w<-function(H,kernels,Type='GD',adaptive=FALSE,dists=NULL,indexG=NULL,alpha
     kernels_t<-unlist(str_split(kernels, '_'))[1]
     if(adaptive)  kernels_t= paste0(kernels,'_adapt_sorted')
     format_t<-unlist(str_split(kernels, '_'))[2]
-    cycling<-as.numeric(unlist(str_split(kernels, '_'))[3])
+    #cycling<-as.numeric(unlist(str_split(kernels, '_'))[3])
     wt=do.call(kernels_t,args=list(dists[['dist_t']],H[1]))
 
     if(!is.na(format_t)){

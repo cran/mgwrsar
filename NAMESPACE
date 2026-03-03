@@ -116,6 +116,7 @@ importFrom("methods", "slot")
 importFrom("stats", "lm.influence","ave")
 importFrom("utils", "data")
 importFrom("lifecycle", "deprecate_warn")
+importFrom("stats", "mad")
 
 importFrom(plotly,add_trace)
 importFrom(plotly,config)

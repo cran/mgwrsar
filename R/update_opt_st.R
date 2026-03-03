@@ -1,11 +1,19 @@
-#' update_opt_st
-#' to be documented
+#' Update Optimal Bandwidth for a Single Variable (Spatio-Temporal)
+#'
+#' Evaluates candidate spatial and temporal bandwidth pairs for a single
+#' variable in the backfitting procedure and selects the pair minimizing AICc.
+#'
 #' @usage update_opt_st(env = parent.frame())
-#' @param env environment to evaluate in
+#' @param env Environment to evaluate in (typically the parent backfitting frame).
 #' @noRd
-#' @return to be documented
+#' @return Modifies variables in the parent environment (opt, opt_t, e0, betav, etc.).
 update_opt_st <- function(env = parent.frame()) {
   with(env, {
+    
+    ncore_use <- control_tds$ncore
+   # if (Sys.info()[["sysname"]] == "Darwin") {
+  #    ncore_use <- 1L
+   # }
 
     update_bandwidth_candidates()
 
@@ -16,7 +24,7 @@ update_opt_st <- function(env = parent.frame()) {
 
     if(control_tds$check_pairs){
       hmin = HKMIN[[k]]
-      # Protection: match peut renvoyer NA si pas de correspondance, on filtre
+      # Protection: match can return NA if no correspondence, so we filter
       idx <- match(vkst[, 1], hmin[, 1])
       vkst <- vkst[which(vkst[, 2] >= hmin[idx, 2]), , drop = FALSE]
     }
@@ -31,50 +39,39 @@ update_opt_st <- function(env = parent.frame()) {
     #   adaptive = FALSE
     # ))
 
-    res <- fop(foreach(
-      j = 1:nrow(vkst),
-      .combine = "rbind",
-      .inorder = FALSE,
-      .packages = c("mgwrsar")
-    ), {
-
+    .eval_bw_st <- function(j) {
       controlv <- control
       v  <- vkst[j, 1]
       vt <- vkst[j, 2]
       model_k <- NULL
       if (v < max_dist & vt < max_dist_t) {
-        # Case 1: Spatio-Temporal (GDT)
         model_k <- MGWRSAR(
           formula = myformula_bk, data = data, coords = coords,
           fixed_vars = NULL, kernels = kernels, H = c(v, vt),
           Model = "GWR", control = controlv
         )
-
       } else if (v == max_dist & vt == max_dist_t) {
-        # Case 2: OLS Global
         model_k <- MGWRSAR(
           formula = myformula_bk, data = data, coords = coords,
           fixed_vars = NULL, kernels = kernels, H = NULL,
           Model = "OLS", control = controlv
         )
-
+        model_k@sev=as.matrix(rep(model_k@se,n),ncol=1)
+        model_k@Betav <- as.matrix(rep(model_k@Betac,n),ncol=1)
+        model_k@AICc <- model_k@AIC
       } else if (v < max_dist & vt == max_dist_t) {
-        # Case 3: Spatial (GD)
         model_k <- MGWRSAR(
           formula = myformula_bk, data = data, coords = coords,
           fixed_vars = NULL, kernels = kernels[1], H = c(v, NULL),
           Model = "GWR", control = controlvd
         )
-
       } else if (v == max_dist & vt < max_dist_t) {
-        # Case 4: Temporeal  (T)
         model_k <- MGWRSAR(
           formula = myformula_bk, data = data, coords = as.matrix(control$Z, ncol = 1),
           fixed_vars = NULL, kernels = kernels[2], H = vt,
           Model = "GWR", control = controlvt
         )
       }
-
       list(
         AICc  = model_k@AICc,
         betav = model_k@Betav,
@@ -82,10 +79,17 @@ update_opt_st <- function(env = parent.frame()) {
         vk    = v,
         vt    = vt,
         TS    = as.numeric(model_k@TS),
-        S     = model_k@Shat
+        S     = model_k@Shat,
+        sev   = model_k@sev,
+        edf   = model_k@edf
       )
-    })
-    gc(verbose = FALSE)
+    }
+
+    if (ncore_use > 1) {
+      res <- do.call(rbind, parallel::mclapply(1:nrow(vkst), .eval_bw_st, mc.cores = ncore_use))
+    } else {
+      res <- do.call(rbind, lapply(1:nrow(vkst), .eval_bw_st))
+    }
 
     AICc_vals <- as.numeric(res[, "AICc"])
 
@@ -122,6 +126,11 @@ update_opt_st <- function(env = parent.frame()) {
     betav <- unlist(res[mybest, "betav"])
     isol <- is.na(betav)
     e0[isol] <- data$e0[isol]
+
+    if(control$SE) {
+      SEV[,k]= unlist(res[mybest, "sev"])
+      EDF[k]= unlist(res[mybest, "edf"])
+    }
 
     if (get_AIC) {
       TSik[!isol, k] <- unlist(res[mybest, "TS"])[!isol]

@@ -31,17 +31,17 @@ spatial + a categorical variable,'GDX' spatial + a continuous variable,
 
 \item{diagnull}{Zero on diagonal, default FALSE}
 
-\item{alpha}{TO BE DOCUMENTED}
+\item{alpha}{Numeric exponent for the generalized kernel product, default 1.}
 
-\item{dists}{TO BE DOCUMENTED}
+\item{dists}{A precomputed list of distance matrices (output of \code{prep_d}), default NULL.}
 
-\item{indexG}{TO BE DOCUMENTED}
+\item{indexG}{A precomputed matrix of neighbor indices (output of \code{prep_d}), default NULL.}
 
-\item{extrapol}{TO BE DOCUMENTED}
+\item{extrapol}{Logical. If TRUE, compute weights for extrapolation (out-of-sample), default FALSE.}
 
-\item{QP}{A matrix with  variables used in kernel (neighbors), default NULL (if NULL coord_j=coord_i)}
+\item{QP}{A matrix with variables used in kernel (neighbors), default NULL (if NULL coord_j=coord_i).}
 
-\item{K}{TO BE DOCUMENTED}
+\item{K}{Integer, number of folds for block computation, default 0 (no blocking).}
 }
 \value{
 A sparse Matrix of weights (dgCMatrix).

@@ -62,8 +62,8 @@ gwr_beta<-function(Y,XV,ALL_X,TP,indexG,Wd,NN,W=NULL,isgcv=FALSE,SE=FALSE,kernel
   }
   if(get_Rk){ Rk<-array(0,dim = c(n,n,ncol(XV)),dimnames=list(NULL,NULL,colnames(XV)))
   }
-  if(get_s)  Shat <- matrix(0,ncol=n,nrow=n) else Shat=NULL # a corriger
-  if(get_s | SE)  SEV <- matrix(0,nrow=n, ncol=ifelse(is.null(W), ncol(XV), ncol(XV) + 1)) else SEV=NULL # a corriger
+  if(get_s)  Shat <- matrix(0,ncol=n,nrow=n) else Shat=NULL # to fix
+  if(get_s | SE)  SEV <- matrix(0,nrow=n, ncol=ifelse(is.null(W), ncol(XV), ncol(XV) + 1)) else SEV=NULL # to fix
   if(!is.null(XV)) m=ncol(XV) else m=0
   tS<-0
   namesXV=colnames(XV)
@@ -86,10 +86,10 @@ gwr_beta<-function(Y,XV,ALL_X,TP,indexG,Wd,NN,W=NULL,isgcv=FALSE,SE=FALSE,kernel
     myblocks=myblocks[-length(myblocks)]
   }
   res<-foreach(myblock =1:length(myblocks),.combine="comb",.inorder=FALSE)  %dopar% {
-    ts=c()
+    block_size <- length(myblocks[[myblock]])
+    ts <- numeric(block_size)
+    ts_idx <- 0L
     for(z in myblocks[[myblock]]){
-      #if(z==3) browser()
-      #cat("z =",z,' ')
       correc_lambda=FALSE
       index=indexG[z,loo]
       wd<-sqrt(Wd[z,loo])
@@ -112,8 +112,10 @@ gwr_beta<-function(Y,XV,ALL_X,TP,indexG,Wd,NN,W=NULL,isgcv=FALSE,SE=FALSE,kernel
         }
       }
       if(get_ts) {
-        tS=tS+lm.influence(lml)$hat[1]
-        ts=c(ts,lm.influence(lml)$hat[1])
+        hat_z <- lm.influence(lml)$hat[1]
+        tS=tS+hat_z
+        ts_idx <- ts_idx + 1L
+        ts[ts_idx] <- hat_z
       }
       if(get_s) {
         coef_NON_NA=setdiff(1:ncol(Xw),coefNA)
@@ -134,12 +136,12 @@ gwr_beta<-function(Y,XV,ALL_X,TP,indexG,Wd,NN,W=NULL,isgcv=FALSE,SE=FALSE,kernel
       #if(!TP_estim_as_extrapol){ Betav[TP[z],]<-betav } else {Betav[z,]<-betav}
       #Betav[z,]<-betav
 
-      Betav[TP[z],]<-betav # si TP= 1:n, TP[z]=z ; si TP
+      Betav[TP[z],]<-betav # if TP= 1:n, TP[z]=z ; if TP
     }
     # if(!(SE & !isgcv)) {
     #   sev=NULL
     # } else {
-    #   sev=SEV[TP[myblocks[[myblock]]],] ## a corriger
+    #   sev=SEV[TP[myblocks[[myblock]]],] ## to fix
     # }
     if(get_s)  Shat=Shat[TP[myblocks[[myblock]]],] else Shat=NULL
     if(get_Rk)  {
@@ -148,7 +150,7 @@ gwr_beta<-function(Y,XV,ALL_X,TP,indexG,Wd,NN,W=NULL,isgcv=FALSE,SE=FALSE,kernel
       }
       }
 
-    if(length(ts)>0) TS=as.matrix(ts,ncol=1) else TS=NULL
+    if(ts_idx>0) TS=as.matrix(ts[1:ts_idx],ncol=1) else TS=NULL
     rm(index,wd,Yw,Xw,betav)
     if(SE) sev<-as.matrix(SEV[TP[myblocks[[myblock]]],],ncol=m) else sev=NULL
     list(betav=as.matrix(Betav[TP[myblocks[[myblock]]],],ncol=m),sev=sev,tS=tS,Shat=Shat,TS=TS,Rk=Rkk) ## return foreach
@@ -173,11 +175,7 @@ gwr_beta<-function(Y,XV,ALL_X,TP,indexG,Wd,NN,W=NULL,isgcv=FALSE,SE=FALSE,kernel
         Rk=list()
         for(nx in 1:ncol(XV)){
           index=1:length(myblocks)+(nx-1)*length(myblocks)
-          rk=res$Rk[[index[1]]]
-          for(zz in index[-1]){
-            rk<-rbind(rk,res$Rk[[zz]])
-          }
-          Rk[[colnames(XV)[nx]]]<-rk
+          Rk[[colnames(XV)[nx]]]<-do.call(rbind, res$Rk[index])
         }
       }
     }

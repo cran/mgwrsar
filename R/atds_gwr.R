@@ -22,7 +22,21 @@ atds_gwr<-function(formula,data,coords,kernels='triangle',fixed_vars=NULL,contro
   Model='atds_gwr'
   #criteria='autre'
   start<-proc.time()
-
+  recal_beta_minchange_subset <- function(X, BETA, yhat, cols, eps=1e-12){
+    X <- as.matrix(X)
+    yhat <- as.numeric(yhat)
+    cols <- intersect(cols, colnames(X))
+    if(length(cols) == 0) return(BETA)
+    
+    y0 <- rowSums(X * BETA)
+    r  <- yhat - y0
+    
+    Xc <- X[, cols, drop=FALSE]
+    denom <- rowSums(Xc^2) + eps
+    BETA[, cols] <- BETA[, cols, drop=FALSE] + Xc * (r / denom)
+    
+    BETA
+  }
   #init_param_tds() #done ?
   V=control_tds$V
   if(is.null(control$verbose)) verbose<-control$verbose<-FALSE else verbose<-control$verbose
@@ -42,7 +56,7 @@ atds_gwr<-function(formula,data,coords,kernels='triangle',fixed_vars=NULL,contro
   Y<- model.extract(mf, "response")
   BETA=matrix(coef(model_lm0),ncol=ncol(X),byrow=TRUE,nrow=nrow(X))
   colnames(BETA)<-varying<-colnames(X)
-  XXtX <- eigenMapMatMult(solve(crossprod(X)), t(X))
+  XXtX <- solve(crossprod(X), t(X))
   rownames(XXtX) <- colnames(X)
   S =  eigenMapMatMult(X, XXtX)
   ds0=diag(S)
@@ -62,13 +76,11 @@ atds_gwr<-function(formula,data,coords,kernels='triangle',fixed_vars=NULL,contro
     returned_model<- model_lm0
 
   } else {
- # if(browser==0) browser()
 
     ### LOOP ALGO
-    while( (CONTINUE & i<length(V))){ # | (any(H<=V[i] & control$isgcv))
+    while( (CONTINUE && i<length(V))){ # | (any(H<=V[i] & control$isgcv))
       varyingT<-varying
-      gc()
-      if(length(varying)>1 & !is.null(H)) for(k in varying){
+      if(length(varying)>1 && !is.null(H)) for(k in varying){
           if(H[k]>V[i]) {
             varyingT<-setdiff(varyingT,k)
           }
@@ -90,6 +102,7 @@ atds_gwr<-function(formula,data,coords,kernels='triangle',fixed_vars=NULL,contro
       controlv$get_s=TRUE
       if(verbose) cat('\n GWR Correction of varying coefficients with v=',vk, ' for varyings coefficients: ', paste(varyingT,collapse=' '))
       modelGWR<-MGWRSAR(formula = myformula_b, data = data,coords=coords, fixed_vars=NULL,kernels=kernels,H=c(vk,control_tds$Ht),Model = 'GWR',control=controlv)
+      
       ##### diagnostic
       e1=residuals(modelGWR)
       S1<-S+modelGWR@Shat-eigenMapMatMult(modelGWR@Shat,S)
@@ -99,8 +112,10 @@ atds_gwr<-function(formula,data,coords,kernels='triangle',fixed_vars=NULL,contro
       S[tocorrect,]=S1[tocorrect,]
       ds0[tocorrect]=ds1[tocorrect]
       BETA[tocorrect,colnames(modelGWR@Betav)]=BETA[tocorrect,colnames(modelGWR@Betav)]+modelGWR@Betav[tocorrect,]
-      fit=rowSums(BETA*X)
-      e0<-data$e0<-Y-fit
+      fit <- as.numeric(S %*% Y)
+      BETA <- recal_beta_minchange_subset(X, BETA, yhat=fit, cols=colnames(modelGWR@Betav))
+      
+      e0 <- data$e0 <- Y - rowSums(X * BETA)   
 
       if(length(fixed_vars)>0) {
         if(verbose) cat('\n LM Correction of non varying coefficients: ', paste(fixed_vars,collapse=' '))
@@ -114,11 +129,11 @@ atds_gwr<-function(formula,data,coords,kernels='triangle',fixed_vars=NULL,contro
       }
         global_ts<-df_true
         local_ts<-sum(ds0)
-      lastCrit<-AICc<-n*log(mean(data$e0^2))+n*log(2*pi)+n*(n+global_ts)/(n-2-global_ts)
+      lastCrit<-AICc<-aicc_f(data$e0, global_ts)
       if(verbose) cat('\n i=',i,' v=',vk,' AICc = ',AICc,' df_true = ',df_true,'\n')
 
       if((BestCrit-lastCrit)/abs(BestCrit) >=tol ) {
-        if(sum(tocorrect)<=round(n*0.333) & i>1) CONTINUE=FALSE else {
+        if(sum(tocorrect)<=round(n*0.333) && i>1) CONTINUE=FALSE else {
         mybestBETA=BETA
         ## best diagnostic
         S_best=S
@@ -157,7 +172,7 @@ atds_gwr<-function(formula,data,coords,kernels='triangle',fixed_vars=NULL,contro
       }
     modelGWR@fit=rowSums(modelGWR@Betav*X)
     modelGWR@residuals=Y-modelGWR@fit
-    modelGWR@RMSE=sqrt(mean(modelGWR@residuals^2))
+    modelGWR@RMSE=rmse(modelGWR@residuals)
     modelGWR@V=c(n,V)
     modelGWR@X=X
     modelGWR@Y=Y
