@@ -1,5 +1,27 @@
+# Canonical hash of a coefficient matrix (mirrors the definition used by the
+# reference generator tools/write_initial_coef_hashes.R). Kept here, free of
+# side effects, so test files can source it alongside the registry checkers.
+hash_coef_matrix <- function(B, digits = 10) {
+  stopifnot(is.matrix(B) || is.data.frame(B))
+  B <- as.matrix(B)
+
+  # Canonical ordering
+  if (!is.null(rownames(B))) B <- B[order(rownames(B)), , drop = FALSE]
+  if (!is.null(colnames(B))) B <- B[, order(colnames(B)), drop = FALSE]
+
+  # Canonical type + rounding
+  storage.mode(B) <- "double"
+  B <- round(B, digits = digits)
+
+  # Canonical NA / -0
+  B[is.na(B)] <- NaN
+  B[B == 0] <- 0
+
+  digest::digest(B, algo = "sha256", serialize = TRUE)
+}
+
 check_hash_against_registry <- function(row, file = "results_registry.csv") {
-  
+
   if (!file.exists(file)) {
     stop("Registry file does not exist.")
   }
@@ -80,20 +102,17 @@ check_hash_against_registry_coef <- function(row, file = "results_registry.csv")
     stop("Duplicate configuration rows found in registry.")
   }
   
-  stored_hash <- registry$hash[match_idx]
-  current_hash <- row$hash
-  
   norm_hash <- function(x) {
     x <- as.character(x)
     x <- trimws(x)
     x <- gsub("\r", "", x, fixed = TRUE)
     x
   }
-  
-  stored_hash  <- norm_hash(registry$hash_pred[match_idx])[1]
-  current_hash <- norm_hash(row$hash_pred)[1]
-  
-  
+
+  stored_hash  <- norm_hash(registry$hash[match_idx])[1]
+  current_hash <- norm_hash(row$hash)[1]
+
+
   if (!identical(stored_hash, current_hash)) {
     cat("Stored: ", stored_hash, "\n")
     cat("Current:", current_hash, "\n")

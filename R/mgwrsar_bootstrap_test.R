@@ -22,6 +22,7 @@ if(is.null(D) & type=='spatial') stop("When type='spatial' ou have to provide D 
     Tstat<-Tf(x0,x1)
     if(df=='H1' & eps=='H1') eps1<-(x1@residuals/sqrt(n/x1@edf)) -mean(x1@residuals/sqrt(n/x1@edf)) else if(df=='H1'& eps=='H0') eps1<-(x0@residuals/sqrt(n/x1@edf)) -mean(x0@residuals/sqrt(n/x1@edf))  else if(df=='H0'& eps=='H0') eps1<-(x0@residuals/sqrt(n/x0@edf)) -mean(x0@residuals/sqrt(n/x0@edf))  else eps1<-(x1@residuals/sqrt(n/x0@edf)) -mean(x1@residuals/sqrt(n/x0@edf))
 
+    rng_state <- .mgwrsar_rng_save(); on.exit(.mgwrsar_rng_restore(rng_state), add = TRUE)
     if(ncore==1){
     T_star<-numeric(B)
     for(i in 1:B){

@@ -13,6 +13,9 @@
 aicc_f <-
   function(e,ts,n,pena=1){
     n=length(e)
+    # a fit that uses at least n - 1 degrees of freedom is saturated: the
+    # penalty term would change sign and reward it instead of rejecting it
+    if (n - 1 - pena*ts <= 0) return(Inf)
     #n*log(sum(e^2)/n)+n*log(2*pi)+n*(n+ts)/(n-2-ts)
     n*log(sum(e^2)/n)+n*log(2*pi)+n*(n+pena*ts)/(n-1-pena*ts)
 

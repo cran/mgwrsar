@@ -55,6 +55,7 @@ golden_search_2d_bandwidth <- function(
   golden_ratio <- 2/(sqrt(5)+1)
 
   # Slight jitter if duplicated coords exist
+  rng_state <- .mgwrsar_rng_save(); on.exit(.mgwrsar_rng_restore(rng_state), add = TRUE)
   set.seed(123, kind = "L'Ecuyer-CMRG", normal.kind = "Inversion")
   if(control$Type %in% c('GD','GDT')) if(sum(duplicated(coords))>0) {
     set.seed(123, kind = "L'Ecuyer-CMRG", normal.kind = "Inversion")
@@ -309,9 +310,16 @@ golden_search_2d_bandwidth <- function(
     f1 <- eval_cv(x1, fixed_h)
     f2 <- eval_cv(x2, fixed_h)
 
-    # Golden loop
+    # Golden loop. The interior points are rounded to the tolerance grid: when
+    # the bracket is between one and 1.3 tolerances wide, the rounded point
+    # falls back on a bound, the bracket stops shrinking and the loop never
+    # ended (found on duplicated observations, 2026-10). The bracket must
+    # shrink at every step, and the loop is capped.
+    n_golden <- 0L
     while ((abs(upper - lower) > tolerance) &&
            (!adaptive || abs(x2 - x1) > 1)) {
+      n_golden <- n_golden + 1L
+      if (n_golden > 200L || !(x1 > lower && x2 < upper && x1 < x2)) break
 
       if (f2 > f1) {
         upper <- x2
@@ -867,6 +875,7 @@ golden_search_2d_bandwidth_old <- function(formula, data, coords, fixed_vars, ke
   }
 
   ptm <- proc.time()
+  rng_state <- .mgwrsar_rng_save(); on.exit(.mgwrsar_rng_restore(rng_state), add = TRUE)
   set.seed(123, kind = "L'Ecuyer-CMRG", normal.kind = "Inversion")
 
   if (sum(duplicated(coords)) > 0) {

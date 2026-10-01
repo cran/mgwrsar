@@ -12,6 +12,9 @@ using namespace Rcpp;
 Rcpp::NumericMatrix Proj_C(const Rcpp::NumericMatrix& HH,
                            const Rcpp::NumericMatrix& XX);
 
+Rcpp::NumericMatrix matprod_C(const Rcpp::NumericMatrix& AA,
+                              const Rcpp::NumericMatrix& BB);
+
 Rcpp::S4 Sl_C(double llambda,
               const Rcpp::S4& WW,
               bool iinv,
@@ -72,6 +75,18 @@ extern "C" {
     Rcpp::traits::input_parameter< const Rcpp::NumericMatrix& >::type HH(HHSEXP);
     Rcpp::traits::input_parameter< const Rcpp::NumericMatrix& >::type XX(XXSEXP);
     rcpp_result_gen = Rcpp::wrap(Proj_C(HH, XX));
+    return rcpp_result_gen;
+    END_RCPP
+  }
+
+  // matprod_C
+  RcppExport SEXP _mgwrsar_matprod_C(SEXP AASEXP, SEXP BBSEXP) {
+    BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const Rcpp::NumericMatrix& >::type AA(AASEXP);
+    Rcpp::traits::input_parameter< const Rcpp::NumericMatrix& >::type BB(BBSEXP);
+    rcpp_result_gen = Rcpp::wrap(matprod_C(AA, BB));
     return rcpp_result_gen;
     END_RCPP
   }

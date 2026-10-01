@@ -29,13 +29,14 @@ update_opt <- function(env = parent.frame()){
     .eval_bw <- function(v) {
       controlv <- control
       if (v != max_dist) {
-        if (control$adaptive[1]) {
-          if (kernels[1] != 'gauss') {
-            NNN <- v + 2
-            controlv$NN <- min(NNN, control$NN)
-            controlv$indexG <- control$indexG[, 1:controlv$NN]
-            controlv$dists[['dist_s']] <- control$dists[['dist_s']][, 1:controlv$NN]
-          }
+        # Neighbour columns needed at this scale (results unchanged: dropped
+        # columns carry zero weights); for the gaussian kernel, optional
+        # truncation at control_tds$trunc_gauss * h.
+        NNN <- .mgwrsar_scale_ncols(v, kernels[1], control, control_tds)
+        if (!is.null(NNN)) {
+          controlv$NN <- min(NNN, control$NN)
+          controlv$indexG <- .mgwrsar_cols(control$indexG, controlv$NN)
+          controlv$dists[['dist_s']] <- .mgwrsar_cols(control$dists[['dist_s']], controlv$NN)
         }
         model_k <- MGWRSAR(formula = myformula_bk, data = data, coords = coords,
                            fixed_vars = NULL, kernels = kernels, H = c(v, NULL),
@@ -139,13 +140,11 @@ update_opt <- function(env = parent.frame()){
           .eval_bw2 <- function(v) {
             controlv <- control
             if (v != max_dist) {
-              if (control$adaptive[1]) {
-                if (kernels[1] != 'gauss') {
-                  NNN <- v + 2
-                  controlv$NN <- min(NNN, control$NN)
-                  controlv$indexG <- control$indexG[, 1:controlv$NN]
-                  controlv$dists[['dist_s']] <- control$dists[['dist_s']][, 1:controlv$NN]
-                }
+              NNN <- .mgwrsar_scale_ncols(v, kernels[1], control, control_tds)
+              if (!is.null(NNN)) {
+                controlv$NN <- min(NNN, control$NN)
+                controlv$indexG <- .mgwrsar_cols(control$indexG, controlv$NN)
+                controlv$dists[['dist_s']] <- .mgwrsar_cols(control$dists[['dist_s']], controlv$NN)
               }
               model_k <- MGWRSAR(formula = myformula_bk, data = data,
                                  coords = coords,
@@ -213,4 +212,30 @@ update_opt <- function(env = parent.frame()){
     }
     
   })
+}
+
+# Number of neighbour columns to keep when evaluating spatial bandwidth v
+# (GD backfitting step), or NULL to keep them all:
+#  - adaptive compact kernel: v + 2 (the *_adapt_sorted kernels read column
+#    v + 2);
+#  - fixed compact kernel (bisq, epane, triangle, tcub, rectangle): the last
+#    column that can hold a distance < v; weights are exactly zero beyond, so
+#    the estimates are unchanged;
+#  - fixed gaussian: only when control_tds$trunc_gauss = c is numeric, columns
+#    up to distance c * v (relative weight exp(-c^2 / 2) beyond: 1.5e-8 for
+#    c = 6, 1.3e-14 for c = 8). Off by default, the results then change at
+#    that level.
+.mgwrsar_scale_ncols <- function(v, kernel, control, control_tds) {
+  compact <- c("bisq", "epane", "triangle", "tcub", "rectangle")
+  if (isTRUE(control$adaptive[1])) {
+    if (kernel != "gauss") return(v + 2)
+    return(NULL)
+  }
+  d <- control$dists[["dist_s"]]
+  if (!is.matrix(d)) return(NULL)
+  if (kernel %in% compact) return(.mgwrsar_ncols_within(d, v))
+  cg <- control_tds$trunc_gauss
+  if (kernel == "gauss" && is.numeric(cg) && length(cg) == 1L && is.finite(cg) && cg > 0)
+    return(.mgwrsar_ncols_within(d, cg * v))
+  NULL
 }

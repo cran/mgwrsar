@@ -22,7 +22,9 @@ update_opt_st <- function(env = parent.frame()) {
 
     vkst <- unique(expand.grid(unique(vks), unique(vkt)))
 
-    if(control_tds$check_pairs){
+    # A pinned bandwidth is taken as given: it may lie off the HKMIN grid, where
+    # match() returns NA and the filter would drop every candidate.
+    if(control_tds$check_pairs && !pinned_s[k] && !pinned_t[k]){
       hmin = HKMIN[[k]]
       # Protection: match can return NA if no correspondence, so we filter
       idx <- match(vkst[, 1], hmin[, 1])

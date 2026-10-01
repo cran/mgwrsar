@@ -22,7 +22,7 @@
 #' Set to \code{NULL} for spatial-only models.
 #' @param n_seq An integer specifying the number of bandwidth candidates to test per dimension in each round.
 #' @param ncore An integer specifying the number of CPU cores to use for parallel processing.
-#' Default is \code{parallel::detectCores() - 1}.
+#' Default is \code{1}. Examples/documentation should keep this at \code{1}.
 #' @param n_rounds An integer specifying the number of grid search rounds (zooming steps). Default is 3.
 #' @param refine Logical. If \code{TRUE}, a final optimization step using golden section search is performed
 #' around the best candidate found. Default is \code{FALSE}.
@@ -67,6 +67,9 @@ search_bandwidths<- function(
     parallel_method = "auto"
 ){
 
+  ncore <- .mgwrsar_normalize_nthreads(ncore)
+  .mgwrsar_set_native_threads(ncore)
+
   `%||%` <- function(x, y) if (!is.null(x)) x else y
 
   # -------------------------------------------------------------------------
@@ -96,6 +99,9 @@ search_bandwidths<- function(
   # -------------------------------------------------------------------------
   # 2) Criterion utilities (shared by grid + refine decision)
   # -------------------------------------------------------------------------
+  if (!is.null(control$criterion) &&
+      !(control$criterion %in% c("CV", "CVtp", methods::slotNames("mgwrsar"))))
+    stop(sprintf("unknown criterion '%s'; use 'AICc', 'AIC', 'BIC', 'RMSE', 'CV', 'CVtp' or another slot of the mgwrsar class.", control$criterion), call. = FALSE)
   .get_criterion_value <- function(mod, crit) {
     if (is.null(crit) || !nzchar(crit)) crit <- "AICc"
     slots <- slotNames(mod)
@@ -314,6 +320,7 @@ search_bandwidths<- function(
   acc$isolated_hits <- 0L
 
   n <- nrow(coords)
+  rng_state <- .mgwrsar_rng_save(); on.exit(.mgwrsar_rng_restore(rng_state), add = TRUE)
   set.seed(123, kind = "L'Ecuyer-CMRG", normal.kind = "Inversion")
 
   if (control$Type %in% c("GD","GDT")) coords <- make_unique_by_structure(coords)
@@ -405,10 +412,12 @@ search_bandwidths<- function(
     foreach::registerDoSEQ()
   }
 
+  # stopCluster() closes the connections of the socket cluster; the former
+  # closeAllConnections() also closed every connection of the caller (open
+  # files, sink(), capture.output())
   on.exit({
     if (!is.null(cl)) parallel::stopCluster(cl)
     foreach::registerDoSEQ()
-    closeAllConnections()
   }, add = TRUE)
 
   # -------------------------------------------------------------------------
@@ -772,5 +781,4 @@ search_bandwidths<- function(
     ctime = elapsed_time
   )
 }
-
 

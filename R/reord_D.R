@@ -11,5 +11,6 @@
 #' columns equal to the maximum index in `idxG`.
 #' @export
 reord_D <- function(M, idxG) {
+  .mgwrsar_set_native_threads(1L)
   .Call("_mgwrsar_knn_stable_sort", M, idxG, PACKAGE = "mgwrsar")
 }

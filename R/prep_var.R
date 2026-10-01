@@ -73,6 +73,10 @@ prep_var<-function(gwrenv){
   #     colnames(gwrenv$new_X)[idx1] <- "Intercept"
   # }
   if (!is.null(gwrenv$fixed_vars)) {
+    unknown <- setdiff(gwrenv$fixed_vars, colnames(gwrenv$X))
+    if (length(unknown))
+      stop(sprintf("fixed_vars %s not found among the columns of the model matrix (%s).",
+                   paste(sQuote(unknown), collapse = ", "), paste(colnames(gwrenv$X), collapse = ", ")), call. = FALSE)
     idx.fixed <- as.numeric(na.omit(match(gwrenv$fixed_vars, colnames(gwrenv$X))))
     gwrenv$XC <- as.matrix(gwrenv$X[, idx.fixed])
     colnames(gwrenv$XC) <- colnames(gwrenv$X)[idx.fixed]

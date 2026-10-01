@@ -43,6 +43,13 @@ Rcpp::List mgwr_beta_pivotal_qrp_mixed_cpp(const Rcpp::NumericMatrix& XV,
                                            bool get_Rk,
                                            bool get_se);
 
+SEXP kernel_w_cpp(const Rcpp::NumericMatrix& d, const Rcpp::NumericVector& h,
+                  const std::string& kernel, const int n_norm);
+
+SEXP normw_dense_cpp(const Rcpp::NumericMatrix& x);
+
+SEXP wprod_norm_cpp(const Rcpp::NumericMatrix& Ws, const Rcpp::NumericMatrix& Wt);
+
 
 // ---------------------------------------------------------------------------
 // C wrappers (SEXP) for .Call() — names used by RcppExports.R
@@ -122,6 +129,43 @@ extern "C" {
     rcpp_result_gen = Rcpp::wrap(
       mgwr_beta_pivotal_qrp_mixed_cpp(XV, y, XC, indexG, Wd, TP, get_ts, get_s, get_Rk,get_se)
     );
+    return rcpp_result_gen;
+    END_RCPP
+  }
+
+  // kernel_w_cpp
+  RcppExport SEXP _mgwrsar_kernel_w_cpp(SEXP dSEXP, SEXP hSEXP, SEXP kernelSEXP, SEXP n_normSEXP) {
+    BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const Rcpp::NumericMatrix& >::type d(dSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::NumericVector& >::type h(hSEXP);
+    Rcpp::traits::input_parameter< const std::string& >::type kernel(kernelSEXP);
+    Rcpp::traits::input_parameter< const int >::type n_norm(n_normSEXP);
+    rcpp_result_gen = kernel_w_cpp(d, h, kernel, n_norm);
+    return rcpp_result_gen;
+    END_RCPP
+  }
+
+  // normw_dense_cpp
+  RcppExport SEXP _mgwrsar_normw_dense_cpp(SEXP xSEXP) {
+    BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const Rcpp::NumericMatrix& >::type x(xSEXP);
+    rcpp_result_gen = normw_dense_cpp(x);
+    return rcpp_result_gen;
+    END_RCPP
+  }
+
+  // wprod_norm_cpp
+  RcppExport SEXP _mgwrsar_wprod_norm_cpp(SEXP WsSEXP, SEXP WtSEXP) {
+    BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const Rcpp::NumericMatrix& >::type Ws(WsSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::NumericMatrix& >::type Wt(WtSEXP);
+    rcpp_result_gen = wprod_norm_cpp(Ws, Wt);
     return rcpp_result_gen;
     END_RCPP
   }

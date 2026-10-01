@@ -60,6 +60,7 @@ simu_multiscale <- function(n = 1000, myseed = 1, type = 'GG2024', constant = NU
 
   # 1. RNG Initialization
   # Keep L'Ecuyer for parallel/OS portability of runif/rnorm
+  rng_state <- .mgwrsar_rng_save(); on.exit(.mgwrsar_rng_restore(rng_state), add = TRUE)
   set.seed(myseed, kind = "L'Ecuyer-CMRG", normal.kind = "Inversion")
 
   W <- NULL

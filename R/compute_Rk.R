@@ -22,7 +22,7 @@ for (i in seq_along(foldsl)) {
   Rk_i <- Rk[idx, idx]
 
   # Update Rk (current formula)
-  Rk_new_i <- eigenMapMatMult(Sk_i, Rk_i) + Sk_i - eigenMapMatMult(Sk_i, St_i)
+  Rk_new_i <- .mgwrsar_matprod(Sk_i, Rk_i) + Sk_i - .mgwrsar_matprod(Sk_i, St_i)
 
   Rkk[idx, idx] <- Rk_new_i
 
@@ -41,7 +41,7 @@ compute_Rk<-function(Rk,Sk, St, foldsl) {
       Sk_i  <- Sk[idx, idx]
       St_i  <- St[idx, idx]
       Rk_i  <- Rk[idx, idx]
-      Rk_i <- eigenMapMatMult(Sk_i,Rk_i)  + Sk_i- eigenMapMatMult(Sk_i,St_i)
+      Rk_i <- .mgwrsar_matprod(Sk_i,Rk_i)  + Sk_i- .mgwrsar_matprod(Sk_i,St_i)
       Rkk[idx, idx] <- Rk_i
     }
   return(Rkk)

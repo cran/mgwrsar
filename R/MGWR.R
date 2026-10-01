@@ -129,18 +129,18 @@ MGWR <- function(Y, XC, XV, ALL_X = NULL, S, H, NN, kernels, adaptive = FALSE, T
 
   # --- 6. THE CALL VIA .Call (Crucial for manual init.c) ---
   # The name here must correspond EXACTLY to the one in init.c
-  res <- .Call("_mgwrsar_mgwr_beta_pivotal_qrp_mixed_cpp",
-               XV_star_m, # XV
-               Y_v,        # y
-               XC_m,       # XC
-               indexG_m,   # indexG
-               Wd_m,       # Wd
-               TP_v,       # TP
-               get_ts,     # get_ts
-               get_s,      # get_s
-               get_Rk,     # get_Rk
-               SE,         # get_se (Note: in your R code it was 'SE', in C++ 'get_se')
-               PACKAGE = "mgwrsar" # Name of your package (very important)
+  res <- mgwr_beta_pivotal_qrp_mixed_cpp(
+    XV = XV_star_m,
+    y = Y_v,
+    XC = XC_m,
+    indexG = indexG_m,
+    Wd = Wd_m,
+    TP = TP_v,
+    get_ts = get_ts,
+    get_s = get_s,
+    get_Rk = get_Rk,
+    get_se = SE,
+    nthreads = ncore
   )
   res$Betac = as.numeric(res$Betac)
   names(res$Betac)=colnames(XC)

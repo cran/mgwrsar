@@ -272,9 +272,32 @@ setMethod("residuals",'mgwrsar', function(object,...)
 #
 #   return(list(raw = res_raw, adjusted = res_by, is_approx_df = is_approx_df))
 # }
+# Spatially calibrated Benjamini-Yekutieli adjustment.
+# Keeps n hypotheses in the BH ramp (n/(n:1)), but replaces the worst-case
+# dependence penalty c(n) = sum(1/(1:n)) by c(m_eff), where m_eff is the
+# effective number of (independent) local tests implied by the bandwidth.
+# m_eff = n reproduces the standard BY adjustment exactly; small m_eff (large
+# bandwidth, strong spatial redundancy) relaxes the penalty towards BH (floor c=1).
+p_adjust_spatial_BY <- function(p, m_eff) {
+  ok <- is.finite(p)
+  out <- rep(NA_real_, length(p))
+  if (!any(ok)) return(out)
+  pv <- p[ok]
+  n  <- length(pv)
+  if (!is.finite(m_eff) || m_eff < 1) m_eff <- n
+  c_eff <- max(1, sum(1 / seq_len(max(1L, ceiling(m_eff)))))  # floor at 1 (= BH)
+  o  <- order(pv, decreasing = TRUE)
+  ro <- order(o)
+  out[ok] <- pmin(1, cummin(c_eff * (n / (n:1)) * pv[o]))[ro]
+  out
+}
+
 by_significance_summary_mgwrsar <- function(object,
                                             alpha_levels = c(0.10, 0.05, 0.01),
-                                            include_fixed = TRUE) {
+                                            include_fixed = TRUE,
+                                            fdr_method = c("BY", "spatial_BY")) {
+
+  fdr_method <- match.arg(fdr_method)
 
   get_slot_safe <- function(obj, name) {
     tryCatch(methods::slot(obj, name), error = function(e) NULL)
@@ -307,8 +330,24 @@ by_significance_summary_mgwrsar <- function(object,
       `Significant ( 1% level)` = sum(ok & pv <= 0.01))
   }
 
-  out <- list(is_approx_df = is_approx_df) # Added here
+  out <- list(is_approx_df = is_approx_df, fdr_method = fdr_method) # Added here
   nTP <- if(has_varying) nrow(Betav) else 1L
+
+  # Per-variable effective number of tests m_eff,k = tr(R_k), the effective
+  # number of parameters of the coefficient surface beta_k (driven by bandwidth
+  # H_k). Available for multiscale models (R_k slot); NA otherwise -> fallback.
+  R_k_list <- get_slot_safe(object, "R_k")
+  m_eff_of <- function(k) {
+    if (!is.null(R_k_list) && !is.null(R_k_list[[k]]) &&
+        is.matrix(R_k_list[[k]]) && nrow(R_k_list[[k]]) > 0) {
+      val <- sum(diag(R_k_list[[k]]))
+      if (is.finite(val) && val >= 1) return(val)
+    }
+    # Fallback: global effective number of parameters (n - edf), else n (= plain BY).
+    if (!is.null(df_global) && !is.na(df_global) && (n - df_global) >= 1)
+      return(n - df_global)
+    n
+  }
 
   if (has_varying) {
     p_raw_v <- Betav * 0
@@ -320,7 +359,9 @@ by_significance_summary_mgwrsar <- function(object,
 
       df_val <- max(2, df_val)
       p_raw_v[, k] <- 2 * stats::pt(-abs(Betav[, k] / sev[, k]), df = df_val)
-      p_by_v[, k]  <- stats::p.adjust(p_raw_v[, k], method = "BY")
+      p_by_v[, k]  <- if (fdr_method == "spatial_BY")
+        p_adjust_spatial_BY(p_raw_v[, k], m_eff_of(k)) else
+        stats::p.adjust(p_raw_v[, k], method = "BY")
     }
 
     sum_raw <- matrix(0L, nrow = 4, ncol = ncol(Betav), dimnames = list(row_names, colnames(Betav)))
@@ -359,7 +400,13 @@ by_significance_summary_mgwrsar <- function(object,
 #' summary for mgwrsar model
 #'
 #' @param object A model of class \code{\link{mgwrsar-class}}.
-#' @param ... summary parameters forwarded.
+#' @param ... summary parameters forwarded. In particular, \code{fdr_method}
+#'   selects the multiple-testing correction for local coefficients:
+#'   \code{"BY"} (default, Benjamini-Yekutieli, valid under arbitrary
+#'   dependence) or \code{"spatial_BY"}, a bandwidth-calibrated variant that
+#'   replaces the worst-case dependence penalty by the effective number of
+#'   local tests \eqn{m_{eff,k} = tr(R_k)} implied by each covariate's
+#'   bandwidth (interpolates between BY and Benjamini-Hochberg).
 #' @return A summary object.
 #' @export
 #' @rdname summary.mgwrsar
@@ -432,9 +479,11 @@ setMethod("summary", "mgwrsar", function(object, ...) {
     print(summary(model@Betav))
   }
 
-  # --- DUAL SIGNIFICANCE ANALYSIS (raw and BY-adjusted) ---
+  # --- DUAL SIGNIFICANCE ANALYSIS (raw and FDR-adjusted) ---
   if (length(model@sev) > 0) {
-    sig_res <- by_significance_summary_mgwrsar(model)
+    dots <- list(...)
+    fdr_method <- if (!is.null(dots$fdr_method)) dots$fdr_method else "BY"
+    sig_res <- by_significance_summary_mgwrsar(model, fdr_method = fdr_method)
     if (!is.null(sig_res)) {
       if (isTRUE(sig_res$is_approx_df)) {
         cat("\n    [Significance Analysis - WARNING: Local Approximation]\n")
@@ -443,7 +492,10 @@ setMethod("summary", "mgwrsar", function(object, ...) {
         cat("\n    [Significance Analysis - Raw (Unadjusted)]\n")
       }
       print(sig_res$raw)
-      cat("\n    [Significance Analysis - BY Adjusted (FDR Control)]\n")
+      adj_label <- if (identical(sig_res$fdr_method, "spatial_BY"))
+        "Spatial-BY Adjusted (bandwidth-calibrated FDR Control)" else
+        "BY Adjusted (FDR Control)"
+      cat(paste0("\n    [Significance Analysis - ", adj_label, "]\n"))
       print(sig_res$adjusted)
       cat("\n    Note: Counts reflect number of points with significant local coefficients.\n")
     }
@@ -543,3 +595,61 @@ methods::setMethod(
 )
 
 
+
+
+#' Class "gtwr"
+#'
+#' S4 class for the GTWR model of Huang, Wu and Barry (2010), produced by
+#' \code{\link{gtwr_HWB2010}}. It extends \code{\link{mgwrsar-class}} and
+#' inherits all of its methods; the extra slots only record the model in
+#' Huang's own parameterisation, so that a table produced from this object
+#' speaks the language of the paper rather than the internal
+#' \code{(h_S, h_T)} pair.
+#'
+#' @slot h_st numeric. Huang's single spatio-temporal bandwidth.
+#' @slot tau numeric. Huang's scale ratio mu/lambda, with lambda = 1.
+#' @slot causal logical. FALSE for the symmetric temporal kernel of
+#'   Huang et al. (2010), TRUE for the past-only variant.
+#' @slot w_tail numeric. Largest kernel weight still carried by the outer ring
+#'   of the kNN pre-selection; near zero means the screening does not truncate
+#'   the gaussian tail.
+#'
+#' @seealso gtwr_HWB2010
+#' @export
+setClass("gtwr",
+         contains = "mgwrsar",
+         slots = list(
+           h_st   = "numeric",
+           tau    = "numeric",
+           causal = "logical",
+           w_tail = "numeric"
+         ))
+
+
+#' summary for gtwr model
+#'
+#' Prints the bandwidths in Huang's parameterisation and their mgwrsar
+#' equivalents side by side, then the standard \code{mgwrsar} summary.
+#'
+#' @param object A model of class \code{\link{gtwr-class}}.
+#' @param ... summary parameters forwarded to the mgwrsar method.
+#' @return The model, invisibly.
+#' @export
+#' @rdname summary.gtwr
+setMethod("summary", "gtwr", function(object, ...) {
+  cat("------------------------------------------------------\n")
+  cat("GTWR - Huang, Wu and Barry (2010)\n")
+  cat("    Spatio-temporal bandwidth (Huang): h_ST =",
+      signif(object@h_st, 4), "  tau =", signif(object@tau, 4), "\n")
+  cat("    Equivalent mgwrsar bandwidths    : h_S  =",
+      signif(object@H[1], 4), "  h_T =", signif(object@Ht[1], 4), "\n")
+  cat("    Temporal kernel                  :",
+      if (isTRUE(object@causal)) "past-only (causal, cf. Wu et al. 2014)"
+      else "symmetric (HWB2010)", "\n")
+  if (length(object@w_tail) && is.finite(object@w_tail))
+    cat("    Max weight at kNN screening edge :",
+        signif(object@w_tail, 3), "\n")
+  if (length(object@fixed_vars))
+    cat("    Note: fixed_vars set, this is a mixed GTWR, not HWB2010\n")
+  invisible(callNextMethod())
+})

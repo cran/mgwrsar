@@ -38,10 +38,18 @@
 #'   \item{\code{tol}}{Numeric. Convergence tolerance. Default 0.001.}
 #'  \item{\code{maxit}}{Numeric. Maximum number of iteration.}
 #'   \item{\code{nrounds}}{Integer. Number of boosting rounds for Stage 2 (only for \code{'atds_mgwr'}). Default 3.}
+#'   \item{\code{H}, \code{Ht}}{Numeric. Known bandwidths instead of a search: \code{H} fixes every spatial bandwidth, \code{Ht} (\code{Type = 'GDT'} only) every temporal one. Each is an unnamed vector with one value per varying coefficient, in model-matrix order (\code{Intercept} first); a value at or above the largest bandwidth (e.g. \code{Inf}) is a global bandwidth. An axis is either fully fixed or fully searched (no \code{NA}, no named subset): \code{H} alone still searches the temporal bandwidths and conversely, \code{H} and \code{Ht} together freeze the search entirely, in which case the backfitting is iterated to its fixed point (every sweep kept, stop on \code{tol}) so that the returned model and its criterion depend on the bandwidths only. Units follow \code{control$adaptive}: numbers of neighbours (rounded) for an adaptive kernel, distances otherwise. Lower \code{tol} (e.g. \code{1e-6}) when the criterion at given bandwidths is to be read precisely.}
+#'   \item{\code{V}}{Numeric. User-supplied spatial bandwidth sequence, always in numbers of neighbours (converted to distances when the spatial kernel is not adaptive). Any order; \code{first_nn} is added on top.}
+#'   \item{\code{V_dist}}{Numeric. Fixed spatial kernel only: user-supplied spatial bandwidth sequence directly in distances (any order; the largest distance is added on top, and the grid is taken as is, without the panel extension). Overrides \code{V}, \code{minv} and \code{panel_floor}.}
+#'   \item{\code{panel_floor}}{Numeric in (0, 1]. Fixed spatial kernel with repeated locations (panel data) only. The neighbour-count grid cannot go below the distance to the first site, although a site's own observations identify a smaller bandwidth; the grid is therefore extended geometrically below its floor down to \code{panel_floor} times that distance (ratio 0.8 for a Gaussian kernel, 0.9 otherwise), provided every site has at least two observations. Default 0.2 for a Gaussian kernel (its bandwidth is a standard deviation) and 0.5 for compact-support kernels; 1 keeps the grid unchanged.}
+#'   \item{\code{first_nn}}{Integer. Top of the spatial bandwidth sequence, in numbers of neighbours. Default \code{nrow(data)}.}
+#'   \item{\code{trunc_gauss}}{Numeric or \code{NULL}. Fixed gaussian spatial kernel only: when set to \eqn{c}, each bandwidth \eqn{h} of the descent is evaluated on the neighbours within distance \eqn{c h} (relative weight \eqn{e^{-c^2/2}} beyond: 1.5e-8 for \eqn{c = 6}, 1.3e-14 for \eqn{c = 8}), which shrinks the weight matrices at small scales. \code{NULL} (default) keeps every neighbour. Fixed compact kernels are always truncated exactly (zero weights dropped), as adaptive ones already were.}
+#'   \item{\code{minv}}{Integer. Floor of the spatial bandwidth sequence, in numbers of neighbours: the grid stops at the median distance to the \code{minv}-th neighbour (or at \code{minv} neighbours for an adaptive kernel). Default: the identifiability floor, 2 for a Gaussian kernel and \code{K + 1} for compact-support kernels. Raising it above that floor truncates the descent: a coefficient whose optimal bandwidth is smaller stops on the grid floor with a censored bandwidth and non-converged coefficients, so a warning is issued at setup and again when a bandwidth ends on the floor.}
+#'   \item{\code{TRUEBETA}}{Numeric matrix. Diagnostic lever for simulations: the true coefficients, one row per observation and one column per coefficient of the model matrix (\code{Intercept} first). When given, the slot \code{HRMSE} of the returned model holds, for the starting model (row 1) and each kept sweep, the RMSE of every coefficient, their mean, the spatial bandwidth of the last varying coefficient, the AICc (\code{get_AIC = TRUE}) and the residual RMSE. Default \code{NULL}.}
 #' }
 #' @param control A named list of standard control arguments passed to the internal \code{MGWRSAR} calls:
 #' \describe{
-#'   \item{\code{adaptive}}{Logical or Vector. \code{TRUE} for adaptive bandwidth (nearest neighbors), \code{FALSE} for fixed distance. Can be a vector of length 2 for space/time.}
+#'   \item{\code{adaptive}}{Logical or Vector. \code{TRUE} for adaptive bandwidth (nearest neighbors), \code{FALSE} for fixed distance. Can be a vector of length 2 for space/time; a single value applies to both. Default \code{c(TRUE, FALSE)}. With an adaptive temporal kernel the temporal bandwidths are searched on a sequence of numbers of neighbours built like the spatial one.}
 #'   \item{\code{Type}}{Character. Spatial weighting type: \code{'GD'} (Spatial only) or \code{'GDT'} (Space-Time).}
 #'   \item{\code{NN}}{Integer. Maximum number of neighbors for distance matrix computation (truncation). Default is \code{nrow(data)}.}
 #' }
@@ -106,6 +114,9 @@ TDS_MGWR <- function(formula, data, coords,
     # ----------------------------------------------------------
     # [1] Spatial range
     # ----------------------------------------------------------
+    # the sub-samples of distances below are drawn from the package generator
+    rng_state <- .mgwrsar_rng_save(); on.exit(.mgwrsar_rng_restore(rng_state), add = TRUE)
+    set.seed(123, kind = "L'Ecuyer-CMRG", normal.kind = "Inversion")
     if (isTRUE(adaptive["spatial"])) {
       # adaptive = TRUE -> bounds in number of neighbors
       hs_range <- c(K + 2, n)
@@ -124,6 +135,8 @@ TDS_MGWR <- function(formula, data, coords,
     # [2] Temporal range (if applicable)
     # ----------------------------------------------------------
     if (!is.null(time)) {
+      if (length(unique(time[!is.na(time)])) < 2L)
+        stop("`control$Z` (time) takes a single value: a space-time model needs temporal variation; use Type = 'GD'.", call. = FALSE)
       cycling <- as.numeric(unlist(stringr::str_split(tail(kernels,1), "_"))[3])
       if (isTRUE(adaptive["temporal"])) {
         ht_range <- c(K + 2, n)
@@ -203,6 +216,9 @@ TDS_MGWR <- function(formula, data, coords,
         stop('Only atds_gwr, tds_mgwr and atds_mgwr Model can be estimated using Top Down Scale approach in this release.')
 
       n_time <- m <- n <- nrow(data)
+      if (identical(control$Type, "GDT") && !is.null(control$Z) &&
+          length(unique(control$Z[!is.na(control$Z)])) < 2L)
+        stop("`control$Z` (time) takes a single value: a space-time model needs temporal variation; use Type = 'GD'.", call. = FALSE)
 
       # ============================================================
       # [2] INITIALIZATION OF TDS PARAMETERS
@@ -221,6 +237,7 @@ TDS_MGWR <- function(formula, data, coords,
       if (is.null(control_tds$get_AIC)) control_tds$get_AIC <- FALSE
       if (Model == 'atds_mgwr') control_tds$get_AIC <- TRUE
       if (is.null(control_tds$ncore)) control_tds$ncore <- 1
+      control_tds$ncore <- .mgwrsar_normalize_nthreads(control_tds$ncore)
       if (is.null(control_tds$tol)) control_tds$tol <- 0.001
       if (is.null(control_tds$extra_iter)) control_tds$extra_iter <- 3
       if (is.null(control_tds$refine)) control_tds$refine <- FALSE
@@ -247,12 +264,24 @@ TDS_MGWR <- function(formula, data, coords,
       if (is.null(control_tds$nrounds)) control_tds$nrounds <- 3
       if (is.null(control_tds$verbose)) control_tds$verbose <- FALSE
 
-      if (is.null(control_tds$V)) V <- control_tds$V <- NULL
-      if (is.null(control_tds$min_dist)) min_dist <- NULL
+      # `$` partially matches list names: control_tds$H silently returns
+      # control_tds$Ht when H is absent (likewise min_dist / min_dist_t). Entries
+      # whose name is a prefix of another one are always read with `[[`.
+      if (is.null(control_tds[["V"]])) V <- control_tds$V <- NULL
+      if (is.null(control_tds[["min_dist"]])) min_dist <- NULL
       if (is.null(control_tds$first_nn)) control_tds$first_nn <- n
+      # Panel floor (fixed spatial kernel, repeated locations): the spatial grid
+      # is extended below the distance to the first site down to this fraction
+      # of it; 1 keeps the grid as is. A Gaussian bandwidth is a standard
+      # deviation, so its default goes lower than a support radius.
+      if (is.null(control_tds$panel_floor))
+        control_tds$panel_floor <- if (kernels[1] == 'gauss') 0.2 else 0.5
+      if (!is.numeric(control_tds$panel_floor) || length(control_tds$panel_floor) != 1L ||
+          is.na(control_tds$panel_floor) || control_tds$panel_floor <= 0 || control_tds$panel_floor > 1)
+        stop("control_tds$panel_floor must be a single number in (0, 1]")
       if (is.null(control_tds$BETA)) control_tds$BETA <- NULL
       if (is.null(control_tds$TRUEBETA)) control_tds$TRUEBETA <- NULL
-      if (is.null(control_tds$H)) H <- control_tds$H <- NULL
+      if (is.null(control_tds[["H"]])) H <- control_tds$H <- NULL
       if (is.null(control_tds$browser)) control_tds$browser <- 0
 
       # ============================================================
@@ -262,6 +291,9 @@ TDS_MGWR <- function(formula, data, coords,
       control$NN <- suppressWarnings(as.integer(control$NN))
       if (is.na(control$NN) || control$NN < 1L) control$NN <- n
       control$NN <- min(control$NN, n)
+      # (spatial, temporal): settled before the per-axis controls below are built
+      if (is.null(control$adaptive)) control$adaptive <- c(TRUE, FALSE)
+      if (length(control$adaptive) == 1) control$adaptive <- rep(control$adaptive, 2)
       if (is.null(control$SE)) control$SE <- FALSE
       if (is.null(control$isgcv)) control$isgcv <- FALSE
       if (is.null(control$Type)) control$Type <- 'GD'
@@ -302,7 +334,7 @@ TDS_MGWR <- function(formula, data, coords,
         controlvd$indexG <- Gtemp$indexG
         controlvd$dists <- Gtemp$dists
 
-        controlvt <- modifyList(control, list( Type = "T",dists = NULL, indexG = NULL,adaptive = FALSE))
+        controlvt <- modifyList(control, list( Type = "T",dists = NULL, indexG = NULL,adaptive = control$adaptive[2]))
         Gtemp <- prep_d(coords = as.matrix(coords_in[,3],ncol=1), NN = control$NN, TP = control$TP, kernels = kernels[2], Type = 'T')
         controlvt$indexG <- Gtemp$indexG
         controlvt$dists <- Gtemp$dists
@@ -352,8 +384,24 @@ TDS_MGWR <- function(formula, data, coords,
       data$Intercept <- 1
       K <- length(namesX)
 
+      # Identifiability floor of the spatial grid: 2 neighbours for a Gaussian
+      # kernel (its weights never vanish), K + 1 for compact-support kernels.
+      minv_floor <- if (kernels[1] == 'gauss') 2 else K + 1
+      minv_raised <- FALSE
       if (is.null(control_tds$minv)) {
-        if (kernels[1] == 'gauss') control_tds$minv <- minv <- 2 else if (is.null(control_tds$minv)) control_tds$minv <- minv <- K + 1
+        control_tds$minv <- minv <- minv_floor
+      } else if (kernels[1] == 'gauss' && control_tds$minv > minv_floor) {
+        # A floor above the identifiability minimum truncates the descent: a
+        # coefficient whose optimal scale lies below it stops on the grid floor
+        # (censored bandwidth, biased coefficients) instead of converging.
+        minv_raised <- TRUE
+        warning(sprintf(paste0(
+          "control_tds$minv = %s is above the identifiability floor of a Gaussian ",
+          "kernel (%d neighbours): the spatial grid stops at the median distance to ",
+          "the %s-th neighbour, and coefficients whose optimal bandwidth is smaller ",
+          "will be censored at that floor (bandwidth and coefficients not converged). ",
+          "Lower minv unless the floor is intended."),
+          control_tds$minv, minv_floor, control_tds$minv), call. = FALSE)
       }
       if (!('BETA' %in% ls())) BETA <- NULL
       if (!('TRUEBETA' %in% ls())) TRUEBETA <- NULL
@@ -377,13 +425,34 @@ TDS_MGWR <- function(formula, data, coords,
       }
       HOPT <- rep(NA, K)
       names(HOPT) <- namesX
+      # Diagnostic lever: with the true coefficients known (simulations), the
+      # RMSE of each coefficient is tracked along the backfitting. Row 1 is the
+      # starting model, row i + 1 the i-th sweep; the unused rows (NA) are
+      # dropped when the model is assembled.
+      # (control_tds is copied into this environment only after this function:
+      # read the lever from the list, and store the coerced matrix back in it)
+      if (!is.null(control_tds$TRUEBETA)) {
+        TRUEBETA <- control_tds$TRUEBETA <- as.matrix(control_tds$TRUEBETA)
+        if (!is.numeric(TRUEBETA) || nrow(TRUEBETA) != n || ncol(TRUEBETA) != K)
+          stop(
+            paste0(
+              "`control_tds$TRUEBETA` must be a numeric matrix with one row per ",
+              "observation (", n, ") and one column per coefficient of the model ",
+              "matrix (", K, ", `Intercept` first)."
+            ),
+            call. = FALSE
+          )
+        HRMSE <- matrix(NA_real_, nrow = control_tds$maxit + 1L, ncol = K + 4L)
+        colnames(HRMSE) <- c(paste0('RMSE_', namesX), 'meanRMSE', 'h', 'AICc', 'RMSE')
+      }
     })
   }
   init_param_tds()
   reassign_control(control_tds)
 
-  TSik <- matrix(0, nrow = n, ncol = length(varying))
-  # Remove TSik updates in update_opt etc.
+  # One column per coefficient, fixed ones included (the fixed-variable update
+  # in 3.3 writes TSik[, k] too); sized on `varying` it broke with fixed_vars.
+  TSik <- matrix(0, nrow = n, ncol = length(namesX))
   colnames(TSik) = namesX
   idx_init <- idx <- 1:n
 
@@ -506,7 +575,7 @@ TDS_MGWR <- function(formula, data, coords,
       }
     })
   }
-  
+
   built_Vseq <- function(env = parent.frame()) {
     with(env, {
       
@@ -525,7 +594,25 @@ TDS_MGWR <- function(formula, data, coords,
       
       if (is.null(control$adaptive)) control$adaptive <- c(TRUE, FALSE)
       if (length(control$adaptive) == 1) control$adaptive <- rep(control$adaptive, 2)
-      
+
+      # Repeated locations (panel data: several observations per site). For a
+      # NON-adaptive spatial kernel, neighbour counts refer to DISTINCT
+      # locations: the top of the sequence is the number of sites and the
+      # count-to-distance conversion in [4] uses the number of sites as
+      # reference. Otherwise a count x is read as a fraction x/(NT - 1) of the
+      # observations instead of x/(N - 1) of the sites, and the low end of the
+      # grid falls far below the distance to the 2nd site. Adaptive kernels
+      # keep counting observations (their bandwidth is a rank in the sorted
+      # distances of the focal point).
+      loc_key <- paste(round(coords[, 1], 10), round(coords[, 2], 10))
+      has_repeated_locations <- anyDuplicated(loc_key) > 0 && !isTRUE(control$adaptive[1])
+      min_multiplicity <- 1L
+      if (has_repeated_locations) {
+        coords_distinct <- as.matrix(coords[!duplicated(loc_key), 1:2, drop = FALSE])
+        first_nn <- min(first_nn, nrow(coords_distinct))
+        min_multiplicity <- min(tabulate(match(loc_key, unique(loc_key))))
+      }
+
       # ============================================================
       # [1] Build spatial sequence V (as NN counts first)
       # ============================================================
@@ -539,8 +626,15 @@ TDS_MGWR <- function(formula, data, coords,
         }
         V <- unique(V[V >= minv])
       } else {
-        m <- V[1]
-        V <- V[V < (n - 2)]
+        # User-supplied grid, in numbers of neighbours (converted to distances in
+        # [4] when the spatial kernel is not adaptive). The descent assumes a
+        # strictly decreasing sequence: with an increasing one the up/down
+        # candidate lookup picks the wrong neighbours and the search crashes.
+        # first_nn is prepended below, so the grid is kept strictly under it.
+        if (!is.numeric(V) || anyNA(V))
+          stop("control_tds$V must be a numeric vector without NA")
+        V <- sort(unique(V), decreasing = TRUE)
+        V <- V[V < min(first_nn, n - 2)]
       }
       
       # ============================================================
@@ -550,47 +644,62 @@ TDS_MGWR <- function(formula, data, coords,
       
       if (Model != "atds_gwr") V <- c(first_nn, V)
       
-      if (is.null(control_tds$min_dist) && !control$adaptive[1]) {
+      if (is.null(control_tds[["min_dist"]]) && !control$adaptive[1]) {
         min_dist <- min(V)
-      } else if (!is.null(control_tds$min_dist) && !control$adaptive[1]) {
-        V <- V[V > control_tds$min_dist]
-        min_dist <- control_tds$min_dist
+      } else if (!is.null(control_tds[["min_dist"]]) && !control$adaptive[1]) {
+        V <- V[V > control_tds[["min_dist"]]]
+        min_dist <- control_tds[["min_dist"]]
       }
       
       l <- length(V)
       V5 <- V[unique(round(quantile(seq_along(V), c(1, 0.75, 0.5, 0.25, 0))))]
       
       # ============================================================
-      # [3] Temporal candidate sequence Vt (if GDT and non-adaptive)
+      # [3] Temporal candidate sequence Vt (if GDT)
       # ============================================================
       Vt <- NULL
       min_dist_t <- NULL
       max_dist_t <- NULL
       V5t <- NULL
       
-      if (isTRUE(control$Type == "GDT") && !control$adaptive[2]) {
+      if (isTRUE(control$Type == "GDT")) {
         
-        kernels_t <- unlist(strsplit(kernels[2], "_"))[1]
-        format_t  <- unlist(strsplit(kernels[2], "_"))[2]
-        cycling   <- suppressWarnings(as.numeric(unlist(strsplit(kernels[2], "_"))[3]))
-        
-        # Select correct temporal distance matrix
-        if (!is.na(cycling) && "dist_t_modulo" %in% names(G$dists)) {
-          dist_t <- abs(G$dists[["dist_t_modulo"]])
+        if (!control$adaptive[2]) {
+          
+          # Fixed temporal kernel: candidates are temporal distances
+          kernels_t <- unlist(strsplit(kernels[2], "_"))[1]
+          format_t  <- unlist(strsplit(kernels[2], "_"))[2]
+          cycling   <- suppressWarnings(as.numeric(unlist(strsplit(kernels[2], "_"))[3]))
+          
+          # Select correct temporal distance matrix
+          if (!is.na(cycling) && "dist_t_modulo" %in% names(G$dists)) {
+            dist_t <- abs(G$dists[["dist_t_modulo"]])
+          } else {
+            dist_t <- abs(G$dists[["dist_t"]])
+          }
+          
+          if (!is.na(cycling)) {
+            max_dist_t <- round(cycling / 2)
+          } else {
+            max_dist_t <- max(dist_t, na.rm = TRUE)
+          }
+          
+          min_dist_t <- as.numeric(quantile(dist_t[dist_t > 0.0000001], 0.02, na.rm = TRUE))
+          alpha2 <- exp(log(min_dist_t / max_dist_t) / (nns + 1))
+          Vt <- sapply(1:(nns + 1), function(x) round(max_dist_t * (alpha2)^x))
+          Vt <- Vt[Vt >= min_dist_t]
+          
         } else {
-          dist_t <- abs(G$dists[["dist_t"]])
+          
+          # Adaptive temporal kernel: candidates are numbers of neighbours, built
+          # like the spatial sequence V. The top one, min(n, NN), stands for the
+          # global temporal bandwidth, as max_dist does in space.
+          max_dist_t <- min(n, control$NN)
+          alpha2 <- exp(log(minv / max_dist_t) / (nns + 1))
+          Vt <- sapply(1:(nns + 1), function(x) round(max_dist_t * (alpha2)^x))
+          Vt <- Vt[Vt > minv]
         }
         
-        if (!is.na(cycling)) {
-          max_dist_t <- round(cycling / 2)
-        } else {
-          max_dist_t <- max(dist_t, na.rm = TRUE)
-        }
-        
-        min_dist_t <- as.numeric(quantile(dist_t[dist_t > 0.0000001], 0.02, na.rm = TRUE))
-        alpha2 <- exp(log(min_dist_t / max_dist_t) / (nns + 1))
-        Vt <- sapply(1:(nns + 1), function(x) round(max_dist_t * (alpha2)^x))
-        Vt <- Vt[Vt >= min_dist_t]
         Vt <- unique(c(max_dist_t, Vt))
         V5t <- Vt[unique(round(quantile(seq_along(Vt), c(1, 0.75, 0.5, 0.25, 0))))]
         
@@ -620,7 +729,7 @@ TDS_MGWR <- function(formula, data, coords,
         
         dist_s <- abs(G$dists[["dist_s"]])
         max_dist <- max(dist_s, na.rm = TRUE)
-        
+
         # Build an order-invariant mapping "NN index -> spatial distance"
         # Use global distribution of spatial distances (excluding zeros)
         ds_vec <- as.numeric(dist_s)
@@ -632,17 +741,51 @@ TDS_MGWR <- function(formula, data, coords,
         
         # Convert each neighbor-count x into a quantile-based distance.
         # x neighbors ~ small distance => quantile at x/(Nref-1)
-        Nref <- min(n, control$NN)  # consistent with NN cap
+        # With repeated locations, ds_vec holds the distances between distinct
+        # sites (the zero distances between copies are excluded above), so the
+        # reference count is the number of sites, not of observations.
+        Nref <- if (has_repeated_locations) nrow(coords_distinct) else min(n, control$NN)
         if (Nref < 2) stop("Nref must be >= 2 to map NN index to distance")
         
 
-        V_dist <- sapply(V, function(x) {
-          q <- min(max(x / (Nref - 1), 0), 1)
-          as.numeric(stats::quantile(ds_vec, probs = q, names = FALSE, type = 7, na.rm = TRUE))
-        })
-        
+        if (!is.null(control_tds[["V_dist"]])) {
+          # User-supplied spatial grid directly in distances (fixed kernel only).
+          # The neighbour-count mapping above cannot go below the distance to the
+          # first site; in a panel every site already carries several observations,
+          # so a bandwidth below that distance remains identifiable.
+          vd <- control_tds[["V_dist"]]
+          if (!is.numeric(vd) || anyNA(vd) || any(vd <= 0))
+            stop("control_tds$V_dist must be a positive numeric vector of distances")
+          V_dist <- sort(unique(vd[vd < max_dist]), decreasing = TRUE)
+        } else {
+          V_dist <- sapply(V, function(x) {
+            q <- min(max(x / (Nref - 1), 0), 1)
+            as.numeric(stats::quantile(ds_vec, probs = q, names = FALSE, type = 7, na.rm = TRUE))
+          })
+        }
+
         V  <- unique(c(max_dist, V_dist))
         V  <- sort(V, decreasing = TRUE)
+
+        # Panel (repeated locations): the count-to-distance mapping cannot go
+        # below d1, the distance to the first site, although every site carries
+        # several observations and a smaller bandwidth stays identifiable.
+        # Extend the grid geometrically from its floor down to panel_floor * d1
+        # (each site needs at least two observations; a user grid V_dist is
+        # taken as is). The ratio is faster for a Gaussian kernel, whose
+        # bandwidth is a standard deviation.
+        panel_extended <- FALSE
+        if (has_repeated_locations && is.null(control_tds[["V_dist"]]) &&
+            control_tds$panel_floor < 1 && min_multiplicity >= 2L) {
+          d1 <- as.numeric(stats::quantile(ds_vec, probs = 1 / (Nref - 1), names = FALSE, type = 7))
+          floor_target <- control_tds$panel_floor * d1
+          if (min(V) > floor_target) {
+            ratio <- if (kernels[1] == 'gauss') 0.8 else 0.9
+            ext <- min(V) * ratio^seq_len(500L)
+            V <- c(V, ext[ext >= floor_target])
+            panel_extended <- TRUE
+          }
+        }
         V5 <- V[unique(round(quantile(seq_along(V), c(1, 0.75, 0.5, 0.25, 0))))]
         min_dist <- min(V)
       }
@@ -938,14 +1081,18 @@ TDS_MGWR <- function(formula, data, coords,
           H <- rep(n, length(namesX))
           names(H) = namesX
           if (control$Type == 'GDT') {
-            Ht <- model0@Ht <- max_dist_t
+            # One temporal bandwidth per coefficient, like H: the returned slot
+            # must not collapse to a scalar when the descent never improves.
+            model0@Ht <- max_dist_t
+            Ht <- rep(max_dist_t, length(namesX))
+            names(Ht) = namesX
           }
 
           if (control_tds$get_AIC) {
             Rkk <<- Rk <- list()
             XXtX <- solve(crossprod(X), t(X))
             rownames(XXtX) <- colnames(X)
-            S =  eigenMapMatMult(X, XXtX)
+            S =  .mgwrsar_matprod(X, XXtX)
             for (k in namesX) {
               Rk[[k]] <- outer(X[, k], XXtX[k, ], '*')
             }
@@ -967,7 +1114,7 @@ TDS_MGWR <- function(formula, data, coords,
           }
           res <- golden_search_bandwidth(formula = formula, Ht = NULL, data = data, coords = coords, fixed_vars = fixed_vars, kernels = kernels[1], Model = 'GWR', control = controlv, lower.bound = lower.bound, upper.bound = upper.bound)
           if(control_tds$verbose) cat(" optimal bandwidth = ", res$minimum)
-          model0 = res$model
+          model0 = res$best_model
           BETA0 = model0@Betav
           H <- rep(model0@H, length(namesX))
           names(H) = namesX
@@ -975,7 +1122,9 @@ TDS_MGWR <- function(formula, data, coords,
           S <- model0@Shat
           Rk <- model0@R_k ## NULL
           if (control$Type == 'GDT') {
-            Ht <- model0@Ht <- max_dist_t
+            model0@Ht <- max_dist_t
+            Ht <- rep(max_dist_t, length(namesX))
+            names(Ht) = namesX
           }
         }
 
@@ -1005,7 +1154,8 @@ TDS_MGWR <- function(formula, data, coords,
           H <- rep(model0@H, length(namesX))
           names(H) = namesX
           if (control$Type == 'GDT') {
-            Ht <- model0@Ht
+            Ht <- rep(model0@Ht, length(namesX))
+            names(Ht) = namesX
           }
           myAICc = model0@AIC
           S <- model0@Shat
@@ -1016,6 +1166,8 @@ TDS_MGWR <- function(formula, data, coords,
           if (control_tds$verbose) message("    Fitting tds_mgwr model...")
           control_tds_temp <- control_tds
           control_tds_temp$init_model = 'OLS'
+          # spatial-only start: pinned temporal bandwidths do not apply to it
+          control_tds_temp$Ht <- NULL
           controlv <- control
           controlv$adaptive <- controlv$adaptive[1]
           controlv$Type = 'GD'
@@ -1028,7 +1180,9 @@ TDS_MGWR <- function(formula, data, coords,
           myAICc = model0@AIC
           H = model0@H
           if (control$Type == 'GDT') {
-            Ht <- model0@Ht <- rep(max_dist_t,length(H))
+            # named like H: predict() reads the temporal bandwidths by coefficient name
+            Ht <- rep(max_dist_t, length(H)); names(Ht) <- namesX
+            model0@Ht <- Ht
           }
         }
 
@@ -1140,10 +1294,17 @@ TDS_MGWR <- function(formula, data, coords,
           }
         }
       }
-      # Label bounds if relevant
+      # Label bounds if relevant. With fixed_vars the starting model carries K
+      # bandwidths (opt[1:K] above): keep the varying ones only, or the logical
+      # indexing of `stable` (length lvarying) below recycles and yields NA.
+      opt <- opt[seq_len(lvarying)]; up <- up[seq_len(lvarying)]
+      down <- down[seq_len(lvarying)]; ddown <- ddown[seq_len(lvarying)]
       names(stable) <- names(up) <- names(opt) <- names(down) <- names(ddown) <- varying
-      if (control$Type == 'GDT')
+      if (control$Type == 'GDT') {
+        opt_t <- opt_t[seq_len(lvarying)]; up_t <- up_t[seq_len(lvarying)]
+        down_t <- down_t[seq_len(lvarying)]; ddown_t <- ddown_t[seq_len(lvarying)]
         names(up_t) <- names(opt_t) <- names(down_t) <- names(ddown_t) <- varying
+      }
     })
   }
 
@@ -1222,18 +1383,54 @@ TDS_MGWR <- function(formula, data, coords,
       # ============================================================
       init_bandwidth_bounds_from_model()
 
-      if(any(!is.na(control_tds$H))) {
-        for(i in 1:lvarying) {
-          opt[varying[i]] <- control_tds$H[i]
-        }
-        stable = stable + 8
+      # ------------------------------------------------------------
+      # 2.0 User-pinned bandwidths (control_tds$H / control_tds$Ht)
+      # ------------------------------------------------------------
+      # An axis is either fully pinned or fully searched: H gives one value per
+      # varying coefficient, in the order of `varying` (no NA, no names), and
+      # freezes every spatial bandwidth; Ht does the same for the temporal
+      # ones (Type = 'GDT'). A value at or above the largest bandwidth (e.g.
+      # Inf) means a global one. H alone still searches the temporal axis and
+      # conversely; H + Ht freeze the search entirely (fixed point, see 3.5).
+      # The per-coefficient flags below are kept for the downstream code
+      # (update_bandwidth_candidates, update_opt_st) but are uniform.
+      # Both entries are read with `[[`: `$H` would partially match `Ht`.
+      resolve_pins <- function(x, what, top, as_count) {
+        pins <- rep(NA_real_, lvarying)
+        names(pins) <- varying
+        if (is.null(x)) return(pins)
+        if (!is.numeric(x)) stop("control_tds$", what, " must be numeric")
+        if (length(x) != lvarying || !is.null(names(x)))
+          stop("control_tds$", what, " must be an unnamed vector with one value per ",
+               "varying coefficient (", lvarying, " expected, ", length(x), " given), ",
+               "in model-matrix order: ", paste(varying, collapse = ", "),
+               ". Partial pins (NA, named subsets) are not supported: an axis is ",
+               "either fully pinned or fully searched.")
+        if (anyNA(x))
+          stop("control_tds$", what, " must not contain NA: an axis is either fully ",
+               "pinned or fully searched")
+        if (any(x <= 0))
+          stop("control_tds$", what, " must be positive")
+        pins[] <- x
+        if (as_count) pins <- round(pins)
+        pmin(pins, top)
       }
-      if(any(!is.na(control_tds$Ht))) {
-        for(i in 1:lvarying) {
-          opt_t[varying[i]] <- control_tds$Ht[i]
-        }
-        stable = stable + 8
+
+      pin_s <- resolve_pins(control_tds[["H"]], "H", max_dist, isTRUE(control$adaptive[1]))
+      pinned_s <- !is.na(pin_s)
+      opt[varying[pinned_s]] <- pin_s[pinned_s]
+
+      pinned_t <- pinned_s
+      pinned_t[] <- FALSE
+      if (!is.null(control_tds[["Ht"]])) {
+        if (control$Type != 'GDT')
+          stop("control_tds$Ht is only meaningful when control$Type == 'GDT'")
+        pin_t <- resolve_pins(control_tds[["Ht"]], "Ht", max_dist_t, isTRUE(control$adaptive[2]))
+        pinned_t <- !is.na(pin_t)
+        opt_t[varying[pinned_t]] <- pin_t[pinned_t]
       }
+      # A coefficient pinned on every axis of the model is never searched.
+      pinned_all <- if (control$Type == 'GDT') pinned_s & pinned_t else pinned_s
 
       # ------------------------------------------------------------
       # 2.1 Initialize AIC-related tracking structures
@@ -1263,6 +1460,18 @@ TDS_MGWR <- function(formula, data, coords,
 
       # Initialize best parameters and convergence deltas
       bestBETA = BETA
+      if (!is.null(TRUEBETA)) {
+        # row 1: the starting model, so that HRMSE and HBETA line up
+        for (k in 1:K)
+          HRMSE[1, k] = sqrt(mean((TRUEBETA[, k] - BETA[, k])^2))
+        HRMSE[1, K + 1] <- mean(HRMSE[1, 1:K])
+        if (control_tds$get_AIC && exists("myAICc")) HRMSE[1, K + 3] <- myAICc
+        HRMSE[1, K + 4] <- rmse
+      }
+      if (control_tds$get_AIC) {
+        mybestS = S
+        mybestRk = Rk
+      }
       delta_rmse = 1
       delta_AICc = 1
 
@@ -1281,7 +1490,9 @@ TDS_MGWR <- function(formula, data, coords,
       if (control_tds$test) nnrep = 5 else nnrep = 5
       extra_iter <- control_tds$extra_iter
       post_conv_count <- 0
-      bestRMSE = rmse
+      # The starting model ignores the pinned bandwidths: it must not survive as
+      # the best state, or the returned H/Ht would not match the returned Betav.
+      bestRMSE = if (any(pinned_s) || any(pinned_t)) Inf else rmse
       converged = FALSE
       patience=0
 
@@ -1297,7 +1508,14 @@ TDS_MGWR <- function(formula, data, coords,
         # 3.1 Iteration bookkeeping
         # ------------------------------------------------------------
         last_rmseG = rmse
-        BETA = bestBETA
+        # A rejected sweep is kept as the current state: a sweep is
+        # deterministic, so restarting from the best state (coefficients,
+        # residuals and smoother trace) would repeat the rejected sweep and
+        # freeze the descent, whereas continuing from the rejected state lets
+        # it find a better region (non-monotone descent). The best state
+        # (bestBETA, H, Ht, mybestS, mybestRk) is the one returned. Until 1.3.2
+        # the coefficients were reset but not the residuals, an inconsistent
+        # state that happened to have the same effect.
         if (verbose) cat('\n\n ', i)
 
         if (control_tds$get_AIC) {
@@ -1342,7 +1560,9 @@ TDS_MGWR <- function(formula, data, coords,
           last_rmse = rmse
 
           # --- Bandwidth update depending on model type ---
-          if(!converged){
+          # A coefficient pinned on a single axis still goes through the search:
+          # update_bandwidth_candidates() collapses its candidates on that axis.
+          if(!converged && !pinned_all[k]){
             if (any(stable < ifelse(control_tds$refine, 2, 4))) {
               if (control$Type == 'GD') update_opt()
               if (control$Type == 'GDT' && !control_tds$test) update_opt_st()
@@ -1352,7 +1572,7 @@ TDS_MGWR <- function(formula, data, coords,
               # --- Golden Search Refinement ---
               if (control$Type == 'GD'  ) {
                 if(control_tds$verbose) cat('\n one step Golden search ratio \n')
-                if(k == tail(varying, 1)) converged = TRUE
+                if(k == tail(varying[!pinned_all], 1)) converged = TRUE
                 data$e0k <- data$e0 + BETA[, k] * X[, k]
                 myformula_bk = as.formula(paste0('e0k~-1+', k))
 
@@ -1361,7 +1581,7 @@ TDS_MGWR <- function(formula, data, coords,
                   fixed_vars = NULL, kernels = kernels, Model = "GWR", control = control,
                   lower.bound = HKmin[k], upper.bound = V[max(1, which(V == opt[k]) - 3)]
                 )
-                model_k <- refined$model
+                model_k <- refined$best_model
                 opt[k] <- model_k@H
                 betav <- model_k@Betav
                 e0 <- residuals(model_k)
@@ -1460,7 +1680,11 @@ TDS_MGWR <- function(formula, data, coords,
           for (k in varying) Rk[[k]] <- Rkk[[k]]
         }
 
-        if (rmse <= bestRMSE) {
+        # With every bandwidth pinned there is nothing to search: iterate the
+        # backfitting to its fixed point (every sweep kept, stop on tol) so that
+        # the returned model, hence its criterion, depends on the pinned
+        # bandwidths only and not on the starting model.
+        if (rmse <= bestRMSE || all(pinned_all)) {
           bestBETA = BETA
           bestRMSE = rmse
           H = opt
@@ -1716,7 +1940,7 @@ TDS_MGWR <- function(formula, data, coords,
 
       BETA <- bestBETA
       if (!is.null(TRUEBETA))
-        HRMSE <- HRMSE[1:mybestG, ]
+        HRMSE <- HRMSE[1:mybestG, , drop = FALSE]
       HBETA <- HBETA[1:mybestG]
 
       fit = rowSums(BETA * X)
@@ -1740,6 +1964,20 @@ TDS_MGWR <- function(formula, data, coords,
       modelGWR@max_dist=max_dist
       if(control$Type=='GDT') modelGWR@max_dist_t=max_dist_t
       modelGWR@H = H
+      if (exists("panel_extended") && isTRUE(panel_extended) && any(H <= min(V))) {
+        warning(sprintf(paste0(
+          "spatial bandwidth of %s stopped on the panel floor (control_tds$panel_floor = %s ",
+          "times the distance to the first site, %.4g): lower panel_floor or give V_dist."),
+          paste(names(H)[H <= min(V)], collapse = ", "), control_tds$panel_floor, min(V)),
+          call. = FALSE)
+      }
+      if (isTRUE(minv_raised) && any(H <= min(V))) {
+        warning(sprintf(paste0(
+          "spatial bandwidth of %s stopped on the grid floor set by control_tds$minv = %s ",
+          "(%.4g): the criterion may keep improving below it; lower minv and re-estimate."),
+          paste(names(H)[H <= min(V)], collapse = ", "), control_tds$minv, min(V)),
+          call. = FALSE)
+      }
       modelGWR@fixed_vars <- unique(c(as.character(fixed_vars),
                                       names(modelGWR@H)[which(modelGWR@H == max_dist)]))
       modelGWR@Betav = BETA
@@ -1811,7 +2049,7 @@ TDS_MGWR <- function(formula, data, coords,
 
 
       if (!is.null(TRUEBETA))
-        modelGWR@HRMSE <- HRMSE[!is.na(HRMSE[, 1]), ]
+        modelGWR@HRMSE <- HRMSE[!is.na(HRMSE[, 1]), , drop = FALSE]
 
       if(Model == 'atds_mgwr') modelGWR@G = G
       control_tds$model_stage1 <- model_stage1 <- returned_model <- modelGWR
@@ -1843,6 +2081,11 @@ TDS_MGWR <- function(formula, data, coords,
       if(!is.null(control_tds$model_stage1)) {
         HBETA = model_stage1@HBETA
         HRMSE = model_stage1@HRMSE
+        if (!is.null(TRUEBETA) && ncol(HRMSE) != K + 4L) {
+          # stage 1 was run without TRUEBETA: start the history here
+          HRMSE <- matrix(NA_real_, nrow = 0L, ncol = K + 4L)
+          colnames(HRMSE) <- c(paste0('RMSE_', namesX), 'meanRMSE', 'h', 'AICc', 'RMSE')
+        }
         i <- nrow(HRMSE)
         HRMSE <- rbind(HRMSE, matrix(NA, ncol = ncol(HRMSE), nrow = nrounds + 1))
         BETA <- model_stage1@Betav
@@ -1911,7 +2154,7 @@ TDS_MGWR <- function(formula, data, coords,
           idxt = !is.na(betav)
           if(control_tds$get_AIC) {
             Sk <- model_tds@Shat
-            Rkk[[k]] <- eigenMapMatMult(Sk, Rk[[k]]) + Sk - eigenMapMatMult(Sk, S)
+            Rkk[[k]] <- .mgwrsar_matprod(Sk, Rk[[k]]) + Sk - .mgwrsar_matprod(Sk, S)
             St = S + Rkk[[k]] - Rk[[k]]
             new_ts = sum(diag(St))
             model_tds@AICc <- n * log(sum(e0[idxt]^2) / n_time) + n_time * log(2 * pi) + n_time * (n_time + new_ts) / (n_time - 1 - new_ts)
@@ -2010,7 +2253,7 @@ TDS_MGWR <- function(formula, data, coords,
       modelGWR@ctime <-  (proc.time() - start)[3]
       modelGWR@HBETA <- HBETA
       if(!is.null(TRUEBETA)) {
-        modelGWR@HRMSE <- HRMSE[!is.na(HRMSE[, 1]), ]
+        modelGWR@HRMSE <- HRMSE[!is.na(HRMSE[, 1]), , drop = FALSE]
       }
       if(control_tds$get_AIC) {
         modelGWR@AICc <- AICc

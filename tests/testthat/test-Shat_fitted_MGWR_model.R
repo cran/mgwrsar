@@ -6,6 +6,7 @@ library(testthat)
 library(mgwrsar)
 source('../../tools/configs_list_estimation.R')
 source('../../tools/test_init.R')
+source('../../tools/check_hash_against_registry.R')
 #source('tools/configs_list_estimation.R')
 #source('tools/test_init.R')
 

@@ -58,7 +58,7 @@ atds_gwr<-function(formula,data,coords,kernels='triangle',fixed_vars=NULL,contro
   colnames(BETA)<-varying<-colnames(X)
   XXtX <- solve(crossprod(X), t(X))
   rownames(XXtX) <- colnames(X)
-  S =  eigenMapMatMult(X, XXtX)
+  S =  .mgwrsar_matprod(X, XXtX)
   ds0=diag(S)
 
   HOPT=rep(NA,length(varying))
@@ -105,7 +105,7 @@ atds_gwr<-function(formula,data,coords,kernels='triangle',fixed_vars=NULL,contro
       
       ##### diagnostic
       e1=residuals(modelGWR)
-      S1<-S+modelGWR@Shat-eigenMapMatMult(modelGWR@Shat,S)
+      S1<-S+modelGWR@Shat-.mgwrsar_matprod(modelGWR@Shat,S)
       ds1=diag(S1)
       df_true=sum(diag(ds1))
       tocorrect<-1:n

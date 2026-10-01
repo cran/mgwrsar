@@ -14,6 +14,7 @@
 prep_d<-function (coords, NN, TP, Q = FALSE, extrapol = FALSE, ratio = 1,
                   QP = NULL, kernels = NULL, Type = NULL, stable_knn = FALSE)
 {
+  .mgwrsar_set_native_threads(1L)
   if (length(TP) < nrow(coords))
     stable_knn = FALSE
   dists <- list()
@@ -142,6 +143,7 @@ prep_d<-function (coords, NN, TP, Q = FALSE, extrapol = FALSE, ratio = 1,
       dt <- dt%%cycling
       pmin(dt, cycling - dt)
     }
+    rng_state <- .mgwrsar_rng_save(); on.exit(.mgwrsar_rng_restore(rng_state), add = TRUE)
     set.seed(seed)
     idx <- sample(TRAIN, min(subsample, length(TRAIN)))
     DS_samp <- as.vector(dist(coords[idx, , drop = FALSE]))

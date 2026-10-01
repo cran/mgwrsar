@@ -7,6 +7,7 @@ library(mgwrsar)
 
 source('../../tools/configs_list_estimation.R')
 source('../../tools/test_init.R')
+source('../../tools/check_hash_against_registry.R')
 
 ## vérifier pour tout modèle la validité de S, de fit, de résiduals sur un DGP MGTWR_SAR n=600
 

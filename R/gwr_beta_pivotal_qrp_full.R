@@ -75,11 +75,15 @@ gwr_beta_pivotal_qrp_full <- function(
       error = function(e) rep(NA_real_, ncol(ALL_X))
     )
 
+    # an aliased (non-estimable) column gets 0, as in the local engine
+    beta_ols[is.na(beta_ols)] <- 0
     if (!anyNA(beta_ols)) {
       # Detect rows to replace
       replace_idx <- which(
         apply(Betav, 1, function(x) all(is.na(x)) || sum(abs(x)) < .Machine$double.eps)
       )
+      if (length(replace_idx) == nrow(Betav))
+        warning("no local fit has more observations than coefficients (bandwidth or NN too small): global OLS coefficients are returned everywhere", call. = FALSE)
       if (length(replace_idx) > 0) {
         Betav[replace_idx, ] <- matrix(
           beta_ols,

@@ -129,7 +129,7 @@ Dependence. '2SLS' or 'B2SLS', default '2SLS'.}
  diagnull=TRUE)
  mgwrsar_0_kc_kv<-MGWRSAR(formula = 'Y_mgwrsar_0_kc_kv~X1+X2+X3', data = mydata,
  coords=coords, fixed_vars='X2',kernels=c('gauss'),H=20, Model = 'MGWRSAR_0_kc_kv',
- control=list(SE=FALSE,adaptive=TRUE,W=W))
+ control=list(SE=FALSE,adaptive=TRUE,W=W,ncore=1))
  summary(mgwrsar_0_kc_kv)
 }
 }

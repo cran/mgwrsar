@@ -118,7 +118,10 @@ if(!is.null(new_data)) {mymodel <- list(Betav = model$Betav, Betac = model$Betac
         }
       } else {
         ## if island then use OLS estimate for these obs.
-        mymodel@Betav[isolated_idx,]<-matrix(coef(lm.fit(XV,Y)),byrow = TRUE, ncol = ncol(XV),nrow = length(isolated_idx))
+        # global OLS for the isolated points; an aliased (non-estimable) column
+        # gets 0, as in the local engine, not the NA of lm.fit()
+        beta_ols <- coef(lm.fit(XV,Y)); beta_ols[is.na(beta_ols)] <- 0
+        mymodel@Betav[isolated_idx,]<-matrix(beta_ols,byrow = TRUE, ncol = ncol(XV),nrow = length(isolated_idx))
         fit[isolated_idx]<-rowSums(mymodel@Betav[isolated_idx,]*XV[isolated_idx,])
         residuals[isolated_idx]<-Y[isolated_idx]-fit[isolated_idx]
         n<-length(TP)

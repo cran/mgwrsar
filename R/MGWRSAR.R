@@ -126,10 +126,11 @@
 #'  diagnull=TRUE)
 #'  mgwrsar_0_kc_kv<-MGWRSAR(formula = 'Y_mgwrsar_0_kc_kv~X1+X2+X3', data = mydata,
 #'  coords=coords, fixed_vars='X2',kernels=c('gauss'),H=20, Model = 'MGWRSAR_0_kc_kv',
-#'  control=list(SE=FALSE,adaptive=TRUE,W=W))
+#'  control=list(SE=FALSE,adaptive=TRUE,W=W,ncore=1))
 #'  summary(mgwrsar_0_kc_kv)
 #' }
 MGWRSAR <- function(formula, data, coords, fixed_vars = NULL, kernels, H,Model = "GWR", control = list()){
+  rng_state <- .mgwrsar_rng_save(); on.exit(.mgwrsar_rng_restore(rng_state), add = TRUE)
   set.seed(123, kind = "L'Ecuyer-CMRG", normal.kind = "Inversion")
   coords_o<-coords
 
@@ -139,6 +140,7 @@ MGWRSAR <- function(formula, data, coords, fixed_vars = NULL, kernels, H,Model =
   mf <- model.frame(formula, data)
   data<-data[,names(mf)]
   if(is.null(control$Type)) control$Type='GD'
+  .mgwrsar_check_inputs(data, coords, kernels, H, Model, control, n = nrow(data))
   if(Model!='OLS'){
   if(control$Type %in% c('GD','GDT')) coords<-make_unique_by_structure(coords)
   if(control$Type %in% c('GDT','T')) control$Z<-make_unique_by_structure(control$Z)
@@ -167,10 +169,20 @@ MGWRSAR <- function(formula, data, coords, fixed_vars = NULL, kernels, H,Model =
     mycall <- match.call()
     n <-nrow(data)
     assign_control(control,n)
+    .mgwrsar_set_native_threads(ncore)
     if (!is.null(NN)) {
       NN <- suppressWarnings(as.integer(NN))
       if (is.na(NN) || NN < 1L) NN <- n
       NN <- min(NN, n)
+    }
+    # an adaptive bandwidth is a number of neighbours: it cannot exceed the
+    # sample (the kernels read the (H + 1)-th or (H + 2)-th neighbour and
+    # failed with an index error)
+    if (!isTRUE(get0("searchB", inherits = FALSE)) && !is.null(H) && length(adaptive) >= 1L) {
+      ad <- rep_len(as.logical(adaptive), length(H))
+      if (any(ad & !is.na(H) & H > n))
+        stop(sprintf("adaptive bandwidth H = %s is a number of neighbours and exceeds the sample size n = %d.",
+                     paste(H[ad & !is.na(H) & H > n], collapse = ", "), n), call. = FALSE)
     }
     if(is.null(control$family)){
       control$family<-family<-gaussian(link = "identity")
@@ -202,6 +214,10 @@ MGWRSAR <- function(formula, data, coords, fixed_vars = NULL, kernels, H,Model =
       model$XV = NULL
     }
     else if (Model == "SAR") {
+      qrX <- qr(X)
+      if (qrX$rank < ncol(X))
+        stop(sprintf("%s fully collinear, remove these terms from the formula.",
+                     paste(colnames(X)[qrX$pivot[-seq_len(qrX$rank)]], collapse = ", ")), call. = FALSE)
       model<-list()
       if (Method %in% c("B2SLS", "2SLS")) {
         keep = which(!is.na(coefficients(lm.fit(X, Y))))
@@ -308,16 +324,16 @@ MGWRSAR <- function(formula, data, coords, fixed_vars = NULL, kernels, H,Model =
     if(Type=='GDT') {
       mymodel@alpha=alpha
       mymodel@Ht=H[2]
-      if(adaptive[1]) mymodel@max_dist=min(NN,n) else mymodel@max_dist=max(as.numeric(dists[['dist_s']]),na.rm=TRUE)
-      if(adaptive[2]) mymodel@max_dist_t=min(NN,n) else mymodel@max_dist_t=max(as.numeric(dists[['dist_t']]),na.rm=TRUE)
+      if(adaptive[1]) mymodel@max_dist=min(NN,n) else mymodel@max_dist=.mgwrsar_dist_max(dists[['dist_s']])
+      if(adaptive[2]) mymodel@max_dist_t=min(NN,n) else mymodel@max_dist_t=.mgwrsar_dist_max(dists[['dist_t']])
     }
     if(Type=='T') {
       mymodel@alpha=alpha
       mymodel@Ht=H[1]
-      if(adaptive[1]) mymodel@max_dist=min(NN,n) else mymodel@max_dist_t=max(as.numeric(dists[['dist_t']]),na.rm=TRUE)
+      if(adaptive[1]) mymodel@max_dist=min(NN,n) else mymodel@max_dist_t=.mgwrsar_dist_max(dists[['dist_t']])
     } else  {
       mymodel@H=H[1]
-      if(adaptive[1] | Model=='OLS') mymodel@max_dist=min(NN,n) else mymodel@max_dist=max(as.numeric(dists[['dist_s']]),na.rm=TRUE)
+      if(adaptive[1] | Model=='OLS') mymodel@max_dist=min(NN,n) else mymodel@max_dist=.mgwrsar_dist_max(dists[['dist_s']])
     }
 
     if(!is.null(NN)) mymodel@NN = NN

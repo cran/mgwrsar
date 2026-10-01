@@ -251,17 +251,24 @@ if(model@Model %in% c('multiscale_gwr','tds_mgwr','atds_mgwr','atds_gwr','tds_mg
   if(method_pred!='shepard'){
   Beta_proj_out=matrix(0,ncol=ncol(beta_in),nrow=length(O))
   colnames(Beta_proj_out)=colnames(beta_in)
+  # temporal bandwidths are read by coefficient name below: a model whose Ht is
+  # a single unnamed value (no sweep kept) is expanded to one named entry per
+  # coefficient, like H
+  Ht_pred=model@Ht
+  if(length(Ht_pred)>0 && (length(Ht_pred)==1L || is.null(names(Ht_pred)))){
+    Ht_pred=rep_len(Ht_pred,length(model@H)); names(Ht_pred)=names(model@H)
+  }
   for(k in colnames(beta_in)){ #parallel ?
     #cat(k,' ')
       if(method_pred=='tWtp_model'){
 
-        if(length(model@Ht)>0) myH=c(model@H[k],model@Ht[k]) else myH=model@H[k]
+        if(length(Ht_pred)>0) myH=c(model@H[k],Ht_pred[k]) else myH=model@H[k]
         W_extra=kernel_matW(H=myH,kernels=model@kernels,coords=coords[c(S,O),],NN=model@NN,TP=S,Type=model@Type,dists=res$dists,diagnull=FALSE,extrapol=FALSE,alpha=model@alpha)[,O]
         # W_extra = t(apply(W_extra, 1, function(x) x * as.numeric(x >= sort(x, decreasing = T)[k_extra + 2])))
         W_extra<-W_extra[tokeep,]
       } else if(method_pred=='model'){
-        if(length(model@Ht)>0) {
-          myH=c(model@H[k],model@Ht[k])
+        if(length(Ht_pred)>0) {
+          myH=c(model@H[k],Ht_pred[k])
           if(all(myH==c(model@V[1],model@Vt[1]))) {
             W_extra=Matrix(1,nrow=length(O),ncol=length(S))
           } else if(myH[2]==model@Vt[1]) {

@@ -37,6 +37,18 @@ NumericMatrix Proj_C(const NumericMatrix& HH, const NumericMatrix& XX) {
   return wrap(res);
 }
 
+// matprod_C: dense product A %*% B on views of the R matrices (no copy of
+// the inputs, result written directly into the returned R matrix)
+NumericMatrix matprod_C(const NumericMatrix& AA, const NumericMatrix& BB) {
+  if (AA.ncol() != BB.nrow()) stop("non-conformable arguments");
+  const Map<const MatrixXd> A(AA.begin(), AA.nrow(), AA.ncol());
+  const Map<const MatrixXd> B(BB.begin(), BB.nrow(), BB.ncol());
+  NumericMatrix CC(no_init(AA.nrow(), BB.ncol()));
+  Map<MatrixXd> C(CC.begin(), CC.nrow(), CC.ncol());
+  C.noalias() = A * B;
+  return CC;
+}
+
 // Sl_C
 S4 Sl_C(double llambda, const S4& WW, bool iinv, bool aapprox) {
   SparseMatrix<double> W = as<SparseMatrix<double> >(WW);

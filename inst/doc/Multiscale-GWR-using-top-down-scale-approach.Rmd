@@ -1,23 +1,23 @@
-    ---
-    title: "Multiscale GWR using top down scale approaches"
-    author: "Ghislain Geniaux and Cesar Martinez"
+---
+title: "Multiscale GWR using top down scale approaches"
+author: "Ghislain Geniaux and Cesar Martinez"
 date: "`r Sys.Date()`"
-    output:
-      rmarkdown::html_vignette:
-        keep_md: false
-    vignette: >
-      %\VignetteIndexEntry{Multiscale GWR using top down scale approaches}
-      %\VignetteEngine{knitr::rmarkdown}
-      %\VignetteEncoding{UTF-8}
-    ---
+output:
+  rmarkdown::html_vignette:
+    keep_md: false
+vignette: >
+  %\VignetteIndexEntry{Multiscale GWR using top down scale approaches}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
 
-    ```{r setup, include=FALSE}
-    target_url <- "https://ggeniaux.github.io/mgwrsar_vignettes/Multiscale-GWR-using-top-down-scale-approach.html"
-    ```
+```{r setup, include=FALSE}
+target_url <- "https://ggeniaux.github.io/mgwrsar_vignettes/Multiscale-GWR-using-top-down-scale-approach.html"
+```
 
-    This vignette is hosted online due to size and computational constraints.
+This vignette is hosted online due to size and computational constraints.
 
-    **Online version:** <https://ggeniaux.github.io/mgwrsar_vignettes/Multiscale-GWR-using-top-down-scale-approach.html>
+**Online version:** <https://ggeniaux.github.io/mgwrsar_vignettes/Multiscale-GWR-using-top-down-scale-approach.html>
 
 
 ```{r redirect, echo=FALSE, results='asis'}

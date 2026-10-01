@@ -4,7 +4,7 @@ if(!length(year))
   year <- substr(Sys.Date(),1,4)
 vers <- meta$Version
 if(is.null(vers))
-  vers <- packageVersion("forecast")
+  vers <- packageVersion("mgwrsar")
 vers <- paste("R package version", vers)
 
 # Grab authors from DESCRIPTION file
@@ -13,7 +13,7 @@ vers <- paste("R package version", vers)
 # authors <- sapply(authors, function(author) paste(author$given, author$family))
 # authors <- paste(authors, collapse = " and ")
 
-citHeader("To cite the forecast package in publications, please use:")
+citHeader("To cite the mgwrsar package in publications, please use:")
 
 bibentry(bibtype = "article",
 title = "A new method for dealing simultaneously with spatial autocorrelation and spatial heterogeneity in regression models",
@@ -21,5 +21,4 @@ author = "Ghislain Geniaux and Davide Martinetti",
 journal = "Regional Science and Urban Economics",
 year = "2017",
 doi = "10.1016/j.regsciurbeco.2017.04.001",
-author = "Ghislain Geniaux and Davide Martinetti",
 keywords = "Local models, Geographically weighted regression, Mixed GWR, SAR")

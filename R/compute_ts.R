@@ -14,7 +14,7 @@ compute_ts <- function(S, Snew, foldsl) {
   n <- nrow(S)
   if (length(foldsl) == 1) {
     # Exact case: update the entire matrix
-    St <- S + Snew - eigenMapMatMult(S, Snew)
+    St <- S + Snew - .mgwrsar_matprod(S, Snew)
     tS <- sum(diag(St))
   } else {
     # Block-diagonal approximation
@@ -25,7 +25,7 @@ compute_ts <- function(S, Snew, foldsl) {
       idx <- foldsl[[i]]
       S_i     <- S[idx, idx]
       Snew_i  <- Snew[idx, idx]
-      St_i    <- S_i + Snew_i - eigenMapMatMult(S_i, Snew_i)
+      St_i    <- S_i + Snew_i - .mgwrsar_matprod(S_i, Snew_i)
 
       St[idx, idx] <- St_i
       tS <- tS + sum(diag(St_i))

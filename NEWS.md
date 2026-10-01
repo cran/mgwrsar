@@ -1,5 +1,54 @@
 NEWS/ChangeLog
 -----------------------------
+# 1.4.1 2026-10-01
+
+New estimator
+	•	New `gtwr_HWB2010()`: the GTWR of Huang, Wu and Barry (2010) in the parameterisation of the paper (a single spatio-temporal bandwidth `h_ST` and the ratio `tau`), returned as an object of the new class `gtwr` with its own `summary()` method. It is the Gaussian, fixed-bandwidth special case of the `Type = 'GDT'` space-time kernel, calibrated through `search_bandwidths()`.
+	•	New helpers `bw_hwb2gdt()` and `bw_gdt2hwb()` convert between `(h_ST, tau)` and the `(h_S, h_T)` bandwidths of the package; `as_gtwr()` converts the best model of `search_bandwidths()`.
+
+Inference
+	•	The AICc is now `Inf` when the trace of the hat matrix reaches `n - 1`: a saturated fit was rewarded by a penalty term of the wrong sign instead of being rejected, which could send a bandwidth search to its smallest bandwidths.
+	•	`summary()` gains `fdr_method = "spatial_BY"`, a Benjamini-Yekutieli correction of the local t-tests calibrated on the bandwidth (the default remains `"BY"`).
+
+Performance
+	•	GWR, mixed GWR and MGWR engines rewritten with a contiguous memory layout: about x20-40 for the univariate engine, x5-6.5 for the multivariate engine and x7.6-10.6 for the mixed core, with unchanged results. The mixed core no longer allocates an unused n x n x K cube.
+	•	Kernel weights and their row normalisation are computed in native code (bitwise identical to the former R code).
+	•	Session cache of kernel weight matrices, used by `TDS_MGWR()` and `search_bandwidths()`. Its memory budget adapts to the size of the matrices and can be set with `options(mgwrsar.weights_cache_mb = )`; 0 disables the cache.
+	•	The multivariate engine no longer forms the Q factor when neither the hat matrix nor the partial hat matrices are requested.
+	•	In the top-down descent, compactly supported fixed kernels are truncated to the neighbours that carry non-zero weights at the current scale; `control_tds$trunc_gauss` offers the (approximate, off by default) equivalent for a fixed Gaussian kernel.
+	•	Overall, compared with 1.3.2 (n = 1000, one core, same data, same selected model): `TDS_MGWR()` (`nns = 20`, `tol = 1e-3`, OLS start) takes 2.7 s instead of 10.5 s for `tds_mgwr` with a fixed Gaussian kernel, 1.2 s instead of 6.0 s with an adaptive bisquare kernel, and 14.5 s instead of 68.4 s for `tds_mgtwr` with fixed Gaussian space-time kernels. A GWR bandwidth search with `search_bandwidths()` (n = 1000, grid of 10, 3 rounds and golden-section refinement, AICc, one core) takes 0.93 s instead of 1.96 s with an adaptive bisquare kernel, and 1.12 s instead of 1.73 s with a fixed Gaussian kernel, with the same selected bandwidth and AICc.
+
+Dependencies
+	•	The package no longer imports SMUT (which brought SKAT, SPAtest and RSpectra with it). The dense products of hat matrices use the same Eigen product, now compiled in the package, or R's `%*%` when R is linked to an optimised BLAS (Accelerate, OpenBLAS, MKL, BLIS, ATLAS, FlexiBLAS, ArmPL), which is then much faster. `options(mgwrsar.matprod = "eigen")` or `"blas"` forces one of the two.
+
+Robustness (adversarial campaign)
+	•	The local least-squares engines (GWR and mixed GWR) use a column-pivoted QR: the rank of a nearly singular local system is read reliably and the non-estimable columns are the dependent ones, whatever their position in the formula (a dependent column placed early used to make the later columns non-estimable, with non-finite coefficients in space-time adaptive fits).
+	•	Leverages and hat-matrix rows are computed from the orthonormal factor only, never through the inverse of R: they stay in [0, 1] (with rows summing to 1) even with a constant or collinear predictor, where they used to be negative.
+	•	Isolated points (fewer neighbours than coefficients) get the global OLS coefficients with 0, not `NA`, on an aliased column; a warning is issued when every local fit falls back to OLS (bandwidth or `NN` too small).
+	•	Explicit errors replace index, dimension or NA errors for: an unknown `Model`, `control$Type`, kernel name or `criterion`; a missing `control$Z` for a space-time model; missing values in the data or the coordinates; a non-positive or missing bandwidth; an adaptive bandwidth larger than the sample; a `control$W` of the wrong dimension; `fixed_vars` absent from the model matrix; a fully collinear design in `SAR`; constant coefficients that the varying part makes non-identifiable (mixed models); a constant time variable in `TDS_MGWR()`.
+	•	`search_bandwidths()` no longer closes every connection of the session on exit (`closeAllConnections()`): files open for writing, `sink()` and `capture.output()` of the caller were closed by each search.
+	•	`search_bandwidths()`: the golden-section refinement could loop forever when the bracket was between one and 1.3 tolerances wide (the rounded interior point fell back on a bound); found on duplicated observations. The bracket must now shrink at every step and the loop is capped.
+	•	Adaptive bandwidths are capped where the compact kernels can read them (the (H + 2)-th neighbour), instead of failing with an index error near `NN`.
+	•	`fitted()` is now exported for `mgwrsar` objects.
+	•	New tests `test-stress_campaign.R`: 26 adversarial data generators (repeated or duplicated locations, aligned points, clusters, isolated point, anisotropic or geographic coordinates, tiny samples, constant / collinear / locally constant / sparse / badly scaled predictors, heavy tails, outliers, heteroskedasticity, constant or perfect response, degenerate time axes) crossed with 55 estimator configurations; every fit must satisfy the invariants of `tools/stress_cases.R` or stop with an explicit message.
+
+Bug fixes
+	•	`MGWRSAR()`, `search_bandwidths()`, `golden_search_2d_bandwidth()`, `multiscale_gwr()`, `TDS_MGWR()`, `simu_multiscale()` and `mgwrsar_bootstrap_test()` no longer change the random number generator of the session: they seed their own L'Ecuyer-CMRG generator for internal draws, as before, and now restore the user's generator (kind and state) on exit. A `set.seed()` placed after a fit used to draw from L'Ecuyer-CMRG instead of the session's generator.
+	•	`TDS_MGWR()`: the temporal bandwidths of a starting model taken from a nested call are named like the spatial ones, and `predict()` accepts a model whose `Ht` is a single unnamed value (no sweep kept).
+
+TDS algorithms
+	•	`TDS_MGWR()`: the control levers are repaired for `Type = 'GDT'`. `control_tds$H` and `control_tds$Ht` pin bandwidths per coefficient and per axis (one value per varying coefficient, or a named vector for a subset; `NA` leaves a bandwidth free, `Inf` makes it global); `control_tds$V` is a grid of neighbour counts; the adaptive temporal grid mirrors the spatial one.
+	•	`TDS_MGWR()`: after a rejected sweep the descent continues from the rejected state (non-monotone descent) and the best sweep is the one returned. Restarting from the best state repeats the rejected sweep, since a sweep is deterministic, and freezes the descent (found by a coauthor); 1.3.2 continued from an inconsistent state (coefficients of the best sweep, residuals of the rejected one), which had the same effect by accident. Without a rejected sweep the results are unchanged; with one they may differ from 1.3.2 at the third significant digit of the RMSE. When all bandwidths are pinned, the returned model is the fixed point of the backfitting, independent of the starting model.
+	•	`TDS_MGWR()`: `control_tds$TRUEBETA` (true coefficients, for simulations) no longer stops with an error; the slot `HRMSE` of the returned model then holds the RMSE of each coefficient for the starting model and every kept sweep.
+	•	`TDS_MGWR()`: fixes with `fixed_vars` (dimension of the per-coefficient trace, bandwidth vectors restricted to varying coefficients).
+	•	`TDS_MGWR()`: with a fixed spatial kernel and repeated locations (panel data), the spatial bandwidth grid is now extended below the distance to the first site, down to `control_tds$panel_floor` times that distance (default 0.2 for a Gaussian kernel, 0.5 otherwise; 1 restores the previous grid). The neighbour-count grid stopped at the 3rd/4th site, one lattice step on a regular panel, which censored the bandwidths of the roughest coefficients; a Gaussian kernel, whose bandwidth is a standard deviation, was censored at about three times its optimal scale.
+	•	New `control_tds$V_dist`: spatial bandwidth grid given directly in distances (fixed kernel), taken as is.
+	•	`control_tds$V` is read with `[[` (it was partially matched by `V_dist`).
+
+Documentation
+	•	Four of the five vignette stubs had an indented YAML header and were rendered as raw text; they now render as intended.
+	•	`citation("mgwrsar")` no longer refers to another package in its header.
+
 # 1.3.2 2026-03-02
 
 TDS algorithms

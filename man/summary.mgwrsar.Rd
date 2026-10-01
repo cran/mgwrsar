@@ -9,7 +9,13 @@
 \arguments{
 \item{object}{A model of class \code{\link{mgwrsar-class}}.}
 
-\item{...}{summary parameters forwarded.}
+\item{...}{summary parameters forwarded. In particular, \code{fdr_method}
+selects the multiple-testing correction for local coefficients:
+\code{"BY"} (default, Benjamini-Yekutieli, valid under arbitrary
+dependence) or \code{"spatial_BY"}, a bandwidth-calibrated variant that
+replaces the worst-case dependence penalty by the effective number of
+local tests \eqn{m_{eff,k} = tr(R_k)} implied by each covariate's
+bandwidth (interpolates between BY and Benjamini-Hochberg).}
 }
 \value{
 A summary object.

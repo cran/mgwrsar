@@ -1,57 +1,87 @@
 #!/bin/sh
 
-# 1. Initialize variables
+# OpenMP policy:
+# - default is OFF to keep install/load/check robust everywhere
+# - users can opt in with MGWRSAR_OPENMP=1
+
 MY_CPPFLAGS=""
 MY_CXXFLAGS=""
 MY_LIBS=""
+OMP_MAKE_FLAGS=""
+OMP_DISABLE_BLOCK=""
 
-# 2. System detection
-OS_NAME=$(uname)
+OPENMP_MODE=$(printf '%s' "${MGWRSAR_OPENMP:-0}" | tr '[:upper:]' '[:lower:]')
+ENABLE_OPENMP=0
 
-if [ "${OS_NAME}" = "Darwin" ]; then
-    echo "configure: macOS detected. Checking for OpenMP..."
+case "${OPENMP_MODE}" in
+  1|true|yes|on|enable|enabled)
+    ENABLE_OPENMP=1
+    ;;
+  0|false|no|off|disable|disabled|"")
+    ENABLE_OPENMP=0
+    ;;
+  auto)
+    ENABLE_OPENMP=0
+    echo "configure: MGWRSAR_OPENMP=auto -> defaulting to OpenMP OFF (set MGWRSAR_OPENMP=1 to force ON)."
+    ;;
+  *)
+    ENABLE_OPENMP=0
+    echo "configure: Unknown MGWRSAR_OPENMP='${MGWRSAR_OPENMP}', defaulting to OpenMP OFF."
+    ;;
+esac
 
-    # Look for libomp via Homebrew
+if [ "${ENABLE_OPENMP}" = "1" ]; then
+  OMP_MAKE_FLAGS='$(SHLIB_OPENMP_CXXFLAGS)'
+  OS_NAME=$(uname)
+
+  if [ "${OS_NAME}" = "Darwin" ]; then
+    echo "configure: OpenMP requested on macOS. Checking for libomp..."
     if command -v brew >/dev/null 2>&1; then
-        OMP_PATH=$(brew --prefix libomp 2>/dev/null)
+      OMP_PATH=$(brew --prefix libomp 2>/dev/null)
     fi
 
-    # If libomp is found
     if [ -n "${OMP_PATH}" ] && [ -f "${OMP_PATH}/include/omp.h" ]; then
-        echo "configure: Found libomp at ${OMP_PATH}. Enabling OpenMP."
-        MY_CPPFLAGS="-I${OMP_PATH}/include"
-        MY_CXXFLAGS="-Xpreprocessor -fopenmp"
-        MY_LIBS="-L${OMP_PATH}/lib -lomp"
+      MY_CPPFLAGS="-I${OMP_PATH}/include"
+      MY_CXXFLAGS="-Xpreprocessor -fopenmp"
+      MY_LIBS="-L${OMP_PATH}/lib -lomp"
+      echo "configure: OpenMP enabled with libomp at ${OMP_PATH}."
     else
-        echo "configure: libomp not found. OpenMP support might be limited."
+      echo "configure: libomp not found -> falling back to OpenMP OFF."
+      OMP_MAKE_FLAGS=""
+      MY_CPPFLAGS=""
+      MY_CXXFLAGS=""
+      MY_LIBS=""
     fi
-
+  else
+    echo "configure: OpenMP requested. Using R toolchain OpenMP flags."
+  fi
 else
-    echo "configure: Linux/Unix detected. Using standard R configuration."
+  echo "configure: OpenMP disabled (set MGWRSAR_OPENMP=1 to enable)."
+  OS_NAME=$(uname)
+  if [ "${OS_NAME}" = "Darwin" ]; then
+    MY_LIBS="-Wl,-dead_strip_dylibs"
+  else
+    MY_LIBS="-Wl,--as-needed"
+  fi
+  OMP_DISABLE_BLOCK='
+SHLIB_OPENMP_CFLAGS =
+SHLIB_OPENMP_CXXFLAGS =
+SHLIB_OPENMP_FFLAGS =
+'
 fi
-
-# 3. GENERATE src/Makevars DIRECTLY (The robust way)
-# We use 'cat' with a Heredoc (<<EOF) to write the file content dynamically.
-# Note: We escape the $ sign (\$) for Makefile variables so shell doesn't interpret them.
 
 echo "configure: Creating src/Makevars..."
 
 cat > src/Makevars <<EOF
 CXX_STD = CXX17
+${OMP_DISABLE_BLOCK}
 
-# Flags from system detection
 PKG_CPPFLAGS = -DOPENBLAS_NUM_THREADS=1 -DMKL_NUM_THREADS=1 -DOMP_NUM_THREADS=1 ${MY_CPPFLAGS}
-PKG_CXXFLAGS = \$(SHLIB_OPENMP_CXXFLAGS) ${MY_CXXFLAGS}
+PKG_CXXFLAGS = ${OMP_MAKE_FLAGS} ${MY_CXXFLAGS}
+PKG_LIBS = ${OMP_MAKE_FLAGS} \$(LAPACK_LIBS) \$(BLAS_LIBS) \$(FLIBS) ${MY_LIBS}
 
-# CRITICAL FIX: Explicitly linking LAPACK, BLAS and FLIBS
-PKG_LIBS = \$(SHLIB_OPENMP_CXXFLAGS) \$(LAPACK_LIBS) \$(BLAS_LIBS) \$(FLIBS) ${MY_LIBS}
-
-# (Optional: Remove OBJECTS line if you want R to handle dependencies automatically.
-# Keeping it since you requested it, but ensure filenames are 100% correct)
 OBJECTS = mgwrsar.o gwr_core.o knn_stable_sort.o RcppExports_arma.o RcppExports_eigen.o init.o
 EOF
 
-# 4. Add a final newline just in case
 echo "" >> src/Makevars
-
 echo "configure: src/Makevars created successfully."

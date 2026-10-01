@@ -51,7 +51,7 @@ Set to \code{NULL} for spatial-only models.}
 \item{n_seq}{An integer specifying the number of bandwidth candidates to test per dimension in each round.}
 
 \item{ncore}{An integer specifying the number of CPU cores to use for parallel processing.
-Default is \code{parallel::detectCores() - 1}.}
+Default is \code{1}. Examples/documentation should keep this at \code{1}.}
 
 \item{n_rounds}{An integer specifying the number of grid search rounds (zooming steps). Default is 3.}
 
