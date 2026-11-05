@@ -56,7 +56,7 @@ MGWRSAR returns an object of class mgwrsar with at least the following component
 \item{SSR}{ The sum of square residuals.}
 \item{residuals}{ The vector of residuals.}
 \item{fit}{ the vector of fitted values.}
-\item{sev}{ local standard error of parameters.}
+\item{sev}{ local standard error of parameters: the variance of each local weighted fit, given the local residual variance.}
 \item{get_ts}{Boolean, if trace of hat matrix Tr(S) should be stored.}
 \item{NN}{ Maximum number of neighbors for weights computation}
 }

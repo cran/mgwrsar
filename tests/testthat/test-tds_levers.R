@@ -181,10 +181,19 @@ test_that("first_nn below n does not crash the adaptive search", {
   # a coefficient settling on first_nn (the top of V, below max_dist = n) had no
   # candidate above it: "replacement has length zero". Space-time searches hit
   # it systematically, a coefficient being often global in space only.
-  m <- lev_fit(list(first_nn = 150L))
+  # the search meets a genuinely saturated candidate (5 neighbours x 6 days:
+  # residual variance 8 times below the current fit): excluded and counted,
+  # without changing the selection, which the AICc would not have made anyway
+  expect_warning(m <- lev_fit(list(first_nn = 150L)), "excluded as saturated")
   expect_identical(m@V[1], 150)
   expect_true(all(m@H <= lev_n))
   expect_lt(m@RMSE, lev_ols)
+  expect_gt(m@saturation$excluded, 0L)
+  m0 <- lev_fit(list(first_nn = 150L, saturation_ratio = 0))
+  expect_identical(m0@saturation$excluded, 0L)
+  expect_equal(m0@H, m@H)
+  expect_equal(m0@Ht, m@Ht)
+  expect_equal(m0@Betav, m@Betav)
   g <- lev_fit(list(first_nn = 150L), Type = "GD")
   expect_true(all(g@H <= lev_n))
 })
@@ -313,22 +322,88 @@ lev_X <- cbind(1, as.matrix(lev_dat[, c("X2", "X3", "X4")]))
 lev_rmse_path <- function(m)
   vapply(m@HBETA[-1], function(b) sqrt(mean((lev_dat$Y - rowSums(b * lev_X))^2)), 0)
 
-test_that("the descent continues after a rejected sweep and returns the best one", {
+lev_rmse_log <- function(out) {
+  # the verbose RMSE path: one line per sweep, a star on the running minima
+  ln <- grep("rmse = ", out, value = TRUE)
+  list(rmse = as.numeric(sub(".*rmse = ([0-9.]+).*", "\\1", ln)),
+       kept = grepl("\\*$", ln))
+}
+
+test_that("the descent continues after a rejected sweep; retained_state = 'best' returns the best one", {
   # Restarting from the best state after a rejection repeated the rejected
   # sweep (a sweep is deterministic) and froze the descent; 1.3.2 restarted
-  # from an inconsistent state. The descent now continues from the rejected
-  # state: later sweeps differ from the rejected one, kept sweeps are the
-  # running minima of the RMSE path, and the returned model is the best sweep.
-  out <- capture.output(m <- lev_fit(list(Ht = lev_Ht, verbose = TRUE)))
-  ln <- grep("rmse = ", out, value = TRUE)
-  rm_sweep <- as.numeric(sub(".*rmse = ([0-9.]+).*", "\\1", ln))
-  kept <- grepl("\\*$", ln)
+  # from an inconsistent state. The descent continues from the rejected
+  # state, as in any backfitting: later sweeps differ from the rejected one,
+  # the starred sweeps are the running minima of the RMSE path, and with
+  # retained_state = "best" (the 1.3.1-1.4.2 behaviour) the returned model is
+  # the best sweep.
+  out <- capture.output(m <- lev_fit(list(Ht = lev_Ht, verbose = TRUE,
+                                          retained_state = "best", polish = 0)))
+  lg <- lev_rmse_log(out)
+  rm_sweep <- lg$rmse
+  kept <- lg$kept
   rejected <- which(!kept)
   expect_gte(length(rejected), 1)
   for (r in rejected[rejected < length(rm_sweep)])
     expect_false(isTRUE(all.equal(rm_sweep[r + 1], rm_sweep[r])), info = r)
   expect_equal(rm_sweep[kept], cummin(rm_sweep)[kept])
   expect_equal(m@RMSE, min(rm_sweep), tolerance = 1e-6)
+  expect_identical(length(m@HBETA), which.min(rm_sweep) + 1L)
+})
+
+test_that("the terminal sweep is returned by default, on the same path as 'best'", {
+  # 1.4.3: the sweeps and the stopping rules do not depend on retained_state;
+  # only the returned state does. The default returns the state that met the
+  # stopping rule (as MGWR backfitting does), with every sweep in HBETA.
+  # polish = 0 isolates the search path (polishing sweeps are tested below).
+  out_b <- capture.output(mb <- lev_fit(list(Ht = lev_Ht, verbose = TRUE,
+                                             retained_state = "best", polish = 0)))
+  out_t <- capture.output(mt <- lev_fit(list(Ht = lev_Ht, verbose = TRUE, polish = 0)))
+  rm_b <- lev_rmse_log(out_b)$rmse
+  rm_t <- lev_rmse_log(out_t)$rmse
+  expect_equal(rm_t, rm_b)
+  expect_identical(length(mt@HBETA), length(rm_t) + 1L)
+  expect_identical(mt@Betav, mt@HBETA[[length(mt@HBETA)]])
+  expect_equal(mt@RMSE, tail(rm_t, 1), tolerance = 1e-6)
+  expect_equal(mb@RMSE, min(rm_b), tolerance = 1e-6)
+  if (which.min(rm_b) < length(rm_b)) {
+    # a sweep after the best one raised the RMSE: the two states differ
+    expect_false(isTRUE(all.equal(mt@Betav, mb@Betav)))
+    expect_gt(mt@RMSE, mb@RMSE)
+  } else {
+    expect_equal(mt@Betav, mb@Betav)
+  }
+  expect_error(lev_fit(list(Ht = lev_Ht, retained_state = "last")), "retained_state")
+})
+
+test_that("polish iterates at the retained bandwidths until tol, at most polish sweeps", {
+  m0 <- lev_fit(list(Ht = lev_Ht, polish = 0))
+  m2 <- lev_fit(list(Ht = lev_Ht, polish = 2))
+  expect_equal(m2@H, m0@H)
+  expect_equal(m2@Ht, m0@Ht)
+  n_pol <- length(m2@HBETA) - length(m0@HBETA)
+  expect_true(n_pol %in% 1:2)
+  # the search sweeps are those of the unpolished run
+  expect_equal(m2@HBETA[[length(m0@HBETA)]], m0@Betav)
+  expect_identical(m2@Betav, m2@HBETA[[length(m2@HBETA)]])
+  path <- lev_rmse_path(m2)
+  expect_equal(m2@RMSE, tail(path, 1), tolerance = 1e-6)
+  expect_false(isTRUE(all.equal(m2@Betav, m0@Betav)))
+  # the polishing stopped early only once the relative RMSE change fell below tol
+  if (n_pol == 1) expect_lt(abs(diff(tail(path, 2))) / tail(path, 1), 1e-3)
+  # the default (polish = 3) is a prefix-compatible continuation of polish = 2
+  m3 <- lev_fit(list(Ht = lev_Ht))
+  expect_gte(length(m3@HBETA), length(m2@HBETA))
+  expect_lte(length(m3@HBETA), length(m0@HBETA) + 3L)
+  for (j in seq_along(m2@HBETA)) expect_equal(m3@HBETA[[j]], m2@HBETA[[j]], info = j)
+  # polishing the best sweep: restored, then iterated at its bandwidths
+  mb <- lev_fit(list(Ht = lev_Ht, retained_state = "best", polish = 0))
+  mbp <- lev_fit(list(Ht = lev_Ht, retained_state = "best", polish = 1))
+  expect_equal(mbp@H, mb@H)
+  expect_equal(mbp@Ht, mb@Ht)
+  expect_identical(length(mbp@HBETA), length(mb@HBETA) + 1L)
+  expect_equal(mbp@HBETA[[length(mb@HBETA)]], mb@Betav)
+  expect_error(lev_fit(list(Ht = lev_Ht, polish = -1)), "polish")
 })
 
 test_that("fully pinned bandwidths iterate the backfitting to its fixed point", {
@@ -441,13 +516,65 @@ test_that("predict() accepts a scalar or unnamed Ht", {
 })
 
 # -----------------------------------------------------------------------------
+# 11. Saturation filter of the candidate fits: a ratio of residual variances
+# -----------------------------------------------------------------------------
+# Until 1.4.2 a candidate was excluded when its AICc fell below half of a
+# reference AICc, a rule that depended on the unit of the response (and on
+# get_AIC through the reference). The 1.4.3 rule compares residual variances.
+
+lev_fit_scaled <- function(sc, extra = list()) {
+  d <- lev_dat; d$Y <- sc * d$Y
+  ct <- modifyList(list(nns = 8, get_AIC = FALSE, verbose = FALSE, ncore = 1,
+                        init_model = "OLS"), extra)
+  suppressMessages(TDS_MGWR(
+    formula = Y ~ X2 + X3 + X4, data = d, coords = lev_co, Model = "tds_mgtwr",
+    kernels = c("gauss", "gauss"), control_tds = ct,
+    control = list(adaptive = c(TRUE, FALSE), NN = lev_n, Type = "GDT", Z = lev_day)))
+}
+
+test_that("the calibration does not depend on the unit of the response", {
+  m1 <- lev_fit_scaled(1)
+  for (sc in c(0.1, 10)) {
+    ms <- lev_fit_scaled(sc)
+    expect_equal(ms@H, m1@H, info = sc)
+    expect_equal(ms@Ht, m1@Ht, info = sc)
+    expect_equal(ms@Betav / sc, m1@Betav, tolerance = 1e-6, info = sc)
+    expect_identical(ms@saturation$excluded, m1@saturation$excluded)
+  }
+  # the same with the projection matrices: the rule has no reference to switch
+  g <- lev_fit_scaled(0.1, list(get_AIC = TRUE))
+  expect_equal(g@H, m1@H)
+  expect_equal(g@Ht, m1@Ht)
+  expect_equal(g@Betav / 0.1, m1@Betav, tolerance = 1e-6)
+})
+
+test_that("the saturation filter counts its exclusions and can be disabled", {
+  m <- lev_fit()
+  expect_named(m@saturation, c("ratio", "excluded", "updates", "all_excluded"))
+  expect_equal(m@saturation$ratio, exp(-2))
+  m0 <- lev_fit(list(saturation_ratio = 0))
+  expect_equal(m0@saturation$ratio, 0)
+  expect_identical(m0@saturation$excluded, 0L)
+  # an absurd threshold excludes most improving candidates: counted, warned,
+  # and the model is still returned
+  w <- capture_warnings(mh <- lev_fit(list(saturation_ratio = 0.999)))
+  expect_true(any(grepl("excluded as saturated", w)))
+  expect_gt(mh@saturation$excluded, 0L)
+  expect_gt(mh@saturation$updates, 0L)
+  expect_identical(length(mh@H), length(m@H))
+  expect_error(lev_fit(list(saturation_ratio = 1.5)), "saturation_ratio")
+  expect_error(lev_fit(list(saturation_ratio = -0.1)), "saturation_ratio")
+})
+
+# -----------------------------------------------------------------------------
 # 10. Non-monotone descent after a rejected sweep (bug report of 2026-10-01)
 # -----------------------------------------------------------------------------
 # Repeated locations, correlated predictors, gaussian space-time kernels with
 # fixed bandwidths: sweep 18 is rejected. Restarting from the best state
 # repeated it and returned the state of sweep 17 (RMSE 0.5362); continuing
 # from the rejected state finds a smaller spatial bandwidth for the intercept
-# and converges to RMSE 0.5288, the solution of 1.3.2.
+# and converges to RMSE 0.5288, the solution of 1.3.2. The lock is on the
+# path (retained_state = "best" returns its running minimum).
 
 test_that("the descent escapes a rejected sweep (coauthor's seed 5)", {
   skip_if_not(nzchar(Sys.getenv("RUN_LONG_TESTS")), "long test")
@@ -457,7 +584,8 @@ test_that("the descent escapes a rejected sweep (coauthor's seed 5)", {
     formula = Y ~ F1 + F2 + F3, Model = "tds_mgwr", data = d,
     coords = as.matrix(d[, c("x", "y")]), kernels = c("gauss", "gauss"),
     fixed_vars = NULL,
-    control_tds = list(nns = 25, verbose = FALSE, tol = 1e-4, init_model = "OLS"),
+    control_tds = list(nns = 25, verbose = FALSE, tol = 1e-4, init_model = "OLS",
+                       retained_state = "best", polish = 0),
     control = list(Z = d$time, NN = nrow(d), adaptive = c(FALSE, FALSE),
                    Type = "GDT", ncore = 1))))
   expect_equal(unname(round(m@H)), c(40155, 35947, 410504, 410504))

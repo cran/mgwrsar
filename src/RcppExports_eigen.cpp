@@ -53,6 +53,12 @@ Rcpp::List mod(const Rcpp::NumericVector& YY,
 Rcpp::List knn_stable_sort(const Rcpp::NumericMatrix& dist,
                            const Rcpp::IntegerMatrix& idx);
 
+// defined in local_var.cpp
+Rcpp::NumericMatrix local_var_cpp(const Rcpp::NumericMatrix& Wd,
+                                  const Rcpp::IntegerMatrix& indexG,
+                                  const Rcpp::NumericMatrix& X,
+                                  int nthreads);
+
 Rcpp::List compute_DS_DT_cpp(
     const Rcpp::NumericMatrix& coords,
     const Rcpp::NumericVector& Time,
@@ -232,6 +238,28 @@ extern "C" {
 
     rcpp_result_gen = Rcpp::wrap(
       compute_DS_DT_cpp(coords, Time, indexG, cyclic, cycling)
+    );
+
+    return rcpp_result_gen;
+    END_RCPP
+  }
+
+  // local_var_cpp
+  RcppExport SEXP _mgwrsar_local_var_cpp(SEXP WdSEXP,
+                                         SEXP indexGSEXP,
+                                         SEXP XSEXP,
+                                         SEXP nthreadsSEXP) {
+    BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+
+    Rcpp::traits::input_parameter< const Rcpp::NumericMatrix& >::type Wd(WdSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::IntegerMatrix& >::type indexG(indexGSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::NumericMatrix& >::type X(XSEXP);
+    Rcpp::traits::input_parameter< int >::type nthreads(nthreadsSEXP);
+
+    rcpp_result_gen = Rcpp::wrap(
+      local_var_cpp(Wd, indexG, X, nthreads)
     );
 
     return rcpp_result_gen;

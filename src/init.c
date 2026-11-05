@@ -30,6 +30,7 @@ extern SEXP _mgwrsar_ApproxiW(SEXP, SEXP, SEXP);
 extern SEXP _mgwrsar_mod(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
 extern SEXP _mgwrsar_knn_stable_sort(SEXP, SEXP);
 extern SEXP _mgwrsar_compute_DS_DT_cpp(SEXP,SEXP,SEXP,SEXP,SEXP);
+extern SEXP _mgwrsar_local_var_cpp(SEXP, SEXP, SEXP, SEXP);
 
 // Pointer identity of two R objects (used by the session caches in R/weights_cache.R)
 static SEXP mgwrsar_same_object(SEXP a, SEXP b) {
@@ -57,6 +58,7 @@ static const R_CallMethodDef CallEntries[] = {
   {"_mgwrsar_mod",                              (DL_FUNC) &_mgwrsar_mod,                               10},
   {"_mgwrsar_knn_stable_sort",                  (DL_FUNC) &_mgwrsar_knn_stable_sort,                   2},
   {"_mgwrsar_compute_DS_DT_cpp",                (DL_FUNC) &_mgwrsar_compute_DS_DT_cpp,                 5},
+  {"_mgwrsar_local_var_cpp",                    (DL_FUNC) &_mgwrsar_local_var_cpp,                     4},
 
   {NULL, NULL, 0}
 };

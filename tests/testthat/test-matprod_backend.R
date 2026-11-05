@@ -33,3 +33,23 @@ test_that("matprod backends agree and options(mgwrsar.matprod) is honoured", {
   expect_equal(mgwrsar:::.mgwrsar_matprod(matrix(1:4, 2), matrix(1:4, 2)),
                matrix(c(7, 10, 15, 22), 2))
 })
+
+test_that("the BLAS product check accepts exact products and flags corrupted ones", {
+  set.seed(2)
+  A <- matrix(runif(80 * 80), 80)
+  B <- matrix(runif(80 * 80), 80)
+  C <- unname(A %*% B)
+  expect_true(mgwrsar:::.mgwrsar_matprod_ok(A, B, C))
+  # a corrupted product as returned by Accelerate right after mclapply()
+  # (macOS 26.6): a block of stale values
+  Cbad <- C
+  Cbad[1:20, 1:20] <- Cbad[1:20, 1:20] * (1 + 1e-4)
+  expect_false(mgwrsar:::.mgwrsar_matprod_ok(A, B, Cbad))
+  Cbad[1:20, 1:20] <- 0
+  expect_false(mgwrsar:::.mgwrsar_matprod_ok(A, B, Cbad))
+  # empty and non-finite products are accepted as they are
+  expect_true(mgwrsar:::.mgwrsar_matprod_ok(A[, 0], B[0, ], A[, 0] %*% B[0, ]))
+  expect_true(mgwrsar:::.mgwrsar_matprod_ok(A[0, ], B, A[0, ] %*% B))
+  An <- A; An[1, 1] <- NA
+  expect_true(mgwrsar:::.mgwrsar_matprod_ok(An, B, An %*% B))
+})

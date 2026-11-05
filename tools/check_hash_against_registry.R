@@ -63,16 +63,24 @@ check_hash_against_registry <- function(row, file = "results_registry.csv") {
   
   stored_hash  <- norm_hash(registry$hash_pred[match_idx])[1]
   current_hash <- norm_hash(row$hash_pred)[1]
-  
-  
+
+
   if (!identical(stored_hash, current_hash)) {
     cat("Stored: ", stored_hash, "\n")
     cat("Current:", current_hash, "\n")
+    # Intended behaviour change: with MGWRSAR_UPDATE_HASHES=1 the registry row
+    # is rewritten with the current hash (review the csv diff) instead of failing.
+    if (Sys.getenv("MGWRSAR_UPDATE_HASHES") == "1") {
+      registry$hash_pred[match_idx] <- current_hash
+      write.csv(registry, file, row.names = FALSE)
+      message("Registry row updated (MGWRSAR_UPDATE_HASHES=1): ", row$config_id)
+      return(TRUE)
+    }
     cat("Stored raw: "); print(charToRaw(stored_hash))
     cat("Curr   raw: "); print(charToRaw(current_hash))
     stop("Hash mismatch detected!")
   }
-  
+
   message("Hash matches registry ✓")
   return(TRUE)
 }
@@ -116,6 +124,12 @@ check_hash_against_registry_coef <- function(row, file = "results_registry.csv")
   if (!identical(stored_hash, current_hash)) {
     cat("Stored: ", stored_hash, "\n")
     cat("Current:", current_hash, "\n")
+    if (Sys.getenv("MGWRSAR_UPDATE_HASHES") == "1") {
+      registry$hash[match_idx] <- current_hash
+      write.csv(registry, file, row.names = FALSE)
+      message("Registry row updated (MGWRSAR_UPDATE_HASHES=1): ", row$config_id)
+      return(TRUE)
+    }
     cat("Stored raw: "); print(charToRaw(stored_hash))
     cat("Curr   raw: "); print(charToRaw(current_hash))
     stop("Hash mismatch detected!")

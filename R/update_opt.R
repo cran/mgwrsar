@@ -71,30 +71,24 @@ update_opt <- function(env = parent.frame()){
     # general case
     # ============================================================
     {
-      AICc_vals <- as.numeric(res[, "AICc"])
-      
-      AICc_ref <- tryCatch({
-        myAICc
-      }, error = function(e) {
-        median(AICc_vals[!is.na(AICc_vals)], na.rm = TRUE)
-      })
-      
-      degenerate_idx <- which(!is.na(AICc_vals) &
-                                AICc_vals < 0.5 * AICc_ref)
-      valid_idx <- which(!is.na(AICc_vals) &
-                           !(AICc_vals < 0.5 * AICc_ref))
-      
-      if (length(degenerate_idx) > 0) {
-        warning(sprintf(
-          "[WARNING] Variable %s : %d degenerate models excluded (AICc < 0.5 * AICc_ref = %.2f) at iteration : %d",
-          k, length(degenerate_idx), AICc_ref, i
-        ))
+      # Saturated candidates (residual variance below saturation_ratio times
+      # that of the current complete fit) are excluded from the arg-min; the
+      # counts are reported in the returned model (slot saturation).
+      sat <- .tds_saturation_filter(res, ref_var = last_rmse^2,
+                                    ratio = control_tds$saturation_ratio)
+      AICc_vals <- sat$AICc
+      valid_idx <- sat$valid
+      if (length(sat$excluded)) {
+        sat_n_excluded <- sat_n_excluded + length(sat$excluded)
+        sat_n_updates <- sat_n_updates + 1L
       }
-      
+
       if (length(valid_idx) > 0) {
         mybest <- valid_idx[which.min(AICc_vals[valid_idx])]
       } else {
-        warning(sprintf("[WARNING] Variable %s : all models degenerate or NA", k))
+        sat_n_all <- sat_n_all + 1L
+        warning(sprintf("Variable %s: every candidate fit is saturated or undefined at sweep %d; the smallest AICc is kept", k, i),
+                call. = FALSE)
         mybest <- which.min(AICc_vals)
       }
       

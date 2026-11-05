@@ -152,29 +152,53 @@ if(is.null(newdata) | is.null(newdata_coords)) stop('provide the newdata and new
     ##### ESTIMATION
     ##############
   TP=NULL
-  #if(model@Model =='GWR') {
-  # ============================================
-  # FIX : Always ensure mycall$control is a list
-  # ============================================
-  ctrl <- model@mycall$control
-  if (is.null(ctrl) || !is.list(ctrl)) {
-    ctrl <- list()
-  }
-  ctrl$W <- quote(model@W)
-  model@mycall$control <- ctrl
-    model@mycall$control[['W']]<-quote(model@W)
-    con=eval(model@mycall$control)
+    # The control of the training call is reused for the re-estimation at the
+    # target points. In `mycall` it is an unevaluated call (`list(adaptive =
+    # TRUE, ...)`) or a symbol, never a list: it is evaluated here, and an
+    # unevaluable control (built in a frame that no longer exists, e.g. inside
+    # search_bandwidths()) falls back to an empty list. Versions 1.3.1 to 1.4.3
+    # tested is.list() on the call and always discarded the control, so the
+    # re-estimation ran with the defaults (adaptive = FALSE): an adaptive
+    # bandwidth was read as a distance and the TP predictions were wrong.
+    con <- tryCatch(eval(model@mycall$control, parent.frame()), error = function(e) NULL)
+    if (is.null(con) || !is.list(con)) con <- list()
+    # settings recorded in the fitted object take precedence over the call
+    con$adaptive <- model@adaptive
+    con$Type <- model@Type
+    con$W <- model@W
     model@data$Intercept=1
-    full_data=rbind(newdata[,names(model@data)],model@data)
     TP=1:length(O)
-    con=c(con, list(TP=TP,isgcv=TRUE,TP_estim_as_extrapol=TRUE,get_ts=FALSE,NN=model@NN))
+    con[c('TP','isgcv','TP_estim_as_extrapol','get_ts','NN')] <- list(TP, TRUE, TRUE, FALSE, model@NN)
     if(ncol(newdata_coords)>2) {
       full_coords=rbind(newdata_coords[,-3],model@coords)
       con[['Z']]=c(newdata_coords[,3],model@Z)
       } else full_coords=rbind(newdata_coords,model@coords)
-    pred_TP<-MGWRSAR(formula = model@formula, data = full_data,coords=full_coords[,-3], fixed_vars=model@fixed_vars,kernels=model@kernels,H=model@H, Model=model@Model ,control=con)
+    if(model@Model=='MGWR') {
+      # Mixed model: the fixed coefficients are those of the training fit and the
+      # varying coefficients are re-estimated at the target points by a GWR of the
+      # partial residual Y - XC Betac on the varying covariates (training sample
+      # only). The mixed estimator itself cannot be re-run at target points: it
+      # needs the local fits of every training point for the fixed part, and
+      # MGWR() never excluded the target points from the sample (their rows,
+      # stacked first, were read as training rows), which made the TP prediction
+      # of MGWR a global OLS up to 1.4.3.
+      xc_names=names(model@Betac); xv_names=colnames(model@Betav)
+      yname=as.character(myYname)
+      data_v=model@data
+      data_v[[yname]]=as.numeric(model@Y)-as.numeric(as.matrix(model@XC[,xc_names,drop=FALSE]) %*% model@Betac)
+      formula_v=as.formula(paste(yname,'~',paste(c(setdiff(xv_names,'Intercept'), if(!('Intercept' %in% xv_names)) '-1'),collapse='+')))
+      full_data=rbind(newdata[,names(data_v)],data_v)
+      pred_TP<-MGWRSAR(formula = formula_v, data = full_data,coords=full_coords, fixed_vars=NULL,kernels=model@kernels,H=model@H, Model='GWR' ,control=con)
+      Betav_out=pred_TP@Betav[,xv_names,drop=FALSE]
+      Beta_proj_out=cbind(Betav_out,matrix(model@Betac,nrow=length(O),ncol=length(xc_names),byrow=TRUE))
+      colnames(Beta_proj_out)=c(xv_names,xc_names)
+      Y_predicted=as.numeric(as.matrix(newdata[,xc_names,drop=FALSE]) %*% model@Betac)+pred_TP@fit[TP]
+    } else {
+    full_data=rbind(newdata[,names(model@data)],model@data)
+    pred_TP<-MGWRSAR(formula = model@formula, data = full_data,coords=full_coords, fixed_vars=model@fixed_vars,kernels=model@kernels,H=model@H, Model=model@Model ,control=con)
     Beta_proj_out=pred_TP@Betav
     Y_predicted=pred_TP@fit[TP]
+    }
     # } else if(model@Model =='MGWRSAR_1_0_kv'){
     # lambda_in=model@Betav[,ncol(model@Betav)]
     # beta_in=model@Betav[,-ncol(model@Betav)]
@@ -291,7 +315,18 @@ if(model@Model %in% c('multiscale_gwr','tds_mgwr','atds_mgwr','atds_gwr','tds_mg
           if(myH[1]==model@V[1])  W_extra=matrix(1,nrow=length(O),ncol=length(S)) else W_extra=kernel_matW(H=myH,kernels=model@kernels,coords=coords[c(S,O),],NN=model@NN,TP=O,Type=model@Type,adaptive=model@adaptive,indexG=res$indexG,dists=res$dists,diagnull=FALSE,extrapol=TRUE,QP=S,alpha=model@alpha)
         }
         #if(model@Type=='GDT') W_extra = t(apply(W_extra, 1, function(x) x * as.numeric(x >= sort(x, decreasing = T)[k_extra + 2])))
-        W_extra<-normW(W_extra^exposant)
+        # sharpening: each row is scaled by its largest weight before the
+        # power, so that the nearest training point never underflows
+        W_extra<-.sharpen_rows(W_extra, exposant)
+        if (isTRUE(attr(W_extra, "empty_rows") > 0)) {
+          # targets without any positive weight (kernel underflow or outside
+          # every compact support): nearest training point in the metric of
+          # the component
+          W_extra <- .nearest_fallback(W_extra, coords, S, O, myH, model@adaptive, model@V[1],
+                                       if (length(Ht_pred) > 0) model@Vt[1] else NULL)
+          warning(sprintf("coefficient %s: %d prediction point(s) received no positive weight from the training sample (kernel underflow or outside every kernel support); the coefficient of their nearest training point was used.",
+                          k, attr(W_extra, "fallback_rows")), call. = FALSE)
+        }
       }
     # 1) reset to zero all rows j affected by duplicates
     if(length(j_pos)>0){
@@ -353,8 +388,7 @@ if(model@Model %in% c('multiscale_gwr','tds_mgwr','atds_mgwr','atds_gwr','tds_mg
       W_extra<- normW(Matrix::t(W_extra))
     } else if(model@Type=='GDT'){
         W_extra=kernel_matW(H=c(model@H,model@Ht),kernels=model@kernels,coords=coords,NN=model@NN,TP=O,Type=model@Type,adaptive=model@adaptive,diagnull=FALSE,extrapol=TRUE,QP=S)
-        W_extra<-W_extra^exposant
-        W_extra<-normW(W_extra)
+        W_extra<-.sharpen_rows(W_extra, exposant)
       }
   } else if(method_pred=='model'){
     if(model@Type=='GD') {
@@ -363,8 +397,7 @@ if(model@Model %in% c('multiscale_gwr','tds_mgwr','atds_mgwr','atds_gwr','tds_mg
       W_extra=kernel_matW(H=c(model@H,model@Ht),kernels=model@kernels,coords=coords[c(S,O),],NN=model@NN,TP=O,Type=model@Type,adaptive=model@adaptive,diagnull=FALSE,extrapol=TRUE,alpha=model@alpha,QP=S)
       #W_extra=t(apply(W_extra,1,function(x) x*as.numeric(x>=sort(x,decreasing = T)[k_extra+2])))
       W_extra<-W_extra[,tokeep]
-      W_extra<-W_extra^exposant
-      W_extra<-normW(W_extra)
+      W_extra<-.sharpen_rows(W_extra, exposant)
   } else if(model@Type=='T'){
     W_extra=kernel_matW(H=c(model@Ht),kernels=model@kernels,coords=as.matrix(coords[c(S,O)],ncol=1),NN=model@NN,TP=O,Type=model@Type,adaptive=model@adaptive,diagnull=FALSE,extrapol=TRUE,QP=S)
     }

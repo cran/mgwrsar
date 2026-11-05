@@ -1,121 +1,152 @@
 NEWS/ChangeLog
 -----------------------------
-# 1.4.1 2026-10-01
+# mgwrsar 1.4.4 (2026-10-28)
 
-New estimator
-	•	New `gtwr_HWB2010()`: the GTWR of Huang, Wu and Barry (2010) in the parameterisation of the paper (a single spatio-temporal bandwidth `h_ST` and the ratio `tau`), returned as an object of the new class `gtwr` with its own `summary()` method. It is the Gaussian, fixed-bandwidth special case of the `Type = 'GDT'` space-time kernel, calibrated through `search_bandwidths()`.
-	•	New helpers `bw_hwb2gdt()` and `bw_gdt2hwb()` convert between `(h_ST, tau)` and the `(h_S, h_T)` bandwidths of the package; `as_gtwr()` converts the best model of `search_bandwidths()`.
+Released on CRAN.
 
-Inference
-	•	The AICc is now `Inf` when the trace of the hat matrix reaches `n - 1`: a saturated fit was rewarded by a penalty term of the wrong sign instead of being rejected, which could send a bandwidth search to its smallest bandwidths.
-	•	`summary()` gains `fdr_method = "spatial_BY"`, a Benjamini-Yekutieli correction of the local t-tests calibrated on the bandwidth (the default remains `"BY"`).
+## Bug fixes
 
-Performance
-	•	GWR, mixed GWR and MGWR engines rewritten with a contiguous memory layout: about x20-40 for the univariate engine, x5-6.5 for the multivariate engine and x7.6-10.6 for the mixed core, with unchanged results. The mixed core no longer allocates an unused n x n x K cube.
-	•	Kernel weights and their row normalisation are computed in native code (bitwise identical to the former R code).
-	•	Session cache of kernel weight matrices, used by `TDS_MGWR()` and `search_bandwidths()`. Its memory budget adapts to the size of the matrices and can be set with `options(mgwrsar.weights_cache_mb = )`; 0 disables the cache.
-	•	The multivariate engine no longer forms the Q factor when neither the hat matrix nor the partial hat matrices are requested.
-	•	In the top-down descent, compactly supported fixed kernels are truncated to the neighbours that carry non-zero weights at the current scale; `control_tds$trunc_gauss` offers the (approximate, off by default) equivalent for a fixed Gaussian kernel.
-	•	Overall, compared with 1.3.2 (n = 1000, one core, same data, same selected model): `TDS_MGWR()` (`nns = 20`, `tol = 1e-3`, OLS start) takes 2.7 s instead of 10.5 s for `tds_mgwr` with a fixed Gaussian kernel, 1.2 s instead of 6.0 s with an adaptive bisquare kernel, and 14.5 s instead of 68.4 s for `tds_mgtwr` with fixed Gaussian space-time kernels. A GWR bandwidth search with `search_bandwidths()` (n = 1000, grid of 10, 3 rounds and golden-section refinement, AICc, one core) takes 0.93 s instead of 1.96 s with an adaptive bisquare kernel, and 1.12 s instead of 1.73 s with a fixed Gaussian kernel, with the same selected bandwidth and AICc.
+- Local standard errors (`@sev`) of `MGWRSAR()` (GWR, mixed GWR, SAR variants) and of `TDS_MGWR()` without `get_AIC` now use the variance of the local smoother with a local residual variance. They ignored the effective local sample size of the normalised kernel weights, and the fixed part of the residual in mixed models, so that they were too small (2.8 to 4.5 times on a 2,667-observation `tds_mgtwr` fit). t-values, p-values and significance maps change. Affected: all previous versions. Coefficients, fitted values, hat matrices, AICc and the standard errors of `TDS_MGWR(get_AIC = TRUE)` are unchanged.
+- `predict(method_pred = "TP")` now uses the control of the training call (kernel type, adaptive bandwidth, `W`), and for a mixed model (`Model = "MGWR"`) keeps the fixed coefficients and re-estimates the varying ones on the partial residual. Affected: 1.3.1 to 1.4.3, where the defaults were used instead, and every earlier version for mixed models.
+- New tests compare every prediction mode and the local standard errors with references computed by hand.
 
-Dependencies
-	•	The package no longer imports SMUT (which brought SKAT, SPAtest and RSpectra with it). The dense products of hat matrices use the same Eigen product, now compiled in the package, or R's `%*%` when R is linked to an optimised BLAS (Accelerate, OpenBLAS, MKL, BLIS, ATLAS, FlexiBLAS, ArmPL), which is then much faster. `options(mgwrsar.matprod = "eigen")` or `"blas"` forces one of the two.
+# mgwrsar 1.4.3 (2026-10-27)
 
-Robustness (adversarial campaign)
-	•	The local least-squares engines (GWR and mixed GWR) use a column-pivoted QR: the rank of a nearly singular local system is read reliably and the non-estimable columns are the dependent ones, whatever their position in the formula (a dependent column placed early used to make the later columns non-estimable, with non-finite coefficients in space-time adaptive fits).
-	•	Leverages and hat-matrix rows are computed from the orthonormal factor only, never through the inverse of R: they stay in [0, 1] (with rows summing to 1) even with a constant or collinear predictor, where they used to be negative.
-	•	Isolated points (fewer neighbours than coefficients) get the global OLS coefficients with 0, not `NA`, on an aliased column; a warning is issued when every local fit falls back to OLS (bandwidth or `NN` too small).
-	•	Explicit errors replace index, dimension or NA errors for: an unknown `Model`, `control$Type`, kernel name or `criterion`; a missing `control$Z` for a space-time model; missing values in the data or the coordinates; a non-positive or missing bandwidth; an adaptive bandwidth larger than the sample; a `control$W` of the wrong dimension; `fixed_vars` absent from the model matrix; a fully collinear design in `SAR`; constant coefficients that the varying part makes non-identifiable (mixed models); a constant time variable in `TDS_MGWR()`.
-	•	`search_bandwidths()` no longer closes every connection of the session on exit (`closeAllConnections()`): files open for writing, `sink()` and `capture.output()` of the caller were closed by each search.
-	•	`search_bandwidths()`: the golden-section refinement could loop forever when the bracket was between one and 1.3 tolerances wide (the rounded interior point fell back on a bound); found on duplicated observations. The bracket must now shrink at every step and the loop is capped.
-	•	Adaptive bandwidths are capped where the compact kernels can read them (the (H + 2)-th neighbour), instead of failing with an index error near `NN`.
-	•	`fitted()` is now exported for `mgwrsar` objects.
-	•	New tests `test-stress_campaign.R`: 26 adversarial data generators (repeated or duplicated locations, aligned points, clusters, isolated point, anisotropic or geographic coordinates, tiny samples, constant / collinear / locally constant / sparse / badly scaled predictors, heavy tails, outliers, heteroskedasticity, constant or perfect response, degenerate time axes) crossed with 55 estimator configurations; every fit must satisfy the invariants of `tools/stress_cases.R` or stop with an explicit message.
+Not released on CRAN.
 
-Bug fixes
-	•	`MGWRSAR()`, `search_bandwidths()`, `golden_search_2d_bandwidth()`, `multiscale_gwr()`, `TDS_MGWR()`, `simu_multiscale()` and `mgwrsar_bootstrap_test()` no longer change the random number generator of the session: they seed their own L'Ecuyer-CMRG generator for internal draws, as before, and now restore the user's generator (kind and state) on exit. A `set.seed()` placed after a fit used to draw from L'Ecuyer-CMRG instead of the session's generator.
-	•	`TDS_MGWR()`: the temporal bandwidths of a starting model taken from a nested call are named like the spatial ones, and `predict()` accepts a model whose `Ht` is a single unnamed value (no sweep kept).
+## Changed behaviour
 
-TDS algorithms
-	•	`TDS_MGWR()`: the control levers are repaired for `Type = 'GDT'`. `control_tds$H` and `control_tds$Ht` pin bandwidths per coefficient and per axis (one value per varying coefficient, or a named vector for a subset; `NA` leaves a bandwidth free, `Inf` makes it global); `control_tds$V` is a grid of neighbour counts; the adaptive temporal grid mirrors the spatial one.
-	•	`TDS_MGWR()`: after a rejected sweep the descent continues from the rejected state (non-monotone descent) and the best sweep is the one returned. Restarting from the best state repeats the rejected sweep, since a sweep is deterministic, and freezes the descent (found by a coauthor); 1.3.2 continued from an inconsistent state (coefficients of the best sweep, residuals of the rejected one), which had the same effect by accident. Without a rejected sweep the results are unchanged; with one they may differ from 1.3.2 at the third significant digit of the RMSE. When all bandwidths are pinned, the returned model is the fixed point of the backfitting, independent of the starting model.
-	•	`TDS_MGWR()`: `control_tds$TRUEBETA` (true coefficients, for simulations) no longer stops with an error; the slot `HRMSE` of the returned model then holds the RMSE of each coefficient for the starting model and every kept sweep.
-	•	`TDS_MGWR()`: fixes with `fixed_vars` (dimension of the per-coefficient trace, bandwidth vectors restricted to varying coefficients).
-	•	`TDS_MGWR()`: with a fixed spatial kernel and repeated locations (panel data), the spatial bandwidth grid is now extended below the distance to the first site, down to `control_tds$panel_floor` times that distance (default 0.2 for a Gaussian kernel, 0.5 otherwise; 1 restores the previous grid). The neighbour-count grid stopped at the 3rd/4th site, one lattice step on a regular panel, which censored the bandwidths of the roughest coefficients; a Gaussian kernel, whose bandwidth is a standard deviation, was censored at about three times its optimal scale.
-	•	New `control_tds$V_dist`: spatial bandwidth grid given directly in distances (fixed kernel), taken as is.
-	•	`control_tds$V` is read with `[[` (it was partially matched by `V_dist`).
+- `TDS_MGWR()` returns the terminal sweep of the backfitting, as MGWR backfitting does, instead of the sweep with the smallest in-sample RMSE (1.3.1 to 1.4.2). `control_tds$retained_state = "best"` restores the former behaviour.
+- `TDS_MGWR()`: after the search, the coefficients are refitted at fixed bandwidths until convergence (`control_tds$polish`, default 3 sweeps; 0 disables it).
+- `TDS_MGWR()`: the safeguard against saturated candidate fits is a unitless ratio of residual variances (`control_tds$saturation_ratio`, default `exp(-2)`), with counts in the new slot `saturation`. Up to 1.4.2 it depended on the unit of the response and on `get_AIC`.
+- `TDS_MGWR()`: the importance-driven update order uses the standard deviation of `beta_k x_k` and no longer depends on the units or the level of the covariates (up to 1.4.2 it did). The path of the descent may change.
+- `predict()` for `tds_mgwr` / `tds_mgtwr`: a target with very small prediction weights no longer gets a non-finite prediction, and a target without any positive weight takes the coefficient of its nearest training point, with a warning.
+- New levers of `control_tds`: `ordering = "random"`, besides `"cyclic"` and the default `"Importance"`; `importance_order` (default `"decreasing"`); `update_last` (default `NULL`, no covariate forced last).
 
-Documentation
-	•	Four of the five vignette stubs had an indented YAML header and were rendered as raw text; they now render as intended.
-	•	`citation("mgwrsar")` no longer refers to another package in its header.
+# mgwrsar 1.4.2 (2026-10-06)
 
-# 1.3.2 2026-03-02
+Not released on CRAN.
 
-TDS algorithms
-	•	Introducing `tds_mgtwr` model for Multiscale GTWR with additive or multiplicative (cyclic or acyclic) spatio-temporal kernels.
-	•	Importance-driven update schedule that prioritizes covariates according to their current scale-normalized contribution to the fitted signal.
-	•	Fixed several edge cases in `TDS_MGWR()`.
+## Bug fixes
 
-Control-parameter safety
-	•	Added stronger guards on neighborhood and search controls.
-	•	`NN` is now capped to `n` in both `MGWRSAR()` and `TDS_MGWR()` to avoid invalid k-NN requests.
-	•	In `TDS_MGWR()`, `control_tds$nns` is now capped to `min(round(n/8), round(maxit/2))`; if a user-provided value is too large, it is truncated with a warning.
+- `TDS_MGWR()` with pinned bandwidths, an adaptive kernel and `NN < n`: a coefficient pinned at the global value is fitted as a global component, as `predict()` assumes. Affected: 1.4.1.
+- `TDS_MGWR(control = list(SE = TRUE))`: `@sev` and `@edf_k` are those of the returned sweep, not of the last one. Affected: 1.4.1 (relative errors up to about 18%).
+- `search_bandwidths()` no longer discards the true minimum of a grid round, which could return a worse local minimum. Affected: 1.4.1. The AICc of a saturated binomial GWR is now `Inf`.
 
-Parallel search reliability
-	•	Improved stability of parallel bandwidth-search workflows (foreach-based execution), with safer fallback behavior.
+# mgwrsar 1.4.1 (2026-10-01)
 
-Testing and maintenance
-	•	Added/extended tests for MGTWR/TDS-related scenarios.
-	
-	
-# 1.3.1 2026-01-21
-Major performance improvements
-	•	Complete rewrite of the local fitting engine using RcppArmadillo (pivotal QR + banded optimizations).
-This substantially accelerates GWR, mixed-GWR and MGWR estimations, with average speed-ups of ×4 and memory usage reduced by 30–50%.
+Released on CRAN.
 
-New bandwidth selection engine
-	•	New function search_bandwidth(), a unified wrapper for 1D (space) and 2D (space and time) bandwidth optimisation.
-It supports multi-round grid refinement, integrates golden-section search, and relies on forking for parallel evaluation.
+## New features
 
-Visualisation
-	•	New interactive plot methods based on plotly, allowing dynamic exploration of local coefficients, bandwidth paths, and model diagnostics.
+- New `gtwr_HWB2010()`: the GTWR of Huang, Wu and Barry (2010) with its `(h_ST, tau)` parameterisation, and converters `bw_hwb2gdt()`, `bw_gdt2hwb()` and `as_gtwr()`.
+- `summary()` gains `fdr_method = "spatial_BY"`, a Benjamini-Yekutieli correction calibrated on the bandwidth.
+- New `control_tds` levers: per-coefficient and per-axis pinned bandwidths (`H`, `Ht`, now working for `Type = 'GDT'`), a grid in distances (`V_dist`), a floor of the spatial grid for panel data (`panel_floor`) and `TRUEBETA` for simulations.
 
-TDS algorithms
-	•	Significant improvements to tds_mgwr and tds_mgtwr models:
-	•	smoother and more stable AICc-based decisions during bandwidth boosting,
-	•	refined sequential optimisation for spatial and spatio-temporal kernels,
-	•	improved handling of edge cases and isolated observations,
-	•	new internal diagnostics for convergence monitoring.
+## Performance
 
-Improved handling of isolated points
-	•	Better detection and fallback to OLS for observations receiving zero weight under non-adaptive kernels—avoiding silent numerical instabilities.
+- Native engines for GWR, mixed GWR and MGWR, native kernel weights, a session cache of weight matrices and truncated compact kernels: `TDS_MGWR()` is about 4 to 5 times faster than in 1.3.2 and `search_bandwidths()` about 1.5 to 2 times, with unchanged results.
+- SMUT is no longer imported; dense products use Eigen or the BLAS of R (`options(mgwrsar.matprod = )`).
 
-Parallelisation robustness
-	•	More reliable parallel execution:
-	•	cleanup on interruptions,
-	•	fallback to sequential execution when requested.
+## Bug fixes and robustness
 
-Predictive methods
-	•	More stable predict_mgwrsar() logic with safer handling of model@mycall$control, avoiding previous errors when called immediately after bandwidth optimisation.
+- The AICc is `Inf` for a saturated fit, which previous versions rewarded with a penalty of the wrong sign.
+- Local systems are solved by a column-pivoted QR: nearly singular designs, constant or collinear predictors and isolated points no longer give non-finite coefficients or leverages outside [0, 1].
+- `TDS_MGWR()`: after a sweep that raises the RMSE the descent continues from that sweep; 1.3.2 restarted from an inconsistent state that froze the descent.
+- The random number generator of the session is restored on exit by `MGWRSAR()`, `search_bandwidths()`, `TDS_MGWR()` and the other functions that draw internally. Affected: previous versions.
+- `search_bandwidths()` no longer closes every connection of the session, and its golden-section refinement can no longer loop forever.
+- Explicit errors replace index or dimension errors for invalid inputs (unknown model, kernel or criterion, missing values, invalid bandwidths, `W` or `fixed_vars`).
+- `fitted()` is exported for `mgwrsar` objects; vignettes and `citation()` render correctly; new adversarial test campaign.
 
-Improved numerical stability
-	•	Several fixes related to:
-	•	QR pivoting in local regressions,
-	•	normalization of kernel weights,
-	•	avoidance of underflow in Gaussian kernels for very small bandwidths.
+# mgwrsar 1.3.2 (2026-03-02)
 
-Cross-platform build stability
-	•	Fixes ensuring compatibility on macOS ARM, Linux (GCC ≥12), and Windows Rtools; better BLAS thread control (OPENBLAS, MKL, VECLIB).
-	
-Reproducibility across platforms
-	•	Adoption of the L’Ecuyer–CMRG random number generator with inversion-based normal deviates, ensuring bitwise-stable stochastic behaviour across all platforms and parallel backends.
+Released on CRAN.
 
-	
-# 1.2 2025-6-24 (unreleased version)
+## TDS algorithms
+
+- Introducing `tds_mgtwr` model for Multiscale GTWR with additive or multiplicative (cyclic or acyclic) spatio-temporal kernels.
+- Importance-driven update schedule that prioritizes covariates according to their current scale-normalized contribution to the fitted signal.
+- Fixed several edge cases in `TDS_MGWR()`.
+
+## Control-parameter safety
+
+- Added stronger guards on neighborhood and search controls.
+- `NN` is now capped to `n` in both `MGWRSAR()` and `TDS_MGWR()` to avoid invalid k-NN requests.
+- In `TDS_MGWR()`, `control_tds$nns` is now capped to `min(round(n/8), round(maxit/2))`; if a user-provided value is too large, it is truncated with a warning.
+
+## Parallel search reliability
+
+- Improved stability of parallel bandwidth-search workflows (foreach-based execution), with safer fallback behavior.
+
+## Testing and maintenance
+
+- Added/extended tests for MGTWR/TDS-related scenarios.
+
+# mgwrsar 1.3.1 (2026-01-21)
+
+Released on CRAN.
+
+## Major performance improvements
+
+- Complete rewrite of the local fitting engine using RcppArmadillo (pivotal QR + banded optimizations).
+  This substantially accelerates GWR, mixed-GWR and MGWR estimations, with average speed-ups of ×4 and memory usage reduced by 30–50%.
+
+## New bandwidth selection engine
+
+- New function search_bandwidth(), a unified wrapper for 1D (space) and 2D (space and time) bandwidth optimisation.
+  It supports multi-round grid refinement, integrates golden-section search, and relies on forking for parallel evaluation.
+
+## Visualisation
+
+- New interactive plot methods based on plotly, allowing dynamic exploration of local coefficients, bandwidth paths, and model diagnostics.
+
+## TDS algorithms
+
+- Significant improvements to tds_mgwr and tds_mgtwr models:
+- smoother and more stable AICc-based decisions during bandwidth boosting,
+- refined sequential optimisation for spatial and spatio-temporal kernels,
+- improved handling of edge cases and isolated observations,
+- new internal diagnostics for convergence monitoring.
+
+## Improved handling of isolated points
+
+- Better detection and fallback to OLS for observations receiving zero weight under non-adaptive kernels—avoiding silent numerical instabilities.
+
+## Parallelisation robustness
+
+- More reliable parallel execution:
+- cleanup on interruptions,
+- fallback to sequential execution when requested.
+
+## Predictive methods
+
+- More stable predict_mgwrsar() logic with safer handling of model@mycall$control, avoiding previous errors when called immediately after bandwidth optimisation.
+
+## Improved numerical stability
+
+- Several fixes related to:
+- QR pivoting in local regressions,
+- normalization of kernel weights,
+- avoidance of underflow in Gaussian kernels for very small bandwidths.
+
+## Cross-platform build stability
+
+- Fixes ensuring compatibility on macOS ARM, Linux (GCC ≥12), and Windows Rtools; better BLAS thread control (OPENBLAS, MKL, VECLIB).
+
+## Reproducibility across platforms
+
+- Adoption of the L’Ecuyer–CMRG random number generator with inversion-based normal deviates, ensuring bitwise-stable stochastic behaviour across all platforms and parallel backends.
+
+# mgwrsar 1.2 (2025-06-24)
+
+Not released on CRAN.
+
 * Introducing tds_mgtwr model allowing to estimate spatio-temporal multiscale GWR (MGTWR)
 * Introducing golden_search_2d_bandwidth for automatic bandwidth selection with spatio-temporal GWR (GTWR)
 
-# 1.1 2024-12-24
+# mgwrsar 1.1 (2024-12-24)
+
+Released on CRAN.
 * Introducing top-down scale/multiscale GWR (tds_mgwr), adaptive top-down scale/multiscale GWR (atds_mgwr) and regular multiscale GWR (multiscale_gwr)
 * Introducing generalized GWR for binomial (bionomial and quasibinomial families).
 * Introducing GAM/GWR with gradient descent boosting.
@@ -126,8 +157,9 @@ Reproducibility across platforms
 * Correcting a bug for formula without explicit names of variable (like "~.").
 * Correcting a bug in GWR with parallel computation (split error in gwr_beta)
 
+# mgwrsar 1.0.5 (2023-11-16)
 
-# 1.0.5 2023-11-16
+Released on CRAN.
 * Removing dependency to qlcMatrix
 * Introducing experimental multiscale GWR Model
 * Introducing experimental GWR with glm family
@@ -139,12 +171,15 @@ Reproducibility across platforms
 * Rename all variables "coord" to "coords"
 * Rename the coordinates in the data example to c('x','y')
 
+# mgwrsar 1.0.4 (2023-03-01)
 
-# 1.0.4 2023-03-01
+Released on CRAN.
 * Improved kernel_matW function by reintroducing possibility of island with no neighbours for non adaptie kernel
 * Introduced an experimental version of a backfitting algorithm for the estimation of the Multiscale GWR with a selection of the bandiwth of each variable by cross validation (LOOCV). The predict_mgwrsar function allows to make predictions from a model of the 'multiscale_gwr' class.
 
-# 1.0.3 2020-11-18
+# mgwrsar 1.0.3 (2020-11-18)
+
+Not released on CRAN.
 * Fixed a bug for plot_mgwrsar
 * Fixed a bug for computing SE and edf when system is computationally singular
 * Fixed a bug for the function plot_mgwrsar coming from the way of naming the columns of the coordinates matrix returned in the MGWRSAR function.
@@ -153,12 +188,15 @@ Reproducibility across platforms
 * Improvement of plot_mgwrsar function to allow control of leaflet tile and number of quantile in legend.
 * WARNING:  function to predict with target points using TP options have to be checked for model with spatial autocorrelation.
 
+# mgwrsar 1.0.2 (2020-06-01)
 
-# 1.0.2 2020-06-01
+Not released on CRAN.
 
 * Fixed a bug in the kernel_matW function when there are duplicted spatal coordinates: duplicated coordinates are jittered with a warning if this is the case.
 
-# 1.0.1 2020-05-04
+# mgwrsar 1.0.1 (2020-05-04)
+
+Not released on CRAN.
 
 * All models of mgwrsar package based on local linear regression can now be estimated using a target points set. Several functions that allows to choose an optimal set of target points to obtain a faster approximation of GWR coefficients has been added.
 
@@ -170,6 +208,8 @@ Reproducibility across platforms
 
 * A new ploting function has been added: plot_effect is a function that plots the effect of a variable X_k with spatially varying coefficient, i.e X_k * Beta_k(u_i,v_i) for comparing the magnitude of effects of between variables
 
-# 0.1 2018-05-11
+# mgwrsar 0.1 (2018-05-11)
+
+Released on CRAN.
 * First release.
 

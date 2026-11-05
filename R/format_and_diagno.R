@@ -93,7 +93,8 @@ if(!is.null(new_data)) {mymodel <- list(Betav = model$Betav, Betac = model$Betac
         loglik=sum(Y*log(p) + (1-Y)*log(1-p))
         mymodel@loglik=loglik
         mymodel@AIC   <- -2*loglik+2*(n-model$tS)
-        mymodel@AICc  <- mymodel@AICc  <- -2*loglik+2*(model$tS^2+model$tS)/(n-model$tS-2)+ 2 * model$tS
+        # saturated fit: the correction term would change sign (as in aicc_f())
+        mymodel@AICc  <- if (n - model$tS - 2 <= 0) Inf else -2*loglik+2*(model$tS^2+model$tS)/(n-model$tS-2)+ 2 * model$tS
       }
     } else {
       if(is.null(isolated_idx)){

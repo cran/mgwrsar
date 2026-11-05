@@ -34,7 +34,10 @@ update_opt_known <-function(env = parent.frame()){with(env,{
       model_k<-MGWRSAR(formula = myformula_bk, data = data,coords=as.matrix(control$Z, ncol = 1), fixed_vars=NULL,kernels=kernels[2],H=opt_t[k], Model = 'GWR',control=controlvt)
     }
   } else {
-    if((opt[k]>=n-2 & controlv$adaptive[1]) | (opt[k]>=max_dist & !controlv$adaptive[1]))  {
+    # The global sentinel is max_dist, i.e. min(n, NN) for an adaptive kernel:
+    # with NN < n a pinned value of max_dist (or Inf) must give the OLS
+    # component that predict() assumes, not an NN-neighbour local fit.
+    if((opt[k]>=min(n-2, max_dist) & controlv$adaptive[1]) | (opt[k]>=max_dist & !controlv$adaptive[1]))  {
       model_k<-MGWRSAR(formula = myformula_bk, data = data,coords=coords, fixed_vars=k,kernels=kernels,H=c(opt[k],NULL), Model = 'OLS',control=controlv)
       model_k@sev=as.matrix(rep(model_k@se,n),ncol=1)
       model_k@Betav <-as.matrix(rep(model_k@Betac,n),ncol=1)

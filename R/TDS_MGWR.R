@@ -38,13 +38,22 @@
 #'   \item{\code{tol}}{Numeric. Convergence tolerance. Default 0.001.}
 #'  \item{\code{maxit}}{Numeric. Maximum number of iteration.}
 #'   \item{\code{nrounds}}{Integer. Number of boosting rounds for Stage 2 (only for \code{'atds_mgwr'}). Default 3.}
-#'   \item{\code{H}, \code{Ht}}{Numeric. Known bandwidths instead of a search: \code{H} fixes every spatial bandwidth, \code{Ht} (\code{Type = 'GDT'} only) every temporal one. Each is an unnamed vector with one value per varying coefficient, in model-matrix order (\code{Intercept} first); a value at or above the largest bandwidth (e.g. \code{Inf}) is a global bandwidth. An axis is either fully fixed or fully searched (no \code{NA}, no named subset): \code{H} alone still searches the temporal bandwidths and conversely, \code{H} and \code{Ht} together freeze the search entirely, in which case the backfitting is iterated to its fixed point (every sweep kept, stop on \code{tol}) so that the returned model and its criterion depend on the bandwidths only. Units follow \code{control$adaptive}: numbers of neighbours (rounded) for an adaptive kernel, distances otherwise. Lower \code{tol} (e.g. \code{1e-6}) when the criterion at given bandwidths is to be read precisely.}
+#'   \item{\code{H}, \code{Ht}}{Numeric. Known bandwidths instead of a search: \code{H} fixes every spatial bandwidth, \code{Ht} (\code{Type = 'GDT'} only) every temporal one. Each is an unnamed vector with one value per varying coefficient, in model-matrix order (\code{Intercept} first); a value at or above the largest bandwidth (e.g. \code{Inf}) is a global bandwidth.
+#'   An axis is either fully fixed or fully searched (no \code{NA}, no named subset): \code{H} alone still searches the temporal bandwidths and conversely, \code{H} and \code{Ht} together freeze the search entirely, in which case the backfitting is iterated to its fixed point (every sweep kept, stop on \code{tol}) so that the returned model and its criterion depend on the bandwidths only. Units follow \code{control$adaptive}: numbers of neighbours (rounded) for an adaptive kernel, distances otherwise. Lower \code{tol} (e.g. \code{1e-6}) when the criterion at given bandwidths is to be read precisely.}
 #'   \item{\code{V}}{Numeric. User-supplied spatial bandwidth sequence, always in numbers of neighbours (converted to distances when the spatial kernel is not adaptive). Any order; \code{first_nn} is added on top.}
 #'   \item{\code{V_dist}}{Numeric. Fixed spatial kernel only: user-supplied spatial bandwidth sequence directly in distances (any order; the largest distance is added on top, and the grid is taken as is, without the panel extension). Overrides \code{V}, \code{minv} and \code{panel_floor}.}
-#'   \item{\code{panel_floor}}{Numeric in (0, 1]. Fixed spatial kernel with repeated locations (panel data) only. The neighbour-count grid cannot go below the distance to the first site, although a site's own observations identify a smaller bandwidth; the grid is therefore extended geometrically below its floor down to \code{panel_floor} times that distance (ratio 0.8 for a Gaussian kernel, 0.9 otherwise), provided every site has at least two observations. Default 0.2 for a Gaussian kernel (its bandwidth is a standard deviation) and 0.5 for compact-support kernels; 1 keeps the grid unchanged.}
+#'   \item{\code{panel_floor}}{Numeric in (0, 1]. Fixed spatial kernel with repeated locations (panel data) only. The neighbour-count grid cannot go below the distance to the first site, although the own observations of a site identify a smaller bandwidth; the grid is therefore extended geometrically below its floor down to \code{panel_floor} times that distance (ratio 0.8 for a Gaussian kernel, 0.9 otherwise), provided every site has at least two observations. Default 0.2 for a Gaussian kernel (its bandwidth is a standard deviation) and 0.5 for compact-support kernels; 1 keeps the grid unchanged.}
 #'   \item{\code{first_nn}}{Integer. Top of the spatial bandwidth sequence, in numbers of neighbours. Default \code{nrow(data)}.}
 #'   \item{\code{trunc_gauss}}{Numeric or \code{NULL}. Fixed gaussian spatial kernel only: when set to \eqn{c}, each bandwidth \eqn{h} of the descent is evaluated on the neighbours within distance \eqn{c h} (relative weight \eqn{e^{-c^2/2}} beyond: 1.5e-8 for \eqn{c = 6}, 1.3e-14 for \eqn{c = 8}), which shrinks the weight matrices at small scales. \code{NULL} (default) keeps every neighbour. Fixed compact kernels are always truncated exactly (zero weights dropped), as adaptive ones already were.}
 #'   \item{\code{minv}}{Integer. Floor of the spatial bandwidth sequence, in numbers of neighbours: the grid stops at the median distance to the \code{minv}-th neighbour (or at \code{minv} neighbours for an adaptive kernel). Default: the identifiability floor, 2 for a Gaussian kernel and \code{K + 1} for compact-support kernels. Raising it above that floor truncates the descent: a coefficient whose optimal bandwidth is smaller stops on the grid floor with a censored bandwidth and non-converged coefficients, so a warning is issued at setup and again when a bandwidth ends on the floor.}
+#'   \item{\code{check_pairs}}{Logical. If \code{TRUE}, each varying coefficient other than the intercept receives an identifiability floor before the search: the smallest bandwidth of the grid (\code{Type = 'GD'}, slot \code{HKmin}) or, for each spatial bandwidth of the grid, the smallest temporal one (\code{Type = 'GDT'}, slot \code{HKMIN}, one matrix of (hs, ht) pairs per coefficient) at which the local weighted variance of the covariate exceeds \code{control$min_var_ratio} times its global variance at a share \code{control$min_var_q} of the sites; the search then never goes below that floor.
+#'   A covariate that never reaches the threshold on the grid is kept at the global bandwidth(s), with a warning naming it. The intercept takes the smallest floor of the covariates. The local moments are computed natively, on \code{ncore} threads when the package is built with OpenMP (\code{MGWRSAR_OPENMP=1}), and the grid is searched by bisection (the ratio is taken as non-decreasing in each bandwidth). Default \code{FALSE}.}
+#'   \item{\code{ordering}}{Character. Order in which the varying coefficients are updated within a sweep, the intercept always first: \code{'Importance'} (default), by decreasing (or increasing, see \code{importance_order}) standard deviation of the fitted contribution at the previous sweep; \code{'cyclic'}, the order of the formula at every sweep; \code{'random'}, a new permutation at every sweep, reproducible through the random-number seed.}
+#'   \item{\code{update_last}}{Character vector or \code{NULL} (default). Names of varying coefficients updated last in every sweep, whatever the ordering, in their order of appearance; the intercept is always updated first. Meant for covariates that are deterministic functions of the kernel coordinates (a time index, a day of year, a year of sale), whose component would otherwise pre-empt, as a global drift, the temporal variation that the other components can capture through their own temporal bandwidths.}
+#'   \item{\code{importance_order}}{Character. Direction of the importance-driven update order (\code{ordering = 'Importance'}): \code{'decreasing'} (default) updates first the component whose fitted contribution \eqn{\hat\beta_k x_k} has the largest standard deviation over the observations, \code{'increasing'} updates it last. The intercept is always updated first.}
+#'   \item{\code{saturation_ratio}}{Numeric in [0, 1). Safeguard against near-interpolating local fits: at each component update, a candidate fit whose residual variance is below \code{saturation_ratio} times the residual variance of the current complete fit is excluded from the search; if every candidate is excluded, the one with the smallest AICc is kept with a warning. A ratio of variances, so the rule does not depend on the unit of the response nor on \code{get_AIC} (until 1.4.2 it compared the AICc of a candidate with half of a reference AICc). The counts are returned in the slot \code{saturation}. Default \code{exp(-2)}; 0 disables it.}
+#'   \item{\code{polish}}{Integer. Maximum number of polishing sweeps run after the search has stopped, whatever its stopping rule: the backfitting is iterated with every bandwidth fixed at the retained state (no search, no patience rule, every sweep kept) until the relative change of the in-sample RMSE between two sweeps falls below \code{tol}, or that many sweeps have been run, so that the returned coefficients, projection matrices and standard errors are the fixed point of the backfitting at these bandwidths, to \code{tol}. The bandwidths are unchanged. Default 3; 0 returns the state at which the search stopped.}
+#'   \item{\code{retained_state}}{Character. Which sweep of the backfitting is returned: \code{'terminal'} (default), the state that met the stopping rule, as in MGWR backfitting, where the sweeps continue from the current state whatever the change of the in-sample RMSE and only the stopping rule reads that change; or \code{'best'}, the sweep with the smallest in-sample RMSE, the behaviour of versions 1.3.1 to 1.4.2. The sweeps, the stopping rules and the patience counter are identical in both cases; only the returned state (coefficients, bandwidths, projection matrices, standard errors) differs, and only when a sweep raised the RMSE. The slots \code{HBETA} and \code{HRMSE} hold every sweep up to the returned one.}
 #'   \item{\code{TRUEBETA}}{Numeric matrix. Diagnostic lever for simulations: the true coefficients, one row per observation and one column per coefficient of the model matrix (\code{Intercept} first). When given, the slot \code{HRMSE} of the returned model holds, for the starting model (row 1) and each kept sweep, the RMSE of every coefficient, their mean, the spatial bandwidth of the last varying coefficient, the AICc (\code{get_AIC = TRUE}) and the residual RMSE. Default \code{NULL}.}
 #' }
 #' @param control A named list of standard control arguments passed to the internal \code{MGWRSAR} calls:
@@ -52,6 +61,7 @@
 #'   \item{\code{adaptive}}{Logical or Vector. \code{TRUE} for adaptive bandwidth (nearest neighbors), \code{FALSE} for fixed distance. Can be a vector of length 2 for space/time; a single value applies to both. Default \code{c(TRUE, FALSE)}. With an adaptive temporal kernel the temporal bandwidths are searched on a sequence of numbers of neighbours built like the spatial one.}
 #'   \item{\code{Type}}{Character. Spatial weighting type: \code{'GD'} (Spatial only) or \code{'GDT'} (Space-Time).}
 #'   \item{\code{NN}}{Integer. Maximum number of neighbors for distance matrix computation (truncation). Default is \code{nrow(data)}.}
+#'   \item{\code{min_var_ratio}, \code{min_var_q}}{Numeric. Local variance criterion of \code{control_tds$check_pairs} (also read by the penalised golden-section search): a bandwidth is admissible for a covariate when the ratio of its local weighted variance to its global variance exceeds \code{min_var_ratio} (default 0.05) at the quantile \code{min_var_q} (default 0.10) of the sites.}
 #' }
 #'
 #' @details
@@ -225,6 +235,16 @@ TDS_MGWR <- function(formula, data, coords,
       # ============================================================
       user_nns_provided <- !is.null(control_tds$nns)
       if (is.null(control_tds$ordering)) control_tds$ordering='Importance' #Importance
+      if (identical(control_tds$ordering, "importance")) control_tds$ordering <- "Importance"
+      if (!is.character(control_tds$ordering) || length(control_tds$ordering) != 1L ||
+          !control_tds$ordering %in% c("Importance", "cyclic", "random"))
+        stop("`control_tds$ordering` must be \"Importance\", \"cyclic\" or \"random\".", call. = FALSE)
+      # direction of the importance-driven order: largest fitted contribution
+      # first (default) or last
+      if (is.null(control_tds$importance_order)) control_tds$importance_order <- "decreasing"
+      if (!is.character(control_tds$importance_order) || length(control_tds$importance_order) != 1L ||
+          !control_tds$importance_order %in% c("decreasing", "increasing"))
+        stop("`control_tds$importance_order` must be \"decreasing\" or \"increasing\".", call. = FALSE)
       type <- 'proportional'
       if (is.null(control$Type)) control$Type <- 'GD'
       if (is.null(control_tds$init_model) && control$Type == 'GD') control_tds$init_model <- 'OLS'
@@ -245,6 +265,35 @@ TDS_MGWR <- function(formula, data, coords,
       if (is.null(control_tds$maxit)) control_tds$maxit <- 100
       control_tds$maxit <- suppressWarnings(as.integer(control_tds$maxit))
       if (is.na(control_tds$maxit) || control_tds$maxit < 1L) control_tds$maxit <- 100L
+      # Which sweep is returned: the terminal one (the state that met the
+      # stopping rule, as in MGWR backfitting) or the one with the smallest
+      # in-sample RMSE (the 1.3.1-1.4.2 behaviour). The sweeps, the stopping
+      # rules and the patience counter are the same in both cases.
+      if (is.null(control_tds$retained_state)) control_tds$retained_state <- "terminal"
+      if (!is.character(control_tds$retained_state) ||
+          length(control_tds$retained_state) != 1L ||
+          !control_tds$retained_state %in% c("terminal", "best"))
+        stop("`control_tds$retained_state` must be \"terminal\" or \"best\".", call. = FALSE)
+      retain_terminal <- identical(control_tds$retained_state, "terminal")
+      # Polishing: after the search has stopped, at most `polish` further
+      # sweeps of the backfitting with every bandwidth fixed at the retained
+      # state, stopped as soon as the relative change of the RMSE falls below
+      # tol, so that the returned coefficients are the fixed point of the
+      # backfitting at these bandwidths (to tol). Default 3; 0 disables it.
+      if (is.null(control_tds$polish)) control_tds$polish <- 3L
+      control_tds$polish <- suppressWarnings(as.integer(control_tds$polish))
+      if (length(control_tds$polish) != 1L || is.na(control_tds$polish) ||
+          control_tds$polish < 0L)
+        stop("`control_tds$polish` must be a non-negative integer (number of polishing sweeps).",
+             call. = FALSE)
+      # Saturation filter of the candidate fits: ratio of residual variances
+      # (candidate / current complete fit) below which a candidate is a
+      # near-interpolating fit; unitless, independent of get_AIC; 0 disables.
+      if (is.null(control_tds$saturation_ratio)) control_tds$saturation_ratio <- exp(-2)
+      if (!is.numeric(control_tds$saturation_ratio) || length(control_tds$saturation_ratio) != 1L ||
+          is.na(control_tds$saturation_ratio) || control_tds$saturation_ratio < 0 ||
+          control_tds$saturation_ratio >= 1)
+        stop("`control_tds$saturation_ratio` must be a number in [0, 1).", call. = FALSE)
 
       nns_cap <- min(round(n / 8), round(control_tds$maxit / 2))
       if (control_tds$nns >= n / 8 || control_tds$nns >= control_tds$maxit / 2) {
@@ -406,6 +455,15 @@ TDS_MGWR <- function(formula, data, coords,
       if (!('BETA' %in% ls())) BETA <- NULL
       if (!('TRUEBETA' %in% ls())) TRUEBETA <- NULL
       varying <- setdiff(namesX, fixed_vars)
+      if (!is.null(control_tds$update_last)) {
+        ul <- control_tds$update_last
+        if (!is.character(ul) || anyNA(ul) || !length(ul))
+          stop("`control_tds$update_last` must be a character vector of covariate names.", call. = FALSE)
+        bad <- setdiff(ul, setdiff(varying, varying[1]))
+        if (length(bad))
+          stop("`control_tds$update_last` names covariates that are not varying coefficients (the intercept is always updated first): ",
+               paste(bad, collapse = ", "), call. = FALSE)
+      }
 
       # ============================================================
       # [9] FORMULAE FOR LOCAL AND CONSTANT PARTS
@@ -442,7 +500,8 @@ TDS_MGWR <- function(formula, data, coords,
             ),
             call. = FALSE
           )
-        HRMSE <- matrix(NA_real_, nrow = control_tds$maxit + 1L, ncol = K + 4L)
+        HRMSE <- matrix(NA_real_, nrow = control_tds$maxit + control_tds$polish + 1L,
+                        ncol = K + 4L)
         colnames(HRMSE) <- c(paste0('RMSE_', namesX), 'meanRMSE', 'h', 'AICc', 'RMSE')
       }
     })
@@ -843,6 +902,62 @@ TDS_MGWR <- function(formula, data, coords,
 
       near_zero <- (!is.finite(var_glob_all) | var_glob_all <= .Machine$double.eps)
 
+      # Quantile over sites of local-to-global variance ratio, one value per
+      # column of Xv. prep_w() returns its (row-normalised) weights as an
+      # n x NN matrix in neighbour order: column j of row i weights the site
+      # indexG[i, j]. The local moments are therefore gathered through indexG
+      # (src/local_var.cpp, one pass over the neighbours, no gather matrix);
+      # `Wd %*% Xv` would mix columns when NN = n and is non-conformable when
+      # NN < n.
+      local_var_ratio_q <- function(Wd, indexG, Xv, var_glob) {
+        VarL <- .Call("_mgwrsar_local_var_cpp", Wd, indexG, Xv,
+                      as.integer(control_tds$ncore), PACKAGE = "mgwrsar")
+        vapply(seq_len(ncol(Xv)), function(j) {
+          stats::quantile(VarL[, j] / var_glob[j], probs = min_var_q,
+                          na.rm = TRUE, names = FALSE)
+        }, numeric(1))
+      }
+      # First level (index in 1..n_lev) at which each covariate passes the
+      # criterion, which is taken as monotone non-decreasing in the level:
+      # pass_at(l) returns the logical pass vector of all covariates at level l
+      # (memoised by the caller, so the evaluations shared by several
+      # covariates are paid once). hi[k] is the index of a level known (or
+      # expected) to pass for covariate k, n_lev + 1 when none is known: the
+      # largest level is then tested first, and a covariate failing there fails
+      # everywhere and is skipped; the others are bisected on [1, hi[k]], after
+      # a check of hi[k] itself. Returns NA for a covariate with no passing level.
+      first_pass <- function(n_lev, pass_at, hi) {
+        res <- rep(NA_integer_, length(hi))
+        unknown <- which(hi > n_lev)
+        if (length(unknown)) {
+          ok <- pass_at(n_lev)
+          hi[unknown[ok[unknown]]] <- n_lev
+        }
+        for (kk in which(hi <= n_lev)) {
+          lo <- 0L
+          h  <- hi[kk]
+          if (!pass_at(h)[kk]) {
+            lo <- h
+            if (!pass_at(n_lev)[kk]) next
+            h <- n_lev
+          }
+          while (h - lo > 1L) {
+            mid <- (lo + h) %/% 2L
+            if (pass_at(mid)[kk]) h <- mid else lo <- mid
+          }
+          res[kk] <- h
+        }
+        res
+      }
+      warn_global_floor <- function(vars) {
+        if (length(vars))
+          warning("control_tds$check_pairs: the local variance of ",
+                  paste(vars, collapse = ", "),
+                  " never reaches control$min_var_ratio on the bandwidth grid; ",
+                  "kept at the global bandwidth (consider dropping or fixing ",
+                  "these coefficients).", call. = FALSE)
+      }
+
       HKmin <- NULL   # for Type = "GD"
       HKMIN <- NULL   # for Type = "GDT"
 
@@ -850,6 +965,7 @@ TDS_MGWR <- function(formula, data, coords,
       if (identical(control$Type, "GD")) {
 
         V_sorted <- sort(unique(V))
+        n_V <- length(V_sorted)
 
         # HKmin: 1 value per covariate in 'varying'
         HKmin <- rep(NA_real_, length(varying))
@@ -860,76 +976,47 @@ TDS_MGWR <- function(formula, data, coords,
         cov_idx_to_check <- which(!near_zero)   # among all varying
         cov_idx_to_check <- setdiff(cov_idx_to_check, 1L)  # exclude Intercept
 
-        l <- 1L
-        while (length(cov_idx_to_check) > 0L && l <= length(V_sorted)) {
+        if (length(cov_idx_to_check) > 0L) {
 
-          v <- V_sorted[l]
+          X_var        <- X[, varying_idx[cov_idx_to_check], drop = FALSE]
+          var_glob_sub <- var_glob_all[cov_idx_to_check]
 
-          # spatial weights for this v
-          stage1 <- prep_w(
-            H        = c(v),
-            kernels = kernels,
-            Type     = control$Type,
-            adaptive = control$adaptive,
-            dists    = G$dists,
-            indexG   = G$indexG,
-            alpha    = 1
-          )
-          Wd <- stage1$W
-
-          # Sub-matrix of X for "varying" covariates
-          X_var <- X[, varying_idx, drop = FALSE]
-
-          # Local means and local variances for all varying at once
-          Mu   <- as.matrix(Wd %*% X_var)             # n x p_varying
-          Mu2  <- as.matrix(Wd %*% (X_var^2))         # n x p_varying
-          VarL <- Mu2 - Mu^2                          # n x p_varying
-
-          # local/global ratios per variable (columns)
-          # VarL[ , k] / var_glob_all[k]
-          ratio_mat <- sweep(VarL, 2L, var_glob_all, FUN = "/")
-
-          # quantile of ratios per variable
-          q_ratio_all <- apply(
-            ratio_mat,
-            2L,
-            stats::quantile,
-            probs    = min_var_q,
-            na.rm    = TRUE,
-            names    = FALSE
-          )
-
-          # among covariates not yet fixed (excluding intercept),
-          # check which ones pass the threshold for this v
-          for (kpos in cov_idx_to_check) {
-            q_r <- q_ratio_all[kpos]
-            if (is.finite(q_r) && q_r > min_var_ratio) {
-              HKmin[kpos] <- v
+          # pass vector of the checked covariates at level l of V_sorted,
+          # memoised: the bisections of several covariates share evaluations
+          memo <- new.env(parent = emptyenv())
+          pass_at <- function(l) {
+            key <- as.character(l)
+            if (is.null(memo[[key]])) {
+              stage1 <- prep_w(
+                H        = c(V_sorted[l]),
+                kernels = kernels,
+                Type     = control$Type,
+                adaptive = control$adaptive,
+                dists    = G$dists,
+                indexG   = G$indexG,
+                alpha    = 1
+              )
+              q <- local_var_ratio_q(stage1$Wd, G$indexG, X_var, var_glob_sub)
+              memo[[key]] <- is.finite(q) & q > min_var_ratio
             }
+            memo[[key]]
           }
 
-          # Update list of covariates to check
-          cov_idx_to_check <- cov_idx_to_check[is.na(HKmin[cov_idx_to_check])]
-
-          l <- l + 1L
+          # smallest admissible bandwidth per covariate (NA: none on the grid)
+          first <- first_pass(n_V, pass_at, rep(n_V + 1L, length(cov_idx_to_check)))
+          HKmin[cov_idx_to_check] <- V_sorted[first]
         }
 
-        # Intercept: assign min of HKmin (excluding NA and intercept)
+        # A covariate that never reaches the threshold on the grid (or whose
+        # global variance is near zero) is kept at the global bandwidth: its
+        # floor is the sentinel max_dist, so update_opt() keeps it the single
+        # candidate. Same rule as in the GDT branch below.
+        HKmin[is.na(HKmin)] <- max_dist
+        warn_global_floor(names(HKmin)[-1L][HKmin[-1L] >= max_dist])
+
+        # Intercept: smallest floor of the covariates
         if (length(HKmin) > 1L) {
-          HKmin[1L] <- min(HKmin[-1L], na.rm = TRUE)
-        }
-
-        # fallback for covariates that never reached the threshold
-        if (any(is.na(HKmin))) {
-          warning("Some variables never reached the minimal variance ratio; ",
-                  "setting HKmin to max(V) for those variables.")
-          HKmin[is.na(HKmin)] <- max(V_sorted)
-        }
-
-        if (any(HKmin >= max_dist)) {
-          cat(names(HKmin[HKmin >= max_dist]), "\n")
-          cat(HKmin[HKmin >= max_dist], "\n")
-          stop("remove covariates with HKmin == max_dist)")
+          HKmin[1L] <- min(HKmin[-1L])
         }
       }
 
@@ -951,79 +1038,72 @@ TDS_MGWR <- function(formula, data, coords,
 
         if (length(valid_vars) > 0L) {
 
-          X_var         <- X[, varying_idx[valid_vars], drop = FALSE]
+          X_var        <- X[, varying_idx[valid_vars], drop = FALSE]
           var_glob_sub <- var_glob_all[valid_vars]
 
-          # --- NEW: warm start on ht ---
-          # j_start = 1 at the beginning (smallest ht)
-          j_start <- 1L
+          # For each hs, the first admissible ht of each covariate is found by
+          # bisection on ht_vals (criterion monotone in ht). The ratio is also
+          # monotone in hs, so the floor found at the previous (smaller) hs is
+          # the starting upper bound; n_ht + 1 when no ht was admissible there.
+          hi <- rep(n_ht + 1L, length(valid_vars))
 
           for (ii in seq_len(n_hs)) {
 
             hs <- hs_vals[ii]
 
-            # for this hs, the first acceptable ht
-            ht_for_var <- rep(NA_real_, length(valid_vars))
-
-            # ht loop starting at the smallest known necessary ht
-            for (jj in j_start:n_ht) {       # <--- main acceleration here
-
-              ht <- ht_vals[jj]
-
-              stage1 <- prep_w(
-                H        = c(hs, ht),
-                kernels = kernels,
-                Type     = control$Type,
-                adaptive = control$adaptive,
-                dists    = G$dists,
-                indexG   = G$indexG,
-                alpha    = 1
-              )
-              Wd <- stage1$W
-
-              Mu_sub    <- as.matrix(Wd %*% X_var)
-              Mu2_sub  <- as.matrix(Wd %*% (X_var^2))
-              VarL_sub <- Mu2_sub - Mu_sub^2
-
-              ratio_sub <- sweep(VarL_sub, 2L, var_glob_sub, "/")
-              q_ratio_sub <- apply(ratio_sub, 2L, quantile,
-                                   probs = min_var_q, na.rm = TRUE, names = FALSE)
-
-              not_yet <- which(is.na(ht_for_var))
-
-              if (length(not_yet) > 0L) {
-                newly_ok <- not_yet[
-                  is.finite(q_ratio_sub[not_yet]) &
-                    (q_ratio_sub[not_yet] > min_var_ratio)
-                ]
-
-                if (length(newly_ok) > 0L) {
-                  ht_for_var[newly_ok] <- ht
-                }
+            memo <- new.env(parent = emptyenv())
+            pass_at <- function(l) {
+              key <- as.character(l)
+              if (is.null(memo[[key]])) {
+                stage1 <- prep_w(
+                  H        = c(hs, ht_vals[l]),
+                  kernels = kernels,
+                  Type     = control$Type,
+                  adaptive = control$adaptive,
+                  dists    = G$dists,
+                  indexG   = G$indexG,
+                  alpha    = 1
+                )
+                q <- local_var_ratio_q(stage1$Wd, G$indexG, X_var, var_glob_sub)
+                memo[[key]] <- is.finite(q) & q > min_var_ratio
               }
-
-              if (all(!is.na(ht_for_var))) break
+              memo[[key]]
             }
 
-            # determine the minimal ht retained for this hs
-            if (any(!is.na(ht_for_var))) {
-              j_start <- min(match(ht_for_var, ht_vals), na.rm = TRUE)
-            }
+            first <- first_pass(n_ht, pass_at, hi)
+            hi <- ifelse(is.na(first), n_ht + 1L, first)
 
             # record the boundary
-            for (idx_loc in which(!is.na(ht_for_var))) {
+            for (idx_loc in which(!is.na(first))) {
               kpos_global <- valid_vars[idx_loc]
               HKMIN[[kpos_global]] <- rbind(
                 HKMIN[[kpos_global]],
-                c(hs = hs, ht = ht_for_var[idx_loc])
+                c(hs = hs, ht = ht_vals[first[idx_loc]])
               )
             }
           }
         }
 
-        if (p_vary >= 2L && !is.null(HKMIN[[2L]])) {
-          HKMIN[[1L]] <- HKMIN[[2L]]
+        # Intercept: smallest floor of the covariates, per spatial bandwidth
+        # (the analogue of min(HKmin[-1]) in the GD branch).
+        if (p_vary >= 2L) {
+          rows <- do.call(rbind, HKMIN[-1L])
+          if (!is.null(rows)) {
+            hs_u <- sort(unique(rows[, "hs"]))
+            ht_min <- vapply(hs_u, function(h) min(rows[rows[, "hs"] == h, "ht"]), numeric(1))
+            HKMIN[[1L]] <- cbind(hs = hs_u, ht = ht_min)
+          }
         }
+
+        # A covariate with no admissible (hs, ht) pair on the grid (or whose
+        # global variance is near zero) is kept at the global bandwidths: its
+        # floor is the single sentinel pair, so the filter in update_opt_st()
+        # keeps (max_dist, max_dist_t) the only candidate. Same rule as in the
+        # GD branch above.
+        no_floor <- vapply(HKMIN, is.null, logical(1))
+        warn_global_floor(names(HKMIN)[-1L][no_floor[-1L]])
+        for (kpos in which(no_floor))
+          HKMIN[[kpos]] <- rbind(NULL, c(hs = max_dist, ht = max_dist_t))
       }
       list(HKmin = HKmin, HKMIN = HKMIN)
     })
@@ -1472,6 +1552,10 @@ TDS_MGWR <- function(formula, data, coords,
         mybestS = S
         mybestRk = Rk
       }
+      if (isTRUE(control$SE)) {
+        mybestSEV = SEV
+        mybestEDF = EDF
+      }
       delta_rmse = 1
       delta_AICc = 1
 
@@ -1498,24 +1582,65 @@ TDS_MGWR <- function(formula, data, coords,
 
       sx <- apply(X, 2, sd, na.rm=TRUE)
       sx[sx == 0 | is.na(sx)] <- 1
-     
-      ### work in progress
 
+      # Two phases share the loop body: the search (candidate sets, stopping
+      # rules), then, with control_tds$polish > 0, at most `polish` sweeps with
+      # every bandwidth pinned at the retained state (no search, no patience,
+      # every sweep kept), stopped when the relative RMSE change is below tol.
+      search_done <- FALSE
+      polishing <- FALSE
+      polish_left <- control_tds$polish
+      # saturation filter counters (update_opt, update_opt_st)
+      sat_n_excluded <- 0L   # candidate fits excluded as saturated
+      sat_n_updates <- 0L    # component updates with at least one exclusion
+      sat_n_all <- 0L        # updates where every candidate was saturated or undefined
 
-      while ((post_conv_count < extra_iter || i < control_tds$test ) & i < control_tds$maxit) {
+      while (TRUE) {
+        if (!polishing) {
+          if (search_done ||
+              !((post_conv_count < extra_iter || i < control_tds$test) & i < control_tds$maxit)) {
+            if (polish_left <= 0L) break
+            polishing <- TRUE
+            pinned_s[] <- TRUE
+            pinned_t[] <- TRUE
+            pinned_all[] <- TRUE
+            # the polishing sweeps use the bandwidths of the retained state
+            opt[names(H)] <- H
+            if (control$Type == 'GDT') opt_t[names(Ht)] <- Ht
+            if (!retain_terminal && mybestG > 1L) {
+              # the retained state is an earlier sweep: restore it
+              BETA <- bestBETA
+              fit <- rowSums(BETA * X)
+              data$e0 <- Y - fit
+              rmse <- sqrt(mean(data$e0^2))
+              if (control_tds$get_AIC) {
+                S <- mybestS
+                Rk <- mybestRk
+                myAICc <- HAICc[mybestG - 1]
+                HAICc <- HAICc[seq_len(mybestG - 1)]
+                HTS <- HTS[seq_len(mybestG)]
+              }
+              # drop the sweeps after the restored one from the history, so
+              # that the polishing sweeps follow it
+              HBETA <- HBETA[seq_len(mybestG)]
+              i <- mybestG
+            }
+            if (verbose) cat('\n polishing:', polish_left, 'sweep(s) at fixed bandwidths')
+          }
+        } else if (polish_left <= 0L) break
 
         # ------------------------------------------------------------
         # 3.1 Iteration bookkeeping
         # ------------------------------------------------------------
         last_rmseG = rmse
-        # A rejected sweep is kept as the current state: a sweep is
-        # deterministic, so restarting from the best state (coefficients,
-        # residuals and smoother trace) would repeat the rejected sweep and
-        # freeze the descent, whereas continuing from the rejected state lets
-        # it find a better region (non-monotone descent). The best state
-        # (bestBETA, H, Ht, mybestS, mybestRk) is the one returned. Until 1.3.2
-        # the coefficients were reset but not the residuals, an inconsistent
-        # state that happened to have the same effect.
+        # As in any backfitting, a sweep continues from the current state
+        # whatever the RMSE did: a sweep is deterministic, so restarting from
+        # the best state (coefficients, residuals and smoother trace) would
+        # repeat the rejected sweep and freeze the descent (1.3.1-1.3.2 reset
+        # the coefficients but not the residuals, an inconsistent state that
+        # happened to have the same effect). The returned state (bestBETA, H,
+        # Ht, mybestS, mybestRk) is the terminal sweep by default, or the sweep
+        # with the smallest RMSE with control_tds$retained_state = "best".
         if (verbose) cat('\n\n ', i)
 
         if (control_tds$get_AIC) {
@@ -1539,21 +1664,41 @@ TDS_MGWR <- function(formula, data, coords,
         if (length(varying) > 1 & control_tds$ordering=='Importance') {
           
           k_rest <- setdiff(varying, varying[1])  # assumes varying[1] is "Intercept"
-          # Contribution magnitude per covariate
+          # Importance of a component: the standard deviation over the
+          # observations of its fitted contribution beta_k x_k, which does
+          # not depend on the unit nor on the level of x_k (until 1.4.2 the
+          # score was the mean absolute contribution divided by the standard
+          # deviation of x_k, which depended on the units of unstandardised
+          # covariates, and a mean absolute contribution is dominated by the
+          # level of an uncentred covariate)
           contrib_score <- vapply(k_rest, function(k) {
             ck <- BETA[, k] * X[, k]
-            mean(abs(ck), na.rm = TRUE)/sx[k]
+            s <- stats::sd(ck, na.rm = TRUE)
+            if (is.na(s)) 0 else s
           }, numeric(1))
           
-          # Order decreasing contribution
-          ord <- order(contrib_score, decreasing = TRUE, na.last = TRUE)
+          # Order by contribution: decreasing (largest first, the default)
+          # or increasing (control_tds$importance_order)
+          ord <- order(contrib_score, decreasing = identical(control_tds$importance_order, "decreasing"),
+                       na.last = TRUE)
           
           samp_varying <- c(varying[1], k_rest[ord])
-          
+
+        } else if (length(varying) > 1 & control_tds$ordering == 'random') {
+          # a new permutation of the covariates at each sweep (reproducible
+          # through the RNG seed), the intercept first
+          samp_varying <- c(varying[1], sample(varying[-1]))
         } else {
           samp_varying <- varying
         }
-        
+        # covariates updated last whatever the order (control_tds$update_last,
+        # e.g. a time index or a day of year, deterministic functions of the
+        # kernel coordinates); the intercept stays first
+        if (length(control_tds$update_last)) {
+          ul <- samp_varying %in% control_tds$update_last
+          samp_varying <- c(samp_varying[!ul], samp_varying[ul])
+        }
+
         for (k in samp_varying) {
 
           if (verbose) cat(' ', k)
@@ -1684,15 +1829,25 @@ TDS_MGWR <- function(formula, data, coords,
         # backfitting to its fixed point (every sweep kept, stop on tol) so that
         # the returned model, hence its criterion, depends on the pinned
         # bandwidths only and not on the starting model.
-        if (rmse <= bestRMSE || all(pinned_all)) {
+        # bestRMSE tracks the running minimum of the RMSE path (the patience
+        # rule and the verbose star rely on it); the retained state is the
+        # current sweep when the terminal state is returned, otherwise the
+        # sweep that set the running minimum.
+        improved <- rmse <= bestRMSE || all(pinned_all)
+        if (improved) bestRMSE = rmse
+        if (improved || retain_terminal) {
           bestBETA = BETA
-          bestRMSE = rmse
           H = opt
           if (control$Type == 'GDT') Ht = opt_t
           mybestG = i + 1
           if (control_tds$get_AIC) {
             mybestS = S
             mybestRk = Rk
+          }
+          # SEV/EDF are overwritten at every sweep: keep those of the best one
+          if (isTRUE(control$SE)) {
+            mybestSEV = SEV
+            mybestEDF = EDF
           }
         }
 
@@ -1893,6 +2048,14 @@ TDS_MGWR <- function(formula, data, coords,
         stop_flag <- FALSE
         reason <- NULL
 
+        if (polishing) {
+          polish_left <- polish_left - 1L
+          # converged at fixed bandwidths: no further polishing sweep
+          if (is.finite(delta_rmse) && abs(delta_rmse) < tol) polish_left <- 0L
+          i = i + 1
+          next
+        }
+
         # (a) patience rule
         if (patience >4) {
           stop_flag <- TRUE
@@ -1914,13 +2077,13 @@ TDS_MGWR <- function(formula, data, coords,
 
         if (stop_flag) {
           if(control_tds$verbose) cat("\n Stopping criterion reached:", reason, "\n")
-
-          # Last resort average
-          opt <- round((opt + last_opt) / 2)
-          if (control$Type == "GDT")
-            opt_t <- round((opt_t + last_opt_t) / 2)
+          # (until 1.4.2 the bandwidths were averaged with those of the
+          # previous sweep here, without effect on the returned model, whose
+          # bandwidths were already saved; the polishing starts from the
+          # saved H/Ht, so no averaging)
           i = i + 1
-          break
+          search_done <- TRUE
+          next
         }
 
         if (abs(delta_rmse) < tol) post_conv_count <- post_conv_count + 1 else post_conv_count <- 0
@@ -1980,6 +2143,14 @@ TDS_MGWR <- function(formula, data, coords,
       }
       modelGWR@fixed_vars <- unique(c(as.character(fixed_vars),
                                       names(modelGWR@H)[which(modelGWR@H == max_dist)]))
+      modelGWR@saturation <- list(ratio = control_tds$saturation_ratio, excluded = sat_n_excluded,
+                                  updates = sat_n_updates, all_excluded = sat_n_all)
+      if (sat_n_excluded > 0L)
+        warning(sprintf(paste0("%d candidate fit(s) excluded as saturated (residual variance below %.3g times ",
+                               "that of the current fit) in %d component update(s)%s; see slot `saturation`."),
+                        sat_n_excluded, control_tds$saturation_ratio, sat_n_updates,
+                        if (sat_n_all > 0L) sprintf(", every candidate excluded in %d of them", sat_n_all) else ""),
+                call. = FALSE)
       modelGWR@Betav = BETA
       modelGWR@fit = rowSums(BETA * X)
       modelGWR@residuals = Y - modelGWR@fit
@@ -2027,7 +2198,10 @@ TDS_MGWR <- function(formula, data, coords,
           sev_final <- matrix(0, nrow = n, ncol = length(varying))
           colnames(sev_final) <- varying
           for (k in varying) {
-            structure_val <- Vk[[k]] / (X[, k]^2)
+            # rowSums(R_k^2) of the returned (best) state, not Vk[[k]] of the
+            # last sweep: R_k is block-diagonal, so this is exactly the vk of
+            # compute_Rk_with_Var() when the best sweep is the last one.
+            structure_val <- rowSums(mybestRk[[k]]^2) / (X[, k]^2)
             structure_val[!is.finite(structure_val)] <- 0
 
             sev_final[, k] <- sqrt(sigma2_global * structure_val)
@@ -2035,7 +2209,7 @@ TDS_MGWR <- function(formula, data, coords,
           modelGWR@sev <- sev_final
         } else {
           # --- METHOD B: LOCAL INFERENCE (Fallback) ---
-          modelGWR@sev <- SEV
+          modelGWR@sev <- mybestSEV
           # --- METHOD C: ADJUSTED LOCAL INFERENCE ---
          if(FALSE) { tS_approx <- sum(n - EDF)
             sigma2_global_approx <- sum(data$e0^2) / max(1, (n - tS_approx ))
@@ -2043,7 +2217,7 @@ TDS_MGWR <- function(formula, data, coords,
             modelGWR@sev <- SEV * ratio_correction
          }
         }
-        modelGWR@edf_k <- EDF
+        modelGWR@edf_k <- mybestEDF
       }
 
 

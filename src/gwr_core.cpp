@@ -57,6 +57,37 @@ struct RcerrSilencer {
   ~RcerrSilencer() { Rcpp::Rcerr.rdbuf(old); }
 };
 
+
+// Local residual variance of a weighted fit: sum(w e^2) / (sum(w) - tr), with
+// tr = tr((X'WX)^-1 X'W^2 X). The denominator is the expectation of sum(w e^2)
+// under a homoskedastic local model, so the estimate does not depend on the
+// scale of the weights and is rss / (n - p) for equal unit weights.
+static inline double local_sigma2(const double rss, const double Sw, const double tr) {
+  const double df = Sw - tr;
+  return (df > 1e-10 * Sw) ? rss / df : 0.0;
+}
+
+// From Xr (the sqrt(w) X of the r estimable columns) and Rinverse: returns
+// sum(c_kj^2) for each coefficient, C = (X'WX)^-1 X'W being the row of the
+// smoother that gives the local coefficients, Sw = sum(w) and tr as above.
+// The former (X'WX)^-1 only is right for precision weights, not for kernel
+// weights, which are normalized: it ignored the effective local sample size.
+static inline arma::vec local_cc(const arma::mat& Xr, const arma::mat& Rinverse,
+                          const std::vector<double>& sw, double& Sw, double& tr) {
+  const arma::uword nl = Xr.n_rows, r = Xr.n_cols;
+  const arma::mat Q = Xr * Rinverse;                     // nl x r
+  arma::mat Qw(nl, r);
+  Sw = 0.0;
+  tr = 0.0;
+  for (arma::uword j = 0; j < nl; ++j) {
+    const double wj = sw[j] * sw[j];
+    Sw += wj;
+    tr += wj * arma::dot(Q.row(j), Q.row(j));
+    Qw.row(j) = Q.row(j) * sw[j];
+  }
+  return arma::sum(arma::square(Rinverse * Qw.t()), 1);
+}
+
 // ---------------------------------------------------------------------------
 // Internal C++ function: gwr_beta_univar_core()
 // ---------------------------------------------------------------------------
@@ -110,13 +141,19 @@ Rcpp::List gwr_beta_univar_core(const arma::vec& y,
     Betav[z] = beta;
 
     if (get_se && Sxx > 0.0) {
-      double rss_loc = 0.0;
+      // Var(beta) = sigma2 sum(c_j^2), c_j = w_j x_j / Sxx, with the local
+      // variance of local_sigma2(): both are free of the scale of the weights
+      double rss_loc = 0.0, Sw = 0.0, Sxxw = 0.0;
       for (arma::uword j = 0; j < m; ++j) {
-        const double res = y[rows[j]] - beta * x[rows[j]];
+        const double xj  = x[rows[j]];
+        const double res = y[rows[j]] - beta * xj;
+        const double wx  = w_loc[j] * xj;
         rss_loc += (w_loc[j] * res) * res;
+        Sw      += w_loc[j];
+        Sxxw    += wx * wx;
       }
-      const double sigma2_loc = rss_loc / std::max(1.0, double(m) - 1.0);
-      SEV[z] = std::sqrt(sigma2_loc / Sxx);
+      const double sigma2_loc = local_sigma2(rss_loc, Sw, Sxxw / Sxx);
+      SEV[z] = std::sqrt(sigma2_loc * Sxxw) / Sxx;
     }
 
     if ((get_ts || get_s) && Sxx != 0.0) {
@@ -292,10 +329,13 @@ Rcpp::List gwr_beta_pivotal_qrp_core(
         vec yhat_w(n_loc, fill::zeros);
         for (uword k = 0; k < r; ++k) yhat_w += Xw.col(perm[k]) * beta_r[k];
         const vec resid_w = yw - yhat_w;
-        const double sigma2 = dot(resid_w, resid_w) /
-          std::max(1.0, double(n_loc) - double(r));
         const mat Rinverse = inv(trimatu(Rr));            // r x r
-        const vec sev_loc = sqrt(sigma2 * sum(square(Rinverse), 1)); // diag(Rinv Rinv')
+        mat Xr(n_loc, r);
+        for (uword k = 0; k < r; ++k) Xr.col(k) = Xw.col(perm[k]);
+        double Sw = 0.0, tr_loc = 0.0;
+        const vec cc = local_cc(Xr, Rinverse, sw, Sw, tr_loc);
+        const double sigma2 = local_sigma2(dot(resid_w, resid_w), Sw, tr_loc);
+        const vec sev_loc = sqrt(sigma2 * cc);
         for (uword k = 0; k < r; ++k) {
           const double v = sev_loc[k];
           sev_full[perm[k]] = (std::isfinite(v) ? v : 0.0);
@@ -425,6 +465,15 @@ Rcpp::List mgwr_beta_pivotal_qrp_mixed_core_new(
   arma::vec TS(nTP, arma::fill::zeros);
 
   arma::mat SEV(nTP, kv, arma::fill::zeros);
+  // variance factors of the local fits, combined with the local residual
+  // variance once beta_c is known
+  arma::mat CC;
+  arma::vec Sw_loc, tr_vec;
+  if (get_se) {
+    CC.zeros(nTP, kv);
+    Sw_loc.zeros(nTP);
+    tr_vec.zeros(nTP);
+  }
 
   arma::mat Shat;
   if (get_s) Shat = arma::zeros(nTP, n);
@@ -510,17 +559,16 @@ Rcpp::List mgwr_beta_pivotal_qrp_mixed_core_new(
     for (arma::uword k = 0; k < r; ++k) XCw_cube.slice(z).row(perm[k]) = XCw_r.row(k);
 
     if (get_se) {
-      // Local sigma^2 and SE for variable coefficients (approx local)
-      arma::vec yhat_local(nl, arma::fill::zeros);
-      for (arma::uword k = 0; k < r; ++k) yhat_local += Xw.col(perm[k]) * br[k];
-      const arma::vec res_local = yw - yhat_local;
-      const double sigma2_local = arma::dot(res_local, res_local) /
-        std::max(1.0, double(nl) - double(r));
+      // sum(c_j^2) of each variable coefficient and the local degrees of
+      // freedom; the local variance needs beta_c, hence the pass further down
       const arma::mat Rinverse = arma::inv(arma::trimatu(Rr));
-      const arma::vec sev_loc = arma::sqrt(arma::sum(arma::square(Rinverse), 1) * sigma2_local);
-      arma::vec sev_full(kv, arma::fill::zeros);
-      for (arma::uword k = 0; k < r; ++k) sev_full[perm[k]] = sev_loc[k];
-      SEV.row(z) = sev_full.t();
+      arma::mat Xr(nl, r);
+      for (arma::uword k = 0; k < r; ++k) Xr.col(k) = Xw.col(perm[k]);
+      double Sw = 0.0, tr_loc = 0.0;
+      const arma::vec cc = local_cc(Xr, Rinverse, sw, Sw, tr_loc);
+      for (arma::uword k = 0; k < r; ++k) CC(z, perm[k]) = cc[k];
+      Sw_loc[z]  = Sw;
+      tr_vec[z]  = tr_loc;
     }
 
     // Variable-part hat operator Sv at the focal point: S(f, j) = (sw_j / sw_f) q_f' q_j
@@ -590,7 +638,30 @@ Rcpp::List mgwr_beta_pivotal_qrp_mixed_core_new(
   for (arma::uword z=0; z<nTP; z++) {
     Betav.row(z) = SY.row(z) - (XCw_cube.slice(z) * beta_c).t();
   }
-  
+
+  // Local standard errors of the variable coefficients, conditional on beta_c:
+  // the local residual is net of the fixed part
+  if (get_se) {
+    const arma::vec yc = y - XC * beta_c;
+    for (arma::uword z = 0; z < nTP; ++z) {
+      if (!(Sw_loc[z] > 0.0)) continue;
+      const int*    id = idxT.colptr(z);
+      const double* wz = WdT.colptr(z);
+      const arma::rowvec bz = Betav.row(z);
+      double rss = 0.0;
+      for (arma::uword j = 0; j < NN; ++j) {
+        const int    k1 = id[j];               // 1-based; NA_INTEGER < 1
+        const double w  = wz[j];
+        if (k1 >= 1 && arma::uword(k1) <= n && w > 0.0) {
+          const arma::uword k = arma::uword(k1) - 1u;
+          const double res = yc[k] - arma::dot(XV.row(k), bz);
+          rss += (w * res) * res;
+        }
+      }
+      SEV.row(z) = arma::sqrt(local_sigma2(rss, Sw_loc[z], tr_vec[z]) * CC.row(z));
+    }
+  }
+
   // --------------------------------------------------------------------------
   // Compute diag(Hfix) where Hfix = Z (Z'Z)^{-1} Z'  with Z=ZXc
   // and approx diag(S_tot) = diag(Sv) + diag(Hfix)*(1 - diag(Sv))

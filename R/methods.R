@@ -29,7 +29,7 @@
 #' @slot residuals numeric. The vector of residuals.
 #' @slot fit numeric. The vector of fitted values.
 #' @slot pred numeric. The vector of predicted values (out-of-sample).
-#' @slot sev matrix. Local standard errors of varying coefficients.
+#' @slot sev matrix. Local standard errors of varying coefficients: the variance of each local weighted fit, given the local residual variance (conditional on the fixed coefficients in a mixed model), or, for \code{TDS_MGWR()} with \code{get_AIC = TRUE}, the backfitting variance of Yu et al. (2020).
 #' @slot se numeric. Standard errors of constant coefficients.
 #' @slot tS numeric. The trace of the Hat matrix (effective number of parameters).
 #' @slot Shat matrix. The Hat matrix (or approximation).
@@ -64,6 +64,7 @@
 #' @slot HM matrix. Matrix of optimal bandwidths per covariate (for TDS).
 #' @slot HKmin numeric. Minimum allowed bandwidth per covariate (for TDS).
 #' @slot HKMIN list. List of minimum bandwidths per covariate for spatio-temporal models (TDS).
+#' @slot saturation list. TDS calibration: the saturation filter of the candidate fits (\code{ratio}, number of candidates \code{excluded}, of component \code{updates} with an exclusion, and of updates with every candidate excluded, \code{all_excluded}).
 #' @slot isolated_idx numeric. Indices of observations without sufficient neighbors.
 #' @slot my_crs ANY. Coordinate Reference System (CRS) information.
 #'
@@ -132,6 +133,7 @@ setClass("mgwrsar",
            HM= "matrix",
            HKmin = "numeric",
            HKMIN = "list",
+           saturation = "list",
            isolated_idx = "numeric",
            my_crs = "ANY"
          )

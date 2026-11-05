@@ -522,33 +522,6 @@ search_bandwidths<- function(
 
 
 
-  # --- [MODIFICATION 1]: Helper for robust selection ---
-  .select_robust_best <- function(res_df) {
-    # 1. Keep only finite scores
-    valid <- res_df[is.finite(res_df$score), ]
-    if (nrow(valid) == 0) return(res_df[1, , drop = FALSE])
-
-    # 2. Compute robust statistics
-    med_score <- median(valid$score)
-    mad_score <- mad(valid$score)
-
-    # 3. Define the threshold (anything far below is suspect)
-    # k=10 is permissive but eliminates -1e6 vs 5000
-    threshold <- med_score - 10 * mad_score
-
-    # Safety check if MAD is near zero (perfect plateau)
-    if (mad_score < 1e-5) threshold <- med_score - 1000
-
-    # 4. Filter and select the minimum
-    cleaned <- valid[valid$score > threshold, ]
-
-    # Fallback: if filtering is too aggressive (everything rejected), keep all
-    if (nrow(cleaned) == 0) cleaned <- valid
-
-    # Return the row with the minimum among the "healthy" values
-    return(cleaned[which.min(cleaned$score), , drop = FALSE])
-  }
-
   # -------------------------------------------------------------------------
   # 9) Grid rounds: always minimize "score"
   # -------------------------------------------------------------------------
@@ -614,13 +587,7 @@ search_bandwidths<- function(
       res_round$score <- as.numeric(res_round$score)
       if ("isolated" %in% names(res_round)) acc$isolated_hits <- acc$isolated_hits + sum(res_round$isolated, na.rm = TRUE)
 
-      # valid_idx <- which(is.finite(res_round$score))
-      # if (length(valid_idx) > 0) {
-      #   best <- res_round[valid_idx[which.min(res_round$score[valid_idx])], , drop = FALSE]
-      # } else {
-      #   best <- res_round[1, , drop = FALSE]
-      # }
-      best <- .select_robust_best(res_round)
+      best <- .sb_select_best(res_round)
 
       results[[round_id]] <- res_round
 
@@ -782,3 +749,16 @@ search_bandwidths<- function(
   )
 }
 
+
+# Best row of a grid round: the minimum of the finite scores (first row when
+# none is finite). Degenerate fits are rejected at the source (aicc_f() returns
+# Inf for a saturated fit), so no outlier screen is applied: the former
+# "median - 10 MAD" screen discarded genuine minima lying below a flat plateau
+# of large bandwidths, and the zoom of the next round then missed them.
+#' @noRd
+#' @keywords internal
+.sb_select_best <- function(res_df) {
+  ok <- which(is.finite(res_df$score))
+  if (length(ok) == 0) return(res_df[1, , drop = FALSE])
+  res_df[ok[which.min(res_df$score[ok])], , drop = FALSE]
+}
